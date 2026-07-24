@@ -16,6 +16,8 @@ namespace RuleforgeTD.Tests.EditMode
             "Assets/Game/Data/Maps/Fields/Tiles/Props";
         private const string AnimatedRoot =
             "Assets/Game/Data/Maps/Fields/Tiles/Animated";
+        private const string ObjectsRoot =
+            "Assets/ThirdParty/CraftPix/Raw/Maps/Fields/Objects";
         private const string AtlasPath =
             "Assets/ThirdParty/CraftPix/Raw/Maps/Fields/Tiles/" +
             "FieldsTileset.png";
@@ -138,6 +140,32 @@ namespace RuleforgeTD.Tests.EditMode
         }
 
         [Test]
+        public void ObjectImporters_UseSemanticPivots()
+        {
+            AssertNormalizedPivot(
+                ObjectsRoot + "/7 Decor/Tree1.png",
+                new Vector2(0.5f, 0f));
+            AssertNormalizedPivot(
+                ObjectsRoot + "/9 Bush/2.png",
+                new Vector2(0.5f, 0f));
+            AssertNormalizedPivot(
+                ObjectsRoot + "/8 Camp/1.png",
+                new Vector2(0.5f, 0f));
+            AssertNormalizedPivot(
+                ObjectsRoot + "/1 Shadow/6.png",
+                new Vector2(0.5f, 0.5f));
+            AssertNormalizedPivot(
+                ObjectsRoot + "/6 Flower/1.png",
+                new Vector2(0.5f, 0.5f));
+            AssertNormalizedPivot(
+                ObjectsRoot + "/5 Grass/4.png",
+                new Vector2(0.5f, 0.5f));
+            AssertNormalizedPivot(
+                ObjectsRoot + "/4 Stone/1.png",
+                new Vector2(0.5f, 0f));
+        }
+
+        [Test]
         public void RequiredPalettesPrefabAndScene_AreGenerated()
         {
             string[] paths =
@@ -190,6 +218,35 @@ namespace RuleforgeTD.Tests.EditMode
                     mirrored.GetFrame(frame),
                     Is.SameAs(source.GetFrame(frame)));
             }
+        }
+
+        private static void AssertNormalizedPivot(
+            string path,
+            Vector2 expected)
+        {
+            var importer =
+                AssetImporter.GetAtPath(path) as TextureImporter;
+            Sprite sprite =
+                AssetDatabase.LoadAssetAtPath<Sprite>(path);
+            Assert.That(importer, Is.Not.Null);
+            Assert.That(sprite, Is.Not.Null);
+            var settings = new TextureImporterSettings();
+            importer.ReadTextureSettings(settings);
+            bool expectsCenteredPivot =
+                Mathf.Approximately(expected.x, 0.5f) &&
+                Mathf.Approximately(expected.y, 0.5f);
+            Assert.That(
+                settings.spriteAlignment,
+                Is.EqualTo((int)(
+                    expectsCenteredPivot
+                        ? SpriteAlignment.Center
+                        : SpriteAlignment.Custom)));
+
+            var actual = new Vector2(
+                sprite.pivot.x / sprite.rect.width,
+                sprite.pivot.y / sprite.rect.height);
+            Assert.That(actual.x, Is.EqualTo(expected.x).Within(0.001f));
+            Assert.That(actual.y, Is.EqualTo(expected.y).Within(0.001f));
         }
     }
 }

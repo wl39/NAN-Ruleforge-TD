@@ -2004,7 +2004,19 @@ Assets/ThirdParty/CraftPix/Raw/Maps/Fields/
 | Camp | 6 |
 | Bush | 6 |
 
-총 90개 오브젝트는 충돌 의미를 직접 소유하지 않는 별도 Props Tilemap에 배치한다. 주로 38번 완전 차단 타일 또는 다른 지형 타일의 초록색 차단 영역 위에 장식한다. 오브젝트 외곽을 보고 몬스터 충돌을 새로 추론하지 않는다.
+총 90개 오브젝트는 편집용 Tile/Palette 라이브러리로 모두 유지한다. 실제
+Stage 장식에서 바이옴 바닥의 Grass, Flower, Dirt는 Tilemap을 사용한다.
+다만 열린 초지의 꽃 군락과 작은 풀은 1유닛 셀 간격으로 흩어지지 않도록
+`Decorative Biomes` 아래의 개별 `SpriteRenderer`로 생성한다. 나무, 부쉬,
+울타리, 텐트, 돌, 표지판도 같은 개별 인스턴스 구조를 사용한다. 장식
+오브젝트는 충돌 의미를 직접 소유하지 않으며, 오브젝트 외곽을 보고
+몬스터 충돌을 새로 추론하지 않는다.
+
+* 개별 장식은 1/32 월드 단위로 스냅한 연속 좌표를 사용한다.
+* 같은 타일 영역에 여러 장식을 겹쳐 배치할 수 있다.
+* 나무 수관, 부쉬, 울타리, 텐트는 결정적 시드로 `flipX` 변형을 섞는다.
+* 장식은 전역 균등 분산하지 않고 숲, 야영지, 암석 지대, 길가 같은
+  의미 구역 안에 집중한다.
 
 * `PlaceForTower1.png`은 즉시 건설 가능한 지점이다.
 * `PlaceForTower2.png`은 잠긴 지점이며, 현재 상태에서는 타워를 배치할 수 없다.
@@ -2027,11 +2039,13 @@ Flag 방향은 다음 규칙을 사용한다.
 | 4 | UpLeft, 10시 30분 | UpRight, 1시 30분 |
 | 5 | Left, 9시 | Right, 3시 |
 
-2, 4, 5번만 같은 프레임을 X축 반전해 우측 방향 은행을 만든다. 반전 사본 PNG를 생성하지 않고 Tile transform으로 표현한다.
+2, 4, 5번만 같은 프레임을 X축 반전해 우측 방향 은행을 만든다. 반전 사본
+PNG를 생성하지 않고 `SpriteRenderer.flipX`로 표현한다.
 
 * Campfire 1은 불이 꺼진 연기 상태 애니메이션이다.
 * Campfire 2는 불이 붙은 상태 애니메이션이다.
-* 두 상태는 별도 `FieldAnimatedTile`로 제공하며 Animated Objects Tilemap에서 편집한다.
+* 두 상태는 별도 `FieldAnimatedTile` 자산으로 프레임을 보존하며,
+  Stage에서는 개별 `FieldSpriteAnimator`로 재생한다.
 
 ### 생성 에셋과 Stage01 편집 규칙
 
@@ -2049,27 +2063,61 @@ Assets/Game/Scenes/Battle/Stage01.unity
 
 Unity 메뉴 `Ruleforge TD/Assets/Rebuild Fields Tilemap Content`는 원본 임포트 설정, 타일 에셋, 3개 Palette와 프리팹을 멱등적으로 갱신한다. 이미 존재하는 `Stage01.unity`는 사용자의 수동 Tilemap 작업을 보호하기 위해 일반 재생성에서 덮어쓰지 않는다. 생성 기준 맵으로 되돌릴 때만 `Ruleforge TD/Scenes/Rebuild Stage 01 (Overwrite)`를 사용하고 확인 대화상자를 거친다.
 
-`Stage01`의 Grid는 다음 계층을 유지한다.
+`Stage01`은 다음 계층을 유지한다.
 
 ```text
 Stage 01
   Grid
     Terrain
-    Decals
-    Props
-    Animated Objects
+    Ground Decals
+  Decorative Biomes
+    forest_west
+    forest_north
+    forest_ridge
+    forest_east
+    camp_northeast
+    camp_southwest
+    scrub_south
+    meadow_west
+    meadow_central
+    meadow_east
+    roadside_verges
   Navigation
-  Build Sites
-  Camera
+  Tower Build Sites
+  Main Camera
 ```
 
 * Terrain은 의미 마스크와 Collider를 가진 지형 타일 전용이다.
-* Decals는 충돌 없는 지면 장식 전용이다.
-* Props는 90개 정적 오브젝트 전용이다.
-* Animated Objects는 Flag와 Campfire 전용이다.
+* Ground Decals는 충돌 없는 Grass, Flower, Dirt 지면 장식 전용이다.
+* 일반 장식과 애니메이션 장식은 모두 Bottom Center Pivot의 개별
+  SpriteRenderer이며 Y 기준 결정적 Sorting Order를 사용한다.
+* `1 Shadow` 자산은 투영 그림자가 아니라 발밑 풀 베이스다. Center Pivot을
+  유지하고 나무, 부쉬, 텐트의 자식 Renderer로 연결해 본체 기준점과
+  0.125 유닛 이내에 둔다. 한 셀 아래에 독립 배치하지 않는다.
+* 숲의 나무 기준점은 서로 최소 간격을 두되 수관은 의도적으로 겹치게 한다.
+  부쉬와 울타리는 숲 내부 또는 도로를 향한 숲 경계에 군집시킨다.
+* 캠프는 텐트, 캠프파이어, 상자, 통나무, 부서진 울타리를 하나의 의미
+  구역으로 구성하며 텐트끼리 약하게 겹칠 수 있다.
+* 열린 초지는 전역 확률로 꽃을 한 송이씩 흩뿌리지 않는다. 결정적 시드로
+  3개 이상의 `Wildflower Meadow` 구역과 내부 패치 중심을 만들고,
+  각 패치에 여러 꽃을 0.2유닛 이상의 간격으로 모아 배치한다.
+* 초지별 꽃 팔레트는 3종 이하로 제한하고, 모든 꽃은 1유닛 이내에 같은
+  군락의 이웃을 가져야 한다. 작은 풀은 보조 밀도로 섞고 돌은 초지당
+  최대 1개만 외곽에 배치해 꽃 수가 돌 수의 8배 이상이 되게 한다.
+* 초지 장식은 길, 건설 지점, 기존 숲·캠프·암석 바이옴의 확장 경계를
+  피하며, 꽃 위치·종류·좌우 반전과 돌 위치는 서로 독립된 시드를 쓴다.
+* 길가 Flag와 Pointer는 경로 세그먼트의 법선 방향으로 배치하고 도로
+  중심부에는 놓지 않는다.
+* 건설 지점 검증은 기준점 거리만 보지 않고 본체와 발밑 베이스의 합성
+  Bounds가 건설 패드와 겹치지 않는지 확인한다.
+* 장식 밀도는 고유 타일 셀 수로 평가하지 않는다. 최소 인스턴스 수,
+  의미 구역 수, 숲 수관 겹침, 좌우 반전 다양성으로 검증한다.
 * `StagePathAuthoring`의 웨이포인트와 건설 지점 좌표는 `phase1-content.json`과 일치시킨다.
-* 생성기 검증은 64개 타일 순서, 90개 오브젝트, 10개 애니메이션 타일, 38번 완전 차단, 경로 여유 폭, 건설 지점 수와 잠금 상태, 씬 Collider 구성을 확인한다.
-* 타일 추가와 수동 맵 수정은 생성된 Palette를 통해 수행한다. 원본 PNG를 씬에 직접 SpriteRenderer로 흩어 놓지 않는다.
+* 생성기 검증은 64개 타일 순서, 90개 오브젝트 자산, 10개 애니메이션
+  자산, 38번 완전 차단, 경로 여유 폭, 바이옴 구성, 건설 지점 수와 잠금
+  상태, 씬 Collider 구성을 확인한다.
+* 새 장식은 전역에 임의로 흩어 놓지 않고 생성기의 바이옴 정의와 결정적
+  시드를 통해 추가한다. Palette는 원본 자산 확인과 지면 타일 편집에 쓴다.
 
 ## Archer Tower 스프라이트 및 애니메이션 규칙
 

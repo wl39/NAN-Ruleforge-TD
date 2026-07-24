@@ -69,6 +69,29 @@ namespace RuleforgeTD.Editor.AssetImport
         private const int MapMinY = -4;
         private const int MapMaxY = 17;
         private const float RoadHalfWidth = 1.35f;
+        private const float GroundCoverPathClearance = 1.8f;
+        private const float GroundCoverBuildSiteClearance = 2.1f;
+        private const float SmallPropPathClearance = 1.9f;
+        private const float SmallPropBuildSiteClearance = 2.1f;
+        private const float BushPathClearance = 2.15f;
+        private const float BushBuildSiteClearance = 2.3f;
+        private const float TreePathClearance = 2.9f;
+        private const float TreeBuildSiteClearance = 4.1f;
+        private const float TentPathClearance = 2.4f;
+        private const float TentBuildSiteClearance = 2.8f;
+        private const float MarkerPathClearance = 1.9f;
+        private const float MeadowDetailPathClearance = 1.9f;
+        private const float MeadowDetailBuildSiteClearance = 2.1f;
+        private const float FlowerMinimumSpacing = 0.2f;
+        private const float FlowerPatchRadius = 0.72f;
+        private const int TerrainSortingOrder = -3000;
+        private const int GroundDecalSortingOrder = -2500;
+        private const int DecorationSortingBase = -1000;
+        private const int MinimumDecorationInstanceCount = 130;
+        private const int MinimumBiomeClusterCount = 11;
+        private const int MinimumWildflowerCount = 37;
+        private const int ExpectedMeadowStoneCount = 3;
+        private const float PixelWorldSize = 1f / PixelsPerUnit;
 
         private static readonly string[] ExpectedObjectGroups =
         {
@@ -565,7 +588,17 @@ namespace RuleforgeTD.Editor.AssetImport
             ApplyPixelTextureSettings(
                 importer,
                 SpriteImportMode.Single);
-            importer.spritePivot = pivot;
+            var settings = new TextureImporterSettings();
+            importer.ReadTextureSettings(settings);
+            bool usesCenteredPivot =
+                Mathf.Approximately(pivot.x, 0.5f) &&
+                Mathf.Approximately(pivot.y, 0.5f);
+            settings.spriteAlignment = (int)(
+                usesCenteredPivot
+                    ? SpriteAlignment.Center
+                    : SpriteAlignment.Custom);
+            settings.spritePivot = pivot;
+            importer.SetTextureSettings(settings);
             importer.SaveAndReimport();
         }
 
@@ -1029,7 +1062,7 @@ namespace RuleforgeTD.Editor.AssetImport
             Tilemap terrain = CreateTilemap(
                 gridObject.transform,
                 "Terrain",
-                -100,
+                TerrainSortingOrder,
                 TilemapRenderer.Mode.Chunk,
                 new Vector3(0.5f, 0.5f, 0f));
             Rigidbody2D terrainBody =
@@ -1046,23 +1079,9 @@ namespace RuleforgeTD.Editor.AssetImport
             Tilemap decals = CreateTilemap(
                 gridObject.transform,
                 "Ground Decals",
-                -50,
+                GroundDecalSortingOrder,
                 TilemapRenderer.Mode.Individual,
                 new Vector3(0.5f, 0.5f, 0f));
-            Tilemap props = CreateTilemap(
-                gridObject.transform,
-                "Objects",
-                0,
-                TilemapRenderer.Mode.Individual,
-                new Vector3(0.5f, 0f, 0f));
-            Tilemap animated = CreateTilemap(
-                gridObject.transform,
-                "Animated Objects",
-                10,
-                TilemapRenderer.Mode.Individual,
-                new Vector3(0.5f, 0f, 0f));
-            animated.animationFrameRate =
-                1f / AnimationFrameDuration;
 
             Dictionary<int, FieldTerrainTile> terrainTiles =
                 LoadTerrainTiles();
@@ -1081,8 +1100,21 @@ namespace RuleforgeTD.Editor.AssetImport
                 LoadPropTiles();
             Dictionary<string, FieldAnimatedTile> animatedTiles =
                 LoadAnimatedTiles();
-            PaintStageProps(decals, props, propTiles);
-            PaintAnimatedProps(animated, animatedTiles);
+            BiomeDefinition[] biomes = GetStageOneBiomes();
+            MeadowDefinition[] meadows = GetStageOneMeadows();
+            PaintBiomeGroundCover(
+                decals,
+                propTiles,
+                run,
+                biomes);
+            Transform decorationRoot =
+                CreateStageDecorations(
+                    stageRoot.transform,
+                    propTiles,
+                    animatedTiles,
+                    run,
+                    biomes,
+                    meadows);
 
             var navigationObject = new GameObject("Navigation");
             navigationObject.transform.SetParent(stageRoot.transform);
@@ -1105,8 +1137,7 @@ namespace RuleforgeTD.Editor.AssetImport
             stageMap.ConfigureAuthoring(
                 terrain,
                 decals,
-                props,
-                animated,
+                decorationRoot,
                 navigationMask,
                 path,
                 sites);
@@ -1212,87 +1243,1661 @@ namespace RuleforgeTD.Editor.AssetImport
             terrain.CompressBounds();
         }
 
-        private static void PaintStageProps(
-            Tilemap decals,
-            Tilemap props,
-            Dictionary<string, Tile> tiles)
+        private static BiomeDefinition[] GetStageOneBiomes()
         {
-            var decalPlacements = new[]
+            return new[]
             {
-                new TilePlacement("1 Shadow/6", -1, 15),
-                new TilePlacement("1 Shadow/5", 21, 15),
-                new TilePlacement("1 Shadow/4", 24, 8),
-                new TilePlacement("5 Grass/2", 2, 14),
-                new TilePlacement("5 Grass/5", 13, 14),
-                new TilePlacement("5 Grass/3", 19, 9),
-                new TilePlacement("6 Flower/1", 1, 3),
-                new TilePlacement("6 Flower/7", 12, 10),
-                new TilePlacement("6 Flower/10", 19, 15),
-                new TilePlacement("7 Decor/Dirt2", 20, 15),
-                new TilePlacement("7 Decor/Dirt6", 23, 8),
-                new TilePlacement("3 Pointer/1", 3, 0),
-                new TilePlacement("3 Pointer/4", 8, 3),
-                new TilePlacement("3 Pointer/2", 12, 6),
-                new TilePlacement("3 Pointer/3", 16, 9),
-                new TilePlacement("3 Pointer/5", 20, 12)
+                new BiomeDefinition(
+                    "forest_west",
+                    "Dense Forest",
+                    new Vector2(0.5f, 12f),
+                    new Vector2(4.2f, 3.8f),
+                    1103,
+                    11,
+                    16,
+                    5,
+                    7,
+                    0.72f,
+                    190f,
+                    350f),
+                new BiomeDefinition(
+                    "forest_north",
+                    "Dense Forest",
+                    new Vector2(6.6f, 14.1f),
+                    new Vector2(4.6f, 2.3f),
+                    2207,
+                    10,
+                    14,
+                    4,
+                    6,
+                    0.68f,
+                    205f,
+                    340f),
+                new BiomeDefinition(
+                    "forest_ridge",
+                    "Forest Edge",
+                    new Vector2(12.2f, 14.8f),
+                    new Vector2(3.6f, 1.8f),
+                    3319,
+                    6,
+                    9,
+                    4,
+                    5,
+                    0.62f,
+                    205f,
+                    335f),
+                new BiomeDefinition(
+                    "forest_east",
+                    "Woodland",
+                    new Vector2(25f, 4.9f),
+                    new Vector2(2.7f, 3.6f),
+                    4421,
+                    7,
+                    12,
+                    5,
+                    5,
+                    0.65f,
+                    105f,
+                    255f),
+                new BiomeDefinition(
+                    "camp_northeast",
+                    "Ranger Camp",
+                    new Vector2(25.1f, 15f),
+                    new Vector2(2.5f, 1.7f),
+                    5527,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0.5f,
+                    0f,
+                    0f),
+                new BiomeDefinition(
+                    "camp_southwest",
+                    "Abandoned Camp",
+                    new Vector2(0f, -2.85f),
+                    new Vector2(2.7f, 1.05f),
+                    6637,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0.42f,
+                    0f,
+                    0f),
+                new BiomeDefinition(
+                    "scrub_south",
+                    "Rocky Scrub",
+                    new Vector2(20.8f, -1.5f),
+                    new Vector2(7f, 1.9f),
+                    7753,
+                    0,
+                    3,
+                    18,
+                    5,
+                    0.3f,
+                    0f,
+                    0f)
             };
-            for (int i = 0; i < decalPlacements.Length; i++)
+        }
+
+        private static MeadowDefinition[] GetStageOneMeadows()
+        {
+            return new[]
             {
-                SetTile(decals, tiles, decalPlacements[i]);
+                new MeadowDefinition(
+                    "meadow_west",
+                    new Vector2(2.25f, 5.9f),
+                    new Vector2(4.5f, 2.7f),
+                    9109,
+                    3,
+                    15,
+                    5,
+                    1,
+                    1,
+                    2,
+                    4),
+                new MeadowDefinition(
+                    "meadow_central",
+                    new Vector2(11.7f, 10f),
+                    new Vector2(3f, 1.8f),
+                    10111,
+                    2,
+                    10,
+                    3,
+                    1,
+                    3,
+                    4,
+                    5),
+                new MeadowDefinition(
+                    "meadow_east",
+                    new Vector2(20.1f, 4.7f),
+                    new Vector2(3.1f, 2.8f),
+                    11213,
+                    2,
+                    12,
+                    4,
+                    1,
+                    1,
+                    5,
+                    6)
+            };
+        }
+
+        private static void PaintBiomeGroundCover(
+            Tilemap decals,
+            Dictionary<string, Tile> tiles,
+            RunMapSource run,
+            BiomeDefinition[] biomes)
+        {
+            for (int y = MapMinY; y <= MapMaxY; y++)
+            {
+                for (int x = MapMinX; x <= MapMaxX; x++)
+                {
+                    var point = new Vector2(
+                        x + 0.5f,
+                        y + 0.5f);
+                    if (!HasWorldClearance(
+                            point,
+                            run,
+                            GroundCoverPathClearance,
+                            GroundCoverBuildSiteClearance))
+                    {
+                        continue;
+                    }
+
+                    int selectedIndex = -1;
+                    float selectedInfluence = 0f;
+                    for (int biomeIndex = 0;
+                         biomeIndex < biomes.Length;
+                         biomeIndex++)
+                    {
+                        float influence =
+                            CalculateBiomeInfluence(
+                                point,
+                                biomes[biomeIndex]);
+                        if (influence <= selectedInfluence)
+                        {
+                            continue;
+                        }
+
+                        selectedIndex = biomeIndex;
+                        selectedInfluence = influence;
+                    }
+
+                    if (selectedIndex < 0)
+                    {
+                        continue;
+                    }
+
+                    BiomeDefinition biome = biomes[selectedIndex];
+                    float density =
+                        biome.GroundDensity *
+                        Mathf.Lerp(0.3f, 1f, selectedInfluence);
+                    if (Hash01(x, y, biome.Seed, 17) >= density)
+                    {
+                        continue;
+                    }
+
+                    string key = SelectGroundCoverKey(
+                        biome.Profile,
+                        x,
+                        y,
+                        biome.Seed);
+                    SetGroundTile(decals, tiles, key, x, y);
+                }
             }
 
-            var propPlacements = new[]
+            decals.CompressBounds();
+        }
+
+        private static Transform CreateStageDecorations(
+            Transform parent,
+            Dictionary<string, Tile> propTiles,
+            Dictionary<string, FieldAnimatedTile> animatedTiles,
+            RunMapSource run,
+            BiomeDefinition[] biomes,
+            MeadowDefinition[] meadows)
+        {
+            var rootObject = new GameObject("Decorative Biomes");
+            rootObject.transform.SetParent(parent);
+            int sequence = 0;
+
+            for (int i = 0; i < biomes.Length; i++)
             {
-                new TilePlacement("7 Decor/Tree1", -1, 15),
-                new TilePlacement("7 Decor/Tree2", 26, 16),
-                new TilePlacement("9 Bush/4", 3, 15),
-                new TilePlacement("9 Bush/6", 13, 14),
-                new TilePlacement("9 Bush/2", 24, 8),
-                new TilePlacement("8 Camp/1", 21, 15),
-                new TilePlacement("8 Camp/3", 23, 15),
-                new TilePlacement("7 Decor/Box1", 20, 14),
-                new TilePlacement("7 Decor/Box3", 22, 14),
-                new TilePlacement("7 Decor/Log3", 24, 14),
-                new TilePlacement("7 Decor/Lamp1", 5, 3),
-                new TilePlacement("7 Decor/Lamp3", 15, 5),
-                new TilePlacement("4 Stone/11", -2, 5),
-                new TilePlacement("4 Stone/8", 10, 15),
-                new TilePlacement("4 Stone/15", 19, 3),
-                new TilePlacement("2 Fence/1", 0, 14),
-                new TilePlacement("2 Fence/2", 1, 14),
-                new TilePlacement("2 Fence/7", 25, 15),
-                new TilePlacement("2 Fence/8", 25, 14)
+                BiomeDefinition biome = biomes[i];
+                Transform cluster = CreateDecorationCluster(
+                    rootObject.transform,
+                    biome);
+                if (biome.Profile == "Dense Forest" ||
+                    biome.Profile == "Forest Edge" ||
+                    biome.Profile == "Woodland")
+                {
+                    CreateForestDecorations(
+                        cluster,
+                        biome,
+                        propTiles,
+                        run,
+                        ref sequence);
+                }
+                else if (biome.Profile == "Rocky Scrub")
+                {
+                    CreateRockyScrubDecorations(
+                        cluster,
+                        biome,
+                        propTiles,
+                        run,
+                        ref sequence);
+                }
+                else if (biome.Profile == "Ranger Camp" ||
+                         biome.Profile == "Abandoned Camp")
+                {
+                    CreateCampDecorations(
+                        cluster,
+                        biome,
+                        propTiles,
+                        animatedTiles,
+                        run,
+                        ref sequence);
+                }
+                else
+                {
+                    throw new InvalidOperationException(
+                        "Unsupported Stage 01 biome profile: " +
+                        biome.Profile);
+                }
+            }
+
+            for (int i = 0; i < meadows.Length; i++)
+            {
+                MeadowDefinition meadow = meadows[i];
+                Transform cluster = CreateDecorationCluster(
+                    rootObject.transform,
+                    meadow.Id,
+                    "Wildflower Meadow",
+                    meadow.Center,
+                    meadow.Radius,
+                    meadow.Seed);
+                CreateFlowerMeadowDecorations(
+                    cluster,
+                    meadow,
+                    biomes,
+                    propTiles,
+                    run,
+                    ref sequence);
+            }
+
+            CreateRoadsideDecorations(
+                rootObject.transform,
+                propTiles,
+                animatedTiles,
+                run,
+                ref sequence);
+            return rootObject.transform;
+        }
+
+        private static Transform CreateDecorationCluster(
+            Transform parent,
+            BiomeDefinition biome)
+        {
+            return CreateDecorationCluster(
+                parent,
+                biome.Id,
+                biome.Profile,
+                biome.Center,
+                biome.Radius,
+                biome.Seed);
+        }
+
+        private static Transform CreateDecorationCluster(
+            Transform parent,
+            string id,
+            string profile,
+            Vector2 center,
+            Vector2 radius,
+            int seed)
+        {
+            var clusterObject = new GameObject(id);
+            clusterObject.transform.SetParent(parent);
+            clusterObject.transform.position = center;
+            FieldDecorationCluster cluster =
+                clusterObject.AddComponent<FieldDecorationCluster>();
+            cluster.ConfigureAuthoring(
+                id,
+                profile,
+                radius,
+                seed);
+            return clusterObject.transform;
+        }
+
+        private static void CreateForestDecorations(
+            Transform cluster,
+            BiomeDefinition biome,
+            Dictionary<string, Tile> tiles,
+            RunMapSource run,
+            ref int sequence)
+        {
+            var random = new DeterministicRandom(
+                unchecked((uint)biome.Seed));
+            List<Vector2> treePoints = GenerateBiomePoints(
+                biome,
+                biome.TreeCount,
+                1.15f,
+                TreePathClearance,
+                TreeBuildSiteClearance,
+                1.4f,
+                run,
+                ref random);
+            for (int i = 0; i < treePoints.Count; i++)
+            {
+                CreateStaticDecoration(
+                    cluster,
+                    biome.Id,
+                    "7 Decor/Tree1",
+                    treePoints[i],
+                    random.NextBool(),
+                    "1 Shadow/6",
+                    new Vector2(0f, -2f * PixelWorldSize),
+                    false,
+                    TreePathClearance,
+                    TreeBuildSiteClearance,
+                    tiles,
+                    run,
+                    ref sequence);
+            }
+
+            List<Vector2> bushPoints = GenerateBiomePoints(
+                biome,
+                biome.BushCount,
+                0.52f,
+                BushPathClearance,
+                BushBuildSiteClearance,
+                0.35f,
+                run,
+                ref random);
+            for (int i = 0; i < bushPoints.Count; i++)
+            {
+                int variant = 1 + (int)(random.NextUInt() % 6u);
+                CreateStaticDecoration(
+                    cluster,
+                    biome.Id,
+                    "9 Bush/" + variant,
+                    bushPoints[i],
+                    random.NextBool(),
+                    variant <= 2
+                        ? "1 Shadow/3"
+                        : "1 Shadow/4",
+                    new Vector2(0f, -PixelWorldSize),
+                    false,
+                    BushPathClearance,
+                    BushBuildSiteClearance,
+                    tiles,
+                    run,
+                    ref sequence);
+            }
+
+            string[] accentKeys =
+            {
+                "7 Decor/Tree2",
+                "7 Decor/Log1",
+                "7 Decor/Log2",
+                "4 Stone/2",
+                "4 Stone/6",
+                "4 Stone/11"
             };
-            for (int i = 0; i < propPlacements.Length; i++)
+            List<Vector2> accentPoints = GenerateBiomePoints(
+                biome,
+                biome.AccentCount,
+                0.65f,
+                SmallPropPathClearance,
+                SmallPropBuildSiteClearance,
+                0.25f,
+                run,
+                ref random);
+            for (int i = 0; i < accentPoints.Count; i++)
             {
-                SetTile(props, tiles, propPlacements[i]);
+                string key = accentKeys[
+                    (int)(random.NextUInt() %
+                          (uint)accentKeys.Length)];
+                bool isStump = key == "7 Decor/Tree2";
+                CreateStaticDecoration(
+                    cluster,
+                    biome.Id,
+                    key,
+                    accentPoints[i],
+                    random.NextBool(),
+                    isStump ? "1 Shadow/3" : null,
+                    isStump
+                        ? new Vector2(0f, -PixelWorldSize)
+                        : Vector2.zero,
+                    false,
+                    isStump
+                        ? BushPathClearance
+                        : SmallPropPathClearance,
+                    isStump
+                        ? BushBuildSiteClearance
+                        : SmallPropBuildSiteClearance,
+                    tiles,
+                    run,
+                    ref sequence);
+            }
+
+            CreateFenceContour(
+                cluster,
+                biome,
+                tiles,
+                run,
+                ref random,
+                ref sequence);
+        }
+
+        private static void CreateFenceContour(
+            Transform cluster,
+            BiomeDefinition biome,
+            Dictionary<string, Tile> tiles,
+            RunMapSource run,
+            ref DeterministicRandom random,
+            ref int sequence)
+        {
+            string[] fenceKeys =
+            {
+                "2 Fence/1",
+                "2 Fence/2",
+                "2 Fence/3",
+                "2 Fence/4",
+                "2 Fence/8",
+                "2 Fence/10"
+            };
+            for (int i = 0; i < biome.FenceCount; i++)
+            {
+                float t = biome.FenceCount <= 1
+                    ? 0.5f
+                    : i / (float)(biome.FenceCount - 1);
+                float angle = Mathf.Lerp(
+                        biome.FenceStartDegrees,
+                        biome.FenceEndDegrees,
+                        t)
+                    * Mathf.Deg2Rad;
+                Vector2 position = biome.Center +
+                    new Vector2(
+                        Mathf.Cos(angle) * biome.Radius.x * 0.88f,
+                        Mathf.Sin(angle) * biome.Radius.y * 0.88f);
+                position = SnapToPixel(position);
+                if (!HasWorldClearance(
+                        position,
+                        run,
+                        SmallPropPathClearance,
+                        SmallPropBuildSiteClearance) ||
+                    !IsInsideDecorationBounds(position, 0.25f))
+                {
+                    continue;
+                }
+
+                string key = fenceKeys[
+                    (i + biome.Seed) % fenceKeys.Length];
+                CreateStaticDecoration(
+                    cluster,
+                    biome.Id,
+                    key,
+                    position,
+                    (i & 1) == 0
+                        ? random.NextBool()
+                        : !random.NextBool(),
+                    null,
+                    Vector2.zero,
+                    false,
+                    SmallPropPathClearance,
+                    SmallPropBuildSiteClearance,
+                    tiles,
+                    run,
+                    ref sequence);
             }
         }
 
-        private static void PaintAnimatedProps(
-            Tilemap animated,
-            Dictionary<string, FieldAnimatedTile> tiles)
+        private static void CreateRockyScrubDecorations(
+            Transform cluster,
+            BiomeDefinition biome,
+            Dictionary<string, Tile> tiles,
+            RunMapSource run,
+            ref int sequence)
         {
-            var placements = new[]
+            var random = new DeterministicRandom(
+                unchecked((uint)biome.Seed));
+            Vector2[] subCenters =
             {
-                new AnimatedTilePlacement("Flag_Right", -2, 1),
-                new AnimatedTilePlacement("Flag_Down", 7, 4),
-                new AnimatedTilePlacement("Flag_UpRight", 14, 8),
-                new AnimatedTilePlacement("Flag_Up", 22, 14),
-                new AnimatedTilePlacement("Flag_Left", 26, 11),
-                new AnimatedTilePlacement("Campfire_Unlit", 4, 15),
-                new AnimatedTilePlacement("Campfire_Lit", 21, 14)
+                biome.Center + new Vector2(-3.4f, -0.35f),
+                biome.Center + new Vector2(0f, -0.2f),
+                biome.Center + new Vector2(3.8f, 0.8f)
             };
+            string[] rubbleKeys =
+            {
+                "4 Stone/1",
+                "4 Stone/3",
+                "4 Stone/5",
+                "4 Stone/7",
+                "4 Stone/9",
+                "4 Stone/12",
+                "4 Stone/14",
+                "4 Stone/16",
+                "7 Decor/Log2",
+                "7 Decor/Log3",
+                "7 Decor/Box2",
+                "2 Fence/5",
+                "2 Fence/6"
+            };
+            int perCluster = Mathf.Max(
+                1,
+                biome.AccentCount / subCenters.Length);
+            for (int clusterIndex = 0;
+                 clusterIndex < subCenters.Length;
+                 clusterIndex++)
+            {
+                var localBiome = new BiomeDefinition(
+                    biome.Id,
+                    biome.Profile,
+                    subCenters[clusterIndex],
+                    new Vector2(1.8f, 0.85f),
+                    biome.Seed + clusterIndex * 97,
+                    0,
+                    0,
+                    perCluster,
+                    0,
+                    biome.GroundDensity,
+                    0f,
+                    0f);
+                List<Vector2> points = GenerateBiomePoints(
+                    localBiome,
+                    perCluster,
+                    0.58f,
+                    SmallPropPathClearance,
+                    SmallPropBuildSiteClearance,
+                    0.2f,
+                    run,
+                    ref random);
+                for (int i = 0; i < points.Count; i++)
+                {
+                    string key = rubbleKeys[
+                        (int)(random.NextUInt() %
+                              (uint)rubbleKeys.Length)];
+                    CreateStaticDecoration(
+                        cluster,
+                        biome.Id,
+                        key,
+                        points[i],
+                        random.NextBool(),
+                        null,
+                        Vector2.zero,
+                        false,
+                        SmallPropPathClearance,
+                        SmallPropBuildSiteClearance,
+                        tiles,
+                        run,
+                        ref sequence);
+                }
+            }
+
+            List<Vector2> bushes = GenerateBiomePoints(
+                biome,
+                biome.BushCount,
+                0.8f,
+                BushPathClearance,
+                BushBuildSiteClearance,
+                0.35f,
+                run,
+                ref random);
+            for (int i = 0; i < bushes.Count; i++)
+            {
+                int variant = 4 + i % 3;
+                CreateStaticDecoration(
+                    cluster,
+                    biome.Id,
+                    "9 Bush/" + variant,
+                    bushes[i],
+                    (i & 1) == 0,
+                    "1 Shadow/4",
+                    new Vector2(0f, -PixelWorldSize),
+                    false,
+                    BushPathClearance,
+                    BushBuildSiteClearance,
+                    tiles,
+                    run,
+                    ref sequence);
+            }
+        }
+
+        private static void CreateFlowerMeadowDecorations(
+            Transform cluster,
+            MeadowDefinition meadow,
+            BiomeDefinition[] structuralBiomes,
+            Dictionary<string, Tile> tiles,
+            RunMapSource run,
+            ref int sequence)
+        {
+            var patchRandom = new DeterministicRandom(
+                unchecked((uint)meadow.Seed) ^ 0xA341316Cu);
+            List<Vector2> patchCenters =
+                GenerateMeadowDetailPoints(
+                    meadow,
+                    meadow.PatchCount,
+                    1.45f,
+                    0.08f,
+                    0.76f,
+                    MeadowDetailPathClearance + 0.45f,
+                    MeadowDetailBuildSiteClearance + 0.45f,
+                    FlowerPatchRadius + 0.15f,
+                    structuralBiomes,
+                    run,
+                    null,
+                    0f,
+                    ref patchRandom);
+
+            var flowerPositionRandom = new DeterministicRandom(
+                unchecked((uint)meadow.Seed) ^ 0xC8013EA4u);
+            var flowerVariantRandom = new DeterministicRandom(
+                unchecked((uint)meadow.Seed) ^ 0xAD90777Du);
+            var flowerFlipRandom = new DeterministicRandom(
+                unchecked((uint)meadow.Seed) ^ 0x7E95761Eu);
+            var flowerPositions =
+                new List<Vector2>(meadow.FlowerCount);
+            int remainingFlowers = meadow.FlowerCount;
+            for (int patchIndex = 0;
+                 patchIndex < patchCenters.Count;
+                 patchIndex++)
+            {
+                int remainingPatches =
+                    patchCenters.Count - patchIndex;
+                int quota =
+                    remainingFlowers / remainingPatches;
+                int placedInPatch = 0;
+                int attempts = 0;
+                while (placedInPatch < quota &&
+                       attempts < quota * 240)
+                {
+                    attempts++;
+                    Vector2 candidate;
+                    if (placedInPatch == 0)
+                    {
+                        candidate = patchCenters[patchIndex];
+                    }
+                    else
+                    {
+                        float angle =
+                            flowerPositionRandom.Next01() *
+                            Mathf.PI *
+                            2f;
+                        float distance =
+                            Mathf.Sqrt(
+                                flowerPositionRandom.Next01()) *
+                            FlowerPatchRadius;
+                        candidate = patchCenters[patchIndex] +
+                            new Vector2(
+                                Mathf.Cos(angle) * distance,
+                                Mathf.Sin(angle) *
+                                distance *
+                                0.68f);
+                    }
+
+                    candidate = SnapToPixel(candidate);
+                    if (!IsValidMeadowDetailPoint(
+                            candidate,
+                            meadow,
+                            structuralBiomes,
+                            MeadowDetailPathClearance,
+                            MeadowDetailBuildSiteClearance,
+                            0.12f,
+                            run) ||
+                        HasPointWithin(
+                            flowerPositions,
+                            candidate,
+                            FlowerMinimumSpacing))
+                    {
+                        continue;
+                    }
+
+                    flowerPositions.Add(candidate);
+                    placedInPatch++;
+                }
+
+                if (placedInPatch != quota)
+                {
+                    throw new InvalidOperationException(
+                        meadow.Id +
+                        " could only place " +
+                        placedInPatch +
+                        " of " +
+                        quota +
+                        " requested flowers in patch " +
+                        patchIndex +
+                        ".");
+                }
+
+                remainingFlowers -= quota;
+            }
+
+            for (int i = 0; i < flowerPositions.Count; i++)
+            {
+                uint selector =
+                    flowerVariantRandom.NextUInt() % 100u;
+                int variant = selector < 52u
+                    ? meadow.PrimaryFlower
+                    : selector < 78u
+                        ? meadow.SecondaryFlower
+                        : meadow.TertiaryFlower;
+                CreateStaticDecoration(
+                    cluster,
+                    meadow.Id,
+                    "6 Flower/" + variant,
+                    flowerPositions[i],
+                    flowerFlipRandom.NextBool(),
+                    null,
+                    Vector2.zero,
+                    false,
+                    MeadowDetailPathClearance,
+                    MeadowDetailBuildSiteClearance,
+                    tiles,
+                    run,
+                    ref sequence);
+            }
+
+            var grassRandom = new DeterministicRandom(
+                unchecked((uint)meadow.Seed) ^ 0x4CF5AD43u);
+            List<Vector2> grassPositions =
+                GenerateMeadowDetailPoints(
+                    meadow,
+                    meadow.GrassCount,
+                    0.72f,
+                    0.08f,
+                    0.94f,
+                    MeadowDetailPathClearance,
+                    MeadowDetailBuildSiteClearance,
+                    0.08f,
+                    structuralBiomes,
+                    run,
+                    flowerPositions,
+                    0.12f,
+                    ref grassRandom);
+            for (int i = 0; i < grassPositions.Count; i++)
+            {
+                int variant =
+                    4 + (int)(grassRandom.NextUInt() % 3u);
+                CreateStaticDecoration(
+                    cluster,
+                    meadow.Id,
+                    "5 Grass/" + variant,
+                    grassPositions[i],
+                    grassRandom.NextBool(),
+                    null,
+                    Vector2.zero,
+                    false,
+                    MeadowDetailPathClearance,
+                    MeadowDetailBuildSiteClearance,
+                    tiles,
+                    run,
+                    ref sequence);
+            }
+
+            var stoneRandom = new DeterministicRandom(
+                unchecked((uint)meadow.Seed) ^ 0x9E3779B9u);
+            List<Vector2> stonePositions =
+                GenerateMeadowDetailPoints(
+                    meadow,
+                    meadow.StoneCount,
+                    2.2f,
+                    0.68f,
+                    0.96f,
+                    SmallPropPathClearance,
+                    SmallPropBuildSiteClearance,
+                    0.12f,
+                    structuralBiomes,
+                    run,
+                    flowerPositions,
+                    0.3f,
+                    ref stoneRandom);
+            int[] stoneVariants = { 1, 3, 4, 6 };
+            for (int i = 0; i < stonePositions.Count; i++)
+            {
+                int variant = stoneVariants[
+                    (int)(stoneRandom.NextUInt() %
+                          (uint)stoneVariants.Length)];
+                CreateStaticDecoration(
+                    cluster,
+                    meadow.Id,
+                    "4 Stone/" + variant,
+                    stonePositions[i],
+                    stoneRandom.NextBool(),
+                    null,
+                    Vector2.zero,
+                    false,
+                    SmallPropPathClearance,
+                    SmallPropBuildSiteClearance,
+                    tiles,
+                    run,
+                    ref sequence);
+            }
+        }
+
+        private static List<Vector2> GenerateMeadowDetailPoints(
+            MeadowDefinition meadow,
+            int count,
+            float minimumSpacing,
+            float minimumNormalizedRadius,
+            float maximumNormalizedRadius,
+            float pathClearance,
+            float buildSiteClearance,
+            float structuralPadding,
+            BiomeDefinition[] structuralBiomes,
+            RunMapSource run,
+            IReadOnlyList<Vector2> exclusions,
+            float exclusionSpacing,
+            ref DeterministicRandom random)
+        {
+            var result = new List<Vector2>(count);
+            int attempts = 0;
+            int maximumAttempts = Mathf.Max(500, count * 350);
+            while (result.Count < count &&
+                   attempts < maximumAttempts)
+            {
+                attempts++;
+                float angle = random.Next01() * Mathf.PI * 2f;
+                float minimumRadiusSquared =
+                    minimumNormalizedRadius *
+                    minimumNormalizedRadius;
+                float maximumRadiusSquared =
+                    maximumNormalizedRadius *
+                    maximumNormalizedRadius;
+                float normalizedRadius = Mathf.Sqrt(
+                    Mathf.Lerp(
+                        minimumRadiusSquared,
+                        maximumRadiusSquared,
+                        random.Next01()));
+                Vector2 candidate = meadow.Center +
+                    new Vector2(
+                        Mathf.Cos(angle) *
+                        meadow.Radius.x *
+                        normalizedRadius,
+                        Mathf.Sin(angle) *
+                        meadow.Radius.y *
+                        normalizedRadius);
+                candidate = SnapToPixel(candidate);
+                if (!IsValidMeadowDetailPoint(
+                        candidate,
+                        meadow,
+                        structuralBiomes,
+                        pathClearance,
+                        buildSiteClearance,
+                        structuralPadding,
+                        run) ||
+                    HasPointWithin(
+                        result,
+                        candidate,
+                        minimumSpacing) ||
+                    HasPointWithin(
+                        exclusions,
+                        candidate,
+                        exclusionSpacing))
+                {
+                    continue;
+                }
+
+                result.Add(candidate);
+            }
+
+            if (result.Count != count)
+            {
+                throw new InvalidOperationException(
+                    meadow.Id +
+                    " could only place " +
+                    result.Count +
+                    " of " +
+                    count +
+                    " requested meadow details.");
+            }
+
+            return result;
+        }
+
+        private static bool IsValidMeadowDetailPoint(
+            Vector2 point,
+            MeadowDefinition meadow,
+            BiomeDefinition[] structuralBiomes,
+            float pathClearance,
+            float buildSiteClearance,
+            float structuralPadding,
+            RunMapSource run)
+        {
+            return IsInsideDecorationBounds(point, 0.35f) &&
+                IsInsideEllipse(
+                    point,
+                    meadow.Center,
+                    meadow.Radius,
+                    0.98f) &&
+                IsOutsideStructuralBiomes(
+                    point,
+                    structuralBiomes,
+                    structuralPadding) &&
+                HasWorldClearance(
+                    point,
+                    run,
+                    pathClearance,
+                    buildSiteClearance);
+        }
+
+        private static bool IsOutsideStructuralBiomes(
+            Vector2 point,
+            BiomeDefinition[] biomes,
+            float padding)
+        {
+            for (int i = 0; i < biomes.Length; i++)
+            {
+                Vector2 radius = biomes[i].Radius +
+                    Vector2.one * padding;
+                if (IsInsideEllipse(
+                        point,
+                        biomes[i].Center,
+                        radius,
+                        1f))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private static bool IsInsideEllipse(
+            Vector2 point,
+            Vector2 center,
+            Vector2 radius,
+            float normalizedLimit)
+        {
+            if (radius.x <= Mathf.Epsilon ||
+                radius.y <= Mathf.Epsilon)
+            {
+                return false;
+            }
+
+            Vector2 offset = point - center;
+            float normalizedSquared =
+                offset.x * offset.x / (radius.x * radius.x) +
+                offset.y * offset.y / (radius.y * radius.y);
+            return normalizedSquared <=
+                normalizedLimit * normalizedLimit;
+        }
+
+        private static bool HasPointWithin(
+            IReadOnlyList<Vector2> points,
+            Vector2 candidate,
+            float distance)
+        {
+            if (points == null || distance <= 0f)
+            {
+                return false;
+            }
+
+            float distanceSquared = distance * distance;
+            for (int i = 0; i < points.Count; i++)
+            {
+                if ((points[i] - candidate).sqrMagnitude <
+                    distanceSquared)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static void CreateCampDecorations(
+            Transform cluster,
+            BiomeDefinition biome,
+            Dictionary<string, Tile> propTiles,
+            Dictionary<string, FieldAnimatedTile> animatedTiles,
+            RunMapSource run,
+            ref int sequence)
+        {
+            DecorationPlacement[] placements =
+                biome.Id == "camp_northeast"
+                    ? new[]
+                    {
+                        new DecorationPlacement(
+                            "8 Camp/1",
+                            new Vector2(-0.65f, 0.75f),
+                            false,
+                            "1 Shadow/5"),
+                        new DecorationPlacement(
+                            "8 Camp/3",
+                            new Vector2(0.7f, 0.68f),
+                            true,
+                            "1 Shadow/5"),
+                        new DecorationPlacement(
+                            "8 Camp/2",
+                            new Vector2(1.55f, -0.05f),
+                            false,
+                            "1 Shadow/3"),
+                        new DecorationPlacement(
+                            "7 Decor/Box1",
+                            new Vector2(-1.45f, -0.15f),
+                            false,
+                            null),
+                        new DecorationPlacement(
+                            "7 Decor/Log3",
+                            new Vector2(1.15f, -0.65f),
+                            true,
+                            null),
+                        new DecorationPlacement(
+                            "9 Bush/2",
+                            new Vector2(-1.25f, 1.05f),
+                            true,
+                            "1 Shadow/3"),
+                        new DecorationPlacement(
+                            "2 Fence/7",
+                            new Vector2(1.85f, 0.7f),
+                            false,
+                            null),
+                        new DecorationPlacement(
+                            "2 Fence/8",
+                            new Vector2(1.9f, 0.05f),
+                            true,
+                            null),
+                        new DecorationPlacement(
+                            "2 Fence/3",
+                            new Vector2(-1.55f, 1.1f),
+                            true,
+                            null)
+                    }
+                    : new[]
+                    {
+                        new DecorationPlacement(
+                            "8 Camp/2",
+                            new Vector2(-1.15f, 0.3f),
+                            true,
+                            "1 Shadow/3"),
+                        new DecorationPlacement(
+                            "8 Camp/4",
+                            new Vector2(1f, 0.15f),
+                            false,
+                            "1 Shadow/5"),
+                        new DecorationPlacement(
+                            "7 Decor/Box2",
+                            new Vector2(-1.8f, -0.2f),
+                            true,
+                            null),
+                        new DecorationPlacement(
+                            "7 Decor/Log1",
+                            new Vector2(1.85f, -0.25f),
+                            false,
+                            null),
+                        new DecorationPlacement(
+                            "2 Fence/1",
+                            new Vector2(-0.7f, 0.9f),
+                            false,
+                            null),
+                        new DecorationPlacement(
+                            "2 Fence/3",
+                            new Vector2(0.05f, 0.9f),
+                            true,
+                            null),
+                        new DecorationPlacement(
+                            "2 Fence/4",
+                            new Vector2(0.8f, 0.85f),
+                            false,
+                            null)
+                    };
+
             for (int i = 0; i < placements.Length; i++)
             {
-                AnimatedTilePlacement placement = placements[i];
-                animated.SetTile(
-                    new Vector3Int(
-                        placement.X,
-                        placement.Y,
-                        0),
-                    tiles[placement.Key]);
+                DecorationPlacement placement = placements[i];
+                bool isTent = placement.Key.StartsWith(
+                    "8 Camp/",
+                    StringComparison.Ordinal);
+                bool isBush = placement.Key.StartsWith(
+                    "9 Bush/",
+                    StringComparison.Ordinal);
+                CreateStaticDecoration(
+                    cluster,
+                    biome.Id,
+                    placement.Key,
+                    biome.Center + placement.Offset,
+                    placement.FlipX,
+                    placement.GroundBaseKey,
+                    placement.GroundBaseKey == null
+                        ? Vector2.zero
+                        : new Vector2(
+                            0f,
+                            isBush
+                                ? -PixelWorldSize
+                                : -2f * PixelWorldSize),
+                    false,
+                    isTent
+                        ? TentPathClearance
+                        : isBush
+                            ? BushPathClearance
+                            : SmallPropPathClearance,
+                    isTent
+                        ? TentBuildSiteClearance
+                        : isBush
+                            ? BushBuildSiteClearance
+                            : SmallPropBuildSiteClearance,
+                    propTiles,
+                    run,
+                    ref sequence);
             }
+
+            string animationKey =
+                biome.Id == "camp_northeast"
+                    ? "Campfire_Lit"
+                    : "Campfire_Unlit";
+            Vector2 fireOffset =
+                biome.Id == "camp_northeast"
+                    ? new Vector2(0f, -0.65f)
+                    : new Vector2(0f, -0.35f);
+            CreateAnimatedDecoration(
+                cluster,
+                biome.Id,
+                animationKey,
+                biome.Center + fireOffset,
+                false,
+                false,
+                SmallPropPathClearance,
+                SmallPropBuildSiteClearance,
+                animatedTiles,
+                run,
+                ref sequence);
+        }
+
+        private static void CreateRoadsideDecorations(
+            Transform parent,
+            Dictionary<string, Tile> propTiles,
+            Dictionary<string, FieldAnimatedTile> animatedTiles,
+            RunMapSource run,
+            ref int sequence)
+        {
+            var biome = new BiomeDefinition(
+                "roadside_verges",
+                "Roadside Verges",
+                new Vector2(12f, 6f),
+                new Vector2(14f, 9f),
+                8867,
+                0,
+                0,
+                0,
+                0,
+                0f,
+                0f,
+                0f);
+            Transform cluster = CreateDecorationCluster(parent, biome);
+            var placements = new[]
+            {
+                new RoadMarkerPlacement(
+                    0,
+                    0.2f,
+                    -1f,
+                    "3 Pointer/1",
+                    false,
+                    false),
+                new RoadMarkerPlacement(
+                    0,
+                    0.7f,
+                    1f,
+                    "Flag_DownRight",
+                    true,
+                    false),
+                new RoadMarkerPlacement(
+                    1,
+                    0.45f,
+                    1f,
+                    "3 Pointer/2",
+                    false,
+                    true),
+                new RoadMarkerPlacement(
+                    2,
+                    0.35f,
+                    1f,
+                    "Flag_Down",
+                    true,
+                    false),
+                new RoadMarkerPlacement(
+                    3,
+                    0.8f,
+                    1f,
+                    "3 Pointer/4",
+                    false,
+                    true),
+                new RoadMarkerPlacement(
+                    4,
+                    0.85f,
+                    1f,
+                    "Flag_UpRight",
+                    true,
+                    false)
+            };
+            float vergeDistance = RoadHalfWidth + 0.65f;
+            for (int i = 0; i < placements.Length; i++)
+            {
+                RoadMarkerPlacement placement = placements[i];
+                Vector2 from =
+                    run.PathPoints[placement.SegmentIndex];
+                Vector2 to =
+                    run.PathPoints[placement.SegmentIndex + 1];
+                Vector2 direction = (to - from).normalized;
+                Vector2 normal =
+                    new Vector2(-direction.y, direction.x);
+                Vector2 position =
+                    Vector2.Lerp(from, to, placement.SegmentT) +
+                    normal * placement.Side * vergeDistance;
+                if (placement.Animated)
+                {
+                    CreateAnimatedDecoration(
+                        cluster,
+                        biome.Id,
+                        placement.Key,
+                        position,
+                        placement.FlipX,
+                        true,
+                        MarkerPathClearance,
+                        SmallPropBuildSiteClearance,
+                        animatedTiles,
+                        run,
+                        ref sequence);
+                }
+                else
+                {
+                    CreateStaticDecoration(
+                        cluster,
+                        biome.Id,
+                        placement.Key,
+                        position,
+                        placement.FlipX,
+                        null,
+                        Vector2.zero,
+                        true,
+                        MarkerPathClearance,
+                        SmallPropBuildSiteClearance,
+                        propTiles,
+                        run,
+                        ref sequence);
+                }
+            }
+        }
+
+        private static List<Vector2> GenerateBiomePoints(
+            BiomeDefinition biome,
+            int count,
+            float minimumSpacing,
+            float pathClearance,
+            float buildSiteClearance,
+            float boundsPadding,
+            RunMapSource run,
+            ref DeterministicRandom random)
+        {
+            var result = new List<Vector2>(count);
+            int attempts = 0;
+            int maximumAttempts = Mathf.Max(400, count * 300);
+            while (result.Count < count &&
+                   attempts < maximumAttempts)
+            {
+                attempts++;
+                float angle = random.Next01() * Mathf.PI * 2f;
+                float distance = Mathf.Sqrt(random.Next01()) * 0.92f;
+                Vector2 candidate = biome.Center +
+                    new Vector2(
+                        Mathf.Cos(angle) *
+                        biome.Radius.x *
+                        distance,
+                        Mathf.Sin(angle) *
+                        biome.Radius.y *
+                        distance);
+                candidate = SnapToPixel(candidate);
+                if (!IsInsideDecorationBounds(
+                        candidate,
+                        boundsPadding) ||
+                    !HasWorldClearance(
+                        candidate,
+                        run,
+                        pathClearance,
+                        buildSiteClearance))
+                {
+                    continue;
+                }
+
+                bool overlapsBase = false;
+                for (int i = 0; i < result.Count; i++)
+                {
+                    if (Vector2.Distance(
+                            candidate,
+                            result[i]) <
+                        minimumSpacing)
+                    {
+                        overlapsBase = true;
+                        break;
+                    }
+                }
+
+                if (!overlapsBase)
+                {
+                    result.Add(candidate);
+                }
+            }
+
+            if (result.Count != count)
+            {
+                throw new InvalidOperationException(
+                    biome.Id +
+                    " could only place " +
+                    result.Count +
+                    " of " +
+                    count +
+                    " requested decorations.");
+            }
+
+            return result;
+        }
+
+        private static FieldDecorationView CreateStaticDecoration(
+            Transform cluster,
+            string clusterId,
+            string key,
+            Vector2 worldPosition,
+            bool flipX,
+            string groundBaseKey,
+            Vector2 groundBaseOffset,
+            bool roadsideMarker,
+            float pathClearance,
+            float buildSiteClearance,
+            Dictionary<string, Tile> tiles,
+            RunMapSource run,
+            ref int sequence)
+        {
+            if (!tiles.TryGetValue(key, out Tile tile) ||
+                tile == null ||
+                tile.sprite == null)
+            {
+                throw new InvalidOperationException(
+                    "Missing generated prop sprite: " + key);
+            }
+
+            Vector2 position = SnapToPixel(worldPosition);
+            ValidateWorldClearance(
+                key,
+                position,
+                run,
+                pathClearance,
+                buildSiteClearance);
+
+            var propObject = new GameObject(
+                SanitizeAssetName(key) +
+                "_" +
+                sequence.ToString("000"));
+            propObject.transform.SetParent(cluster);
+            propObject.transform.position = position;
+            SpriteRenderer body =
+                propObject.AddComponent<SpriteRenderer>();
+            body.sprite = tile.sprite;
+            body.flipX = flipX;
+            body.spriteSortPoint = SpriteSortPoint.Pivot;
+            body.sortingOrder =
+                GetDecorationSortingOrder(position, sequence);
+
+            SpriteRenderer groundBase = null;
+            if (!string.IsNullOrEmpty(groundBaseKey))
+            {
+                if (!tiles.TryGetValue(
+                        groundBaseKey,
+                        out Tile baseTile) ||
+                    baseTile == null ||
+                    baseTile.sprite == null)
+                {
+                    throw new InvalidOperationException(
+                        "Missing ground base sprite: " +
+                        groundBaseKey);
+                }
+
+                var baseObject = new GameObject("Ground Base");
+                baseObject.transform.SetParent(propObject.transform);
+                baseObject.transform.localPosition =
+                    SnapToPixel(groundBaseOffset);
+                groundBase =
+                    baseObject.AddComponent<SpriteRenderer>();
+                groundBase.sprite = baseTile.sprite;
+                groundBase.spriteSortPoint = SpriteSortPoint.Pivot;
+                groundBase.sortingOrder = body.sortingOrder - 1;
+            }
+
+            FieldDecorationView view =
+                propObject.AddComponent<FieldDecorationView>();
+            view.ConfigureAuthoring(
+                key,
+                clusterId,
+                roadsideMarker,
+                body,
+                groundBase);
+            ValidateBuildSiteVisualBounds(view, run);
+            sequence++;
+            return view;
+        }
+
+        private static FieldDecorationView CreateAnimatedDecoration(
+            Transform cluster,
+            string clusterId,
+            string key,
+            Vector2 worldPosition,
+            bool flipX,
+            bool roadsideMarker,
+            float pathClearance,
+            float buildSiteClearance,
+            Dictionary<string, FieldAnimatedTile> tiles,
+            RunMapSource run,
+            ref int sequence)
+        {
+            if (!tiles.TryGetValue(
+                    key,
+                    out FieldAnimatedTile tile) ||
+                tile == null ||
+                tile.FrameCount == 0)
+            {
+                throw new InvalidOperationException(
+                    "Missing animated prop: " + key);
+            }
+
+            Vector2 position = SnapToPixel(worldPosition);
+            ValidateWorldClearance(
+                key,
+                position,
+                run,
+                pathClearance,
+                buildSiteClearance);
+            var propObject = new GameObject(
+                SanitizeAssetName(key) +
+                "_" +
+                sequence.ToString("000"));
+            propObject.transform.SetParent(cluster);
+            propObject.transform.position = position;
+            SpriteRenderer body =
+                propObject.AddComponent<SpriteRenderer>();
+            body.sprite = tile.GetFrame(0);
+            body.flipX = tile.FlipX ^ flipX;
+            body.spriteSortPoint = SpriteSortPoint.Pivot;
+            body.sortingOrder =
+                GetDecorationSortingOrder(position, sequence);
+
+            var frames = new Sprite[tile.FrameCount];
+            for (int i = 0; i < frames.Length; i++)
+            {
+                frames[i] = tile.GetFrame(i);
+            }
+
+            FieldSpriteAnimator animator =
+                propObject.AddComponent<FieldSpriteAnimator>();
+            animator.ConfigureAuthoring(
+                body,
+                frames,
+                AnimationFrameDuration / tile.AnimationSpeed);
+            FieldDecorationView view =
+                propObject.AddComponent<FieldDecorationView>();
+            view.ConfigureAuthoring(
+                key,
+                clusterId,
+                roadsideMarker,
+                body,
+                null);
+            ValidateBuildSiteVisualBounds(view, run);
+            sequence++;
+            return view;
+        }
+
+        private static void ValidateBuildSiteVisualBounds(
+            FieldDecorationView view,
+            RunMapSource run)
+        {
+            Bounds bounds = view.Body.bounds;
+            if (view.HasGroundBase)
+            {
+                bounds.Encapsulate(view.GroundBase.bounds);
+            }
+
+            for (int i = 0; i < run.BuildSpots.Length; i++)
+            {
+                var buildBounds = new Bounds(
+                    run.BuildSpots[i],
+                    new Vector3(2.2f, 2.2f, 1f));
+                if (bounds.Intersects(buildBounds))
+                {
+                    throw new InvalidOperationException(
+                        view.AssetKey +
+                        " visual bounds overlap build site " +
+                        i +
+                        ".");
+                }
+            }
+        }
+
+        private static float CalculateBiomeInfluence(
+            Vector2 point,
+            BiomeDefinition biome)
+        {
+            if (biome.GroundDensity <= 0f ||
+                biome.Radius.x <= Mathf.Epsilon ||
+                biome.Radius.y <= Mathf.Epsilon)
+            {
+                return 0f;
+            }
+
+            Vector2 offset = point - biome.Center;
+            float normalized = Mathf.Sqrt(
+                offset.x * offset.x /
+                (biome.Radius.x * biome.Radius.x) +
+                offset.y * offset.y /
+                (biome.Radius.y * biome.Radius.y));
+            return normalized >= 1f
+                ? 0f
+                : 1f - normalized;
+        }
+
+        private static string SelectGroundCoverKey(
+            string profile,
+            int x,
+            int y,
+            int seed)
+        {
+            int selector = Mathf.FloorToInt(
+                Hash01(x, y, seed, 31) * 100f);
+            int variant = 1 +
+                Mathf.FloorToInt(
+                    Hash01(x, y, seed, 47) * 6f);
+            if (profile == "Dense Forest" ||
+                profile == "Forest Edge" ||
+                profile == "Woodland")
+            {
+                if (selector < 78)
+                {
+                    return "5 Grass/" + variant;
+                }
+
+                int flower = 1 +
+                    Mathf.FloorToInt(
+                        Hash01(x, y, seed, 59) * 12f);
+                return "6 Flower/" + flower;
+            }
+
+            if (profile == "Ranger Camp" ||
+                profile == "Abandoned Camp")
+            {
+                return selector < 72
+                    ? "7 Decor/Dirt" + variant
+                    : "5 Grass/" + variant;
+            }
+
+            if (selector < 62)
+            {
+                return "7 Decor/Dirt" + variant;
+            }
+
+            return selector < 92
+                ? "5 Grass/" + variant
+                : "6 Flower/" + (1 + variant);
+        }
+
+        private static float Hash01(
+            int x,
+            int y,
+            int seed,
+            int salt)
+        {
+            uint value = unchecked(
+                (uint)(x * 73856093) ^
+                (uint)(y * 19349663) ^
+                (uint)(seed * 83492791) ^
+                (uint)salt * 2654435761u);
+            value ^= value >> 16;
+            value *= 0x7FEB352Du;
+            value ^= value >> 15;
+            value *= 0x846CA68Bu;
+            value ^= value >> 16;
+            return (value & 0x00FFFFFFu) / 16777216f;
+        }
+
+        private static void SetGroundTile(
+            Tilemap tilemap,
+            Dictionary<string, Tile> tiles,
+            string key,
+            int x,
+            int y)
+        {
+            if (!tiles.TryGetValue(key, out Tile tile))
+            {
+                throw new InvalidOperationException(
+                    "Missing generated ground tile: " + key);
+            }
+
+            tilemap.SetTile(new Vector3Int(x, y, 0), tile);
+        }
+
+        private static int GetDecorationSortingOrder(
+            Vector2 position,
+            int sequence)
+        {
+            return DecorationSortingBase -
+                Mathf.RoundToInt(position.y * 64f) +
+                (sequence & 1);
+        }
+
+        private static Vector2 SnapToPixel(Vector2 value)
+        {
+            return new Vector2(
+                Mathf.Round(value.x / PixelWorldSize) *
+                PixelWorldSize,
+                Mathf.Round(value.y / PixelWorldSize) *
+                PixelWorldSize);
+        }
+
+        private static bool IsInsideDecorationBounds(
+            Vector2 point,
+            float padding)
+        {
+            return point.x >= MapMinX + padding &&
+                point.x <= MapMaxX - padding &&
+                point.y >= MapMinY + padding &&
+                point.y <= MapMaxY - padding;
         }
 
         private static TowerBuildSiteView[] CreateBuildSites(
@@ -1494,13 +3099,12 @@ namespace RuleforgeTD.Editor.AssetImport
                 if (stage == null ||
                     stage.Terrain == null ||
                     stage.GroundDecals == null ||
-                    stage.Props == null ||
-                    stage.AnimatedObjects == null ||
+                    stage.DecorationRoot == null ||
                     stage.NavigationMask == null ||
                     stage.Path == null)
                 {
                     throw new InvalidOperationException(
-                        "Stage 01 Tilemap hierarchy is incomplete.");
+                        "Stage 01 map hierarchy is incomplete.");
                 }
 
                 if (stage.BuildSiteCount != 8)
@@ -1546,12 +3150,7 @@ namespace RuleforgeTD.Editor.AssetImport
                         "Stage terrain collision components are incomplete.");
                 }
 
-                if (stage.AnimatedObjects.GetUsedTilesCount() == 0 ||
-                    stage.Props.GetUsedTilesCount() == 0)
-                {
-                    throw new InvalidOperationException(
-                        "Stage 01 must contain props and animated objects.");
-                }
+                ValidateDecorationComposition(stage);
             }
             finally
             {
@@ -1612,6 +3211,354 @@ namespace RuleforgeTD.Editor.AssetImport
                     }
                 }
             }
+        }
+
+        private static void ValidateDecorationComposition(
+            FieldStageMap stage)
+        {
+            FieldDecorationView[] decorations =
+                stage.DecorationRoot
+                    .GetComponentsInChildren<FieldDecorationView>(
+                        true);
+            FieldDecorationCluster[] clusters =
+                stage.DecorationRoot
+                    .GetComponentsInChildren<FieldDecorationCluster>(
+                        true);
+            FieldSpriteAnimator[] animators =
+                stage.DecorationRoot
+                    .GetComponentsInChildren<FieldSpriteAnimator>(
+                        true);
+            if (decorations.Length <
+                MinimumDecorationInstanceCount)
+            {
+                throw new InvalidOperationException(
+                    "Stage 01 has too few decoration instances. Expected " +
+                    "at least " +
+                    MinimumDecorationInstanceCount +
+                    " but found " +
+                    decorations.Length +
+                    ".");
+            }
+
+            if (clusters.Length < MinimumBiomeClusterCount)
+            {
+                throw new InvalidOperationException(
+                    "Stage 01 must contain semantic biome clusters.");
+            }
+
+            if (animators.Length < 5)
+            {
+                throw new InvalidOperationException(
+                    "Stage 01 must animate camps and roadside flags.");
+            }
+
+            for (int i = 0; i < decorations.Length; i++)
+            {
+                FieldDecorationView decoration = decorations[i];
+                if (decoration.Body == null ||
+                    decoration.Body.sprite == null ||
+                    string.IsNullOrEmpty(decoration.ClusterId))
+                {
+                    throw new InvalidOperationException(
+                        "Decoration instance metadata is incomplete.");
+                }
+
+                Vector3 position = decoration.transform.position;
+                if (!Mathf.Approximately(
+                        position.x / PixelWorldSize,
+                        Mathf.Round(position.x / PixelWorldSize)) ||
+                    !Mathf.Approximately(
+                        position.y / PixelWorldSize,
+                        Mathf.Round(position.y / PixelWorldSize)))
+                {
+                    throw new InvalidOperationException(
+                        decoration.AssetKey +
+                        " is not snapped to the pixel grid.");
+                }
+
+                if (!decoration.HasGroundBase)
+                {
+                    continue;
+                }
+
+                if (decoration.GroundBase.transform.parent !=
+                    decoration.transform ||
+                    decoration.GroundBase.transform.localPosition
+                        .magnitude > 0.125f ||
+                    decoration.GroundBase.sortingOrder !=
+                    decoration.Body.sortingOrder - 1)
+                {
+                    throw new InvalidOperationException(
+                        decoration.AssetKey +
+                        " has a detached ground base.");
+                }
+            }
+
+            ValidateMirroredDecorationFamily(
+                decorations,
+                "9 Bush/");
+            ValidateMirroredDecorationFamily(
+                decorations,
+                "2 Fence/");
+            ValidateMirroredDecorationFamily(
+                decorations,
+                "7 Decor/Tree1");
+            ValidateMirroredDecorationFamily(
+                decorations,
+                "8 Camp/");
+            ValidateForestOverlap(clusters);
+            ValidateWildflowerMeadows(
+                decorations,
+                clusters);
+        }
+
+        private static void ValidateMirroredDecorationFamily(
+            FieldDecorationView[] decorations,
+            string keyPrefix)
+        {
+            FieldDecorationView[] family = decorations
+                .Where(decoration =>
+                    decoration.AssetKey.StartsWith(
+                        keyPrefix,
+                        StringComparison.Ordinal))
+                .ToArray();
+            if (!family.Any(decoration => decoration.FlipX) ||
+                !family.Any(decoration => !decoration.FlipX))
+            {
+                throw new InvalidOperationException(
+                    keyPrefix +
+                    " must include mirrored and unmirrored instances.");
+            }
+        }
+
+        private static void ValidateForestOverlap(
+            FieldDecorationCluster[] clusters)
+        {
+            FieldDecorationCluster[] forests = clusters
+                .Where(cluster =>
+                    cluster.Profile == "Dense Forest" ||
+                    cluster.Profile == "Forest Edge" ||
+                    cluster.Profile == "Woodland")
+                .ToArray();
+            for (int forestIndex = 0;
+                 forestIndex < forests.Length;
+                 forestIndex++)
+            {
+                FieldDecorationView[] trees = forests[forestIndex]
+                    .GetComponentsInChildren<FieldDecorationView>(true)
+                    .Where(decoration =>
+                        decoration.AssetKey ==
+                        "7 Decor/Tree1")
+                    .ToArray();
+                bool hasOverlap = false;
+                for (int left = 0;
+                     left < trees.Length && !hasOverlap;
+                     left++)
+                {
+                    for (int right = left + 1;
+                         right < trees.Length;
+                         right++)
+                    {
+                        if (trees[left].Body.bounds.Intersects(
+                                trees[right].Body.bounds))
+                        {
+                            hasOverlap = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (!hasOverlap)
+                {
+                    throw new InvalidOperationException(
+                        forests[forestIndex].ClusterId +
+                        " must contain overlapping tree canopies.");
+                }
+            }
+        }
+
+        private static void ValidateWildflowerMeadows(
+            FieldDecorationView[] decorations,
+            FieldDecorationCluster[] clusters)
+        {
+            FieldDecorationCluster[] meadows = clusters
+                .Where(cluster =>
+                    cluster.Profile == "Wildflower Meadow")
+                .ToArray();
+            if (meadows.Length != 3)
+            {
+                throw new InvalidOperationException(
+                    "Stage 01 must contain exactly three wildflower meadows.");
+            }
+
+            int totalFlowers = 0;
+            int totalGrass = 0;
+            int totalStones = 0;
+            for (int meadowIndex = 0;
+                 meadowIndex < meadows.Length;
+                 meadowIndex++)
+            {
+                FieldDecorationCluster meadow =
+                    meadows[meadowIndex];
+                FieldDecorationView[] details = meadow
+                    .GetComponentsInChildren<FieldDecorationView>(
+                        true);
+                FieldDecorationView[] flowers = details
+                    .Where(detail =>
+                        detail.AssetKey.StartsWith(
+                            "6 Flower/",
+                            StringComparison.Ordinal))
+                    .ToArray();
+                FieldDecorationView[] stones = details
+                    .Where(detail =>
+                        detail.AssetKey.StartsWith(
+                            "4 Stone/",
+                            StringComparison.Ordinal))
+                    .ToArray();
+                totalFlowers += flowers.Length;
+                totalGrass += details.Count(detail =>
+                    detail.AssetKey.StartsWith(
+                        "5 Grass/",
+                        StringComparison.Ordinal));
+                totalStones += stones.Length;
+
+                if (flowers.Length < 10 || stones.Length > 1)
+                {
+                    throw new InvalidOperationException(
+                        meadow.ClusterId +
+                        " must remain flower-dominant with sparse stones.");
+                }
+
+                int flowerVariants = flowers
+                    .Select(flower => flower.AssetKey)
+                    .Distinct()
+                    .Count();
+                if (flowerVariants > 3)
+                {
+                    throw new InvalidOperationException(
+                        meadow.ClusterId +
+                        " uses too many flower colors.");
+                }
+
+                for (int detailIndex = 0;
+                     detailIndex < details.Length;
+                     detailIndex++)
+                {
+                    if (!IsInsideEllipse(
+                            details[detailIndex].transform.position,
+                            meadow.Center,
+                            meadow.Radius,
+                            1.01f))
+                    {
+                        throw new InvalidOperationException(
+                            details[detailIndex].AssetKey +
+                            " escaped " +
+                            meadow.ClusterId +
+                            ".");
+                    }
+                }
+
+                for (int flowerIndex = 0;
+                     flowerIndex < flowers.Length;
+                     flowerIndex++)
+                {
+                    float nearest = float.MaxValue;
+                    for (int other = 0;
+                         other < flowers.Length;
+                         other++)
+                    {
+                        if (flowerIndex == other)
+                        {
+                            continue;
+                        }
+
+                        nearest = Mathf.Min(
+                            nearest,
+                            Vector2.Distance(
+                                flowers[flowerIndex]
+                                    .transform.position,
+                                flowers[other]
+                                    .transform.position));
+                    }
+
+                    if (nearest > 1f)
+                    {
+                        throw new InvalidOperationException(
+                            meadow.ClusterId +
+                            " contains an isolated flower.");
+                    }
+                }
+            }
+
+            if (totalFlowers < MinimumWildflowerCount ||
+                totalGrass < 12 ||
+                totalStones != ExpectedMeadowStoneCount ||
+                totalFlowers < totalStones * 8)
+            {
+                throw new InvalidOperationException(
+                    "Wildflower meadow composition is outside its density contract.");
+            }
+        }
+
+        private static void ValidateWorldClearance(
+            string key,
+            Vector2 point,
+            RunMapSource run,
+            float pathClearance,
+            float buildSiteClearance)
+        {
+            if (HasWorldClearance(
+                    point,
+                    run,
+                    pathClearance,
+                    buildSiteClearance))
+            {
+                return;
+            }
+
+            throw new InvalidOperationException(
+                key +
+                " at (" +
+                point.x +
+                ", " +
+                point.y +
+                ") overlaps the road or a tower build site.");
+        }
+
+        private static bool HasWorldClearance(
+            Vector2 point,
+            RunMapSource run,
+            float pathClearance,
+            float buildSiteClearance)
+        {
+            for (int segment = 0;
+                 segment < run.PathPoints.Length - 1;
+                 segment++)
+            {
+                if (DistanceToSegment(
+                        point,
+                        run.PathPoints[segment],
+                        run.PathPoints[segment + 1]) <
+                    pathClearance)
+                {
+                    return false;
+                }
+            }
+
+            for (int index = 0;
+                 index < run.BuildSpots.Length;
+                 index++)
+            {
+                if (Vector2.Distance(
+                        point,
+                        run.BuildSpots[index]) <
+                    buildSiteClearance)
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         private static Dictionary<int, FieldTerrainTile>
@@ -1697,26 +3644,6 @@ namespace RuleforgeTD.Editor.AssetImport
             }
 
             return result;
-        }
-
-        private static void SetTile(
-            Tilemap tilemap,
-            Dictionary<string, Tile> tiles,
-            TilePlacement placement)
-        {
-            if (!tiles.TryGetValue(placement.Key, out Tile tile))
-            {
-                throw new InvalidOperationException(
-                    "Missing generated prop tile: " +
-                    placement.Key);
-            }
-
-            tilemap.SetTile(
-                new Vector3Int(
-                    placement.X,
-                    placement.Y,
-                    0),
-                tile);
         }
 
         private static RunMapSource LoadRunMapSource()
@@ -2028,35 +3955,165 @@ namespace RuleforgeTD.Editor.AssetImport
             public bool FlipX { get; }
         }
 
-        private readonly struct TilePlacement
+        private readonly struct BiomeDefinition
         {
-            public TilePlacement(string key, int x, int y)
+            public BiomeDefinition(
+                string id,
+                string profile,
+                Vector2 center,
+                Vector2 radius,
+                int seed,
+                int treeCount,
+                int bushCount,
+                int accentCount,
+                int fenceCount,
+                float groundDensity,
+                float fenceStartDegrees,
+                float fenceEndDegrees)
             {
-                Key = key;
-                X = x;
-                Y = y;
+                Id = id;
+                Profile = profile;
+                Center = center;
+                Radius = radius;
+                Seed = seed;
+                TreeCount = treeCount;
+                BushCount = bushCount;
+                AccentCount = accentCount;
+                FenceCount = fenceCount;
+                GroundDensity = groundDensity;
+                FenceStartDegrees = fenceStartDegrees;
+                FenceEndDegrees = fenceEndDegrees;
             }
 
-            public string Key { get; }
-            public int X { get; }
-            public int Y { get; }
+            public string Id { get; }
+            public string Profile { get; }
+            public Vector2 Center { get; }
+            public Vector2 Radius { get; }
+            public int Seed { get; }
+            public int TreeCount { get; }
+            public int BushCount { get; }
+            public int AccentCount { get; }
+            public int FenceCount { get; }
+            public float GroundDensity { get; }
+            public float FenceStartDegrees { get; }
+            public float FenceEndDegrees { get; }
         }
 
-        private readonly struct AnimatedTilePlacement
+        private readonly struct MeadowDefinition
         {
-            public AnimatedTilePlacement(
+            public MeadowDefinition(
+                string id,
+                Vector2 center,
+                Vector2 radius,
+                int seed,
+                int patchCount,
+                int flowerCount,
+                int grassCount,
+                int stoneCount,
+                int primaryFlower,
+                int secondaryFlower,
+                int tertiaryFlower)
+            {
+                Id = id;
+                Center = center;
+                Radius = radius;
+                Seed = seed;
+                PatchCount = patchCount;
+                FlowerCount = flowerCount;
+                GrassCount = grassCount;
+                StoneCount = stoneCount;
+                PrimaryFlower = primaryFlower;
+                SecondaryFlower = secondaryFlower;
+                TertiaryFlower = tertiaryFlower;
+            }
+
+            public string Id { get; }
+            public Vector2 Center { get; }
+            public Vector2 Radius { get; }
+            public int Seed { get; }
+            public int PatchCount { get; }
+            public int FlowerCount { get; }
+            public int GrassCount { get; }
+            public int StoneCount { get; }
+            public int PrimaryFlower { get; }
+            public int SecondaryFlower { get; }
+            public int TertiaryFlower { get; }
+        }
+
+        private readonly struct DecorationPlacement
+        {
+            public DecorationPlacement(
                 string key,
-                int x,
-                int y)
+                Vector2 offset,
+                bool flipX,
+                string groundBaseKey)
             {
                 Key = key;
-                X = x;
-                Y = y;
+                Offset = offset;
+                FlipX = flipX;
+                GroundBaseKey = groundBaseKey;
             }
 
             public string Key { get; }
-            public int X { get; }
-            public int Y { get; }
+            public Vector2 Offset { get; }
+            public bool FlipX { get; }
+            public string GroundBaseKey { get; }
+        }
+
+        private readonly struct RoadMarkerPlacement
+        {
+            public RoadMarkerPlacement(
+                int segmentIndex,
+                float segmentT,
+                float side,
+                string key,
+                bool animated,
+                bool flipX)
+            {
+                SegmentIndex = segmentIndex;
+                SegmentT = segmentT;
+                Side = side;
+                Key = key;
+                Animated = animated;
+                FlipX = flipX;
+            }
+
+            public int SegmentIndex { get; }
+            public float SegmentT { get; }
+            public float Side { get; }
+            public string Key { get; }
+            public bool Animated { get; }
+            public bool FlipX { get; }
+        }
+
+        private struct DeterministicRandom
+        {
+            private uint state;
+
+            public DeterministicRandom(uint seed)
+            {
+                state = seed == 0u ? 0x6D2B79F5u : seed;
+            }
+
+            public uint NextUInt()
+            {
+                uint value = state;
+                value ^= value << 13;
+                value ^= value >> 17;
+                value ^= value << 5;
+                state = value;
+                return value;
+            }
+
+            public float Next01()
+            {
+                return (NextUInt() & 0x00FFFFFFu) / 16777216f;
+            }
+
+            public bool NextBool()
+            {
+                return (NextUInt() & 1u) != 0u;
+            }
         }
 
         private sealed class NaturalPathComparer :

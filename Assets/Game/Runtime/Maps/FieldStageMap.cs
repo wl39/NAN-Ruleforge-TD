@@ -16,10 +16,7 @@ namespace RuleforgeTD.Maps
         private Tilemap groundDecals;
 
         [SerializeField]
-        private Tilemap props;
-
-        [SerializeField]
-        private Tilemap animatedObjects;
+        private Transform decorationRoot;
 
         [SerializeField]
         private StageNavigationMask navigationMask;
@@ -33,8 +30,7 @@ namespace RuleforgeTD.Maps
 
         public Tilemap Terrain => terrain;
         public Tilemap GroundDecals => groundDecals;
-        public Tilemap Props => props;
-        public Tilemap AnimatedObjects => animatedObjects;
+        public Transform DecorationRoot => decorationRoot;
         public StageNavigationMask NavigationMask => navigationMask;
         public StagePathAuthoring Path => path;
         public int BuildSiteCount =>
@@ -43,16 +39,14 @@ namespace RuleforgeTD.Maps
         public void ConfigureAuthoring(
             Tilemap terrainTilemap,
             Tilemap decalTilemap,
-            Tilemap propTilemap,
-            Tilemap animatedTilemap,
+            Transform decorations,
             StageNavigationMask mask,
             StagePathAuthoring pathAuthoring,
             TowerBuildSiteView[] sites)
         {
             terrain = terrainTilemap;
             groundDecals = decalTilemap;
-            props = propTilemap;
-            animatedObjects = animatedTilemap;
+            decorationRoot = decorations;
             navigationMask = mask;
             path = pathAuthoring;
             buildSites = sites == null
