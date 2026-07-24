@@ -16,7 +16,7 @@ namespace RuleforgeTD.Simulation
                 simulation.Submit(
                     GameCommand.ChooseStartingTower("ballista")));
 
-            int[] buildPoints = { 0, 2, 3, 5 };
+            int[] buildPoints = { 0, 2, 3, 4 };
             for (int i = 0; i < buildPoints.Length; i++)
             {
                 Require(

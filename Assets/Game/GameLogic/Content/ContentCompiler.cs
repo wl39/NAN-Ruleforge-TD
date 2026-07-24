@@ -625,6 +625,12 @@ namespace RuleforgeTD.GameLogic.Content
             }
 
             AppendPositions(ref hash, run.BuildSpots);
+            int[] buildSpotUnlockCosts = run.BuildSpotUnlockCosts;
+            hash.Add(buildSpotUnlockCosts.Length);
+            for (int i = 0; i < buildSpotUnlockCosts.Length; i++)
+            {
+                hash.Add(buildSpotUnlockCosts[i]);
+            }
             AppendPositions(ref hash, run.PathPoints);
             hash.Add(run.DraftOfferCount);
             hash.Add(run.TierWeights.Length);
@@ -897,6 +903,8 @@ namespace RuleforgeTD.GameLogic.Content
                 dto.buildSpotYMilli,
                 "build spots",
                 errors);
+            int[] buildSpotUnlockCosts =
+                dto.buildSpotUnlockCosts ?? Array.Empty<int>();
             SimPosition[] pathPoints = CompilePositions(
                 dto.pathPointXMilli,
                 dto.pathPointYMilli,
@@ -909,6 +917,21 @@ namespace RuleforgeTD.GameLogic.Content
             if (buildSpots.Length == 0)
             {
                 errors.Add("Run needs at least one build spot.");
+            }
+            if (buildSpotUnlockCosts.Length != buildSpots.Length)
+            {
+                errors.Add(
+                    "Run build-spot unlock costs must match build spots.");
+            }
+            for (int i = 0; i < buildSpotUnlockCosts.Length; i++)
+            {
+                if (buildSpotUnlockCosts[i] < 0 ||
+                    buildSpotUnlockCosts[i] > MaxScalar)
+                {
+                    errors.Add(
+                        "Run build-spot unlock costs must be non-negative " +
+                        "and within scalar limits.");
+                }
             }
             if (buildSpots.Length > 128 ||
                 pathPoints.Length > 1_024)
@@ -952,6 +975,7 @@ namespace RuleforgeTD.GameLogic.Content
                 InitiallyUnlockedTowers = compiledInitiallyUnlocked,
                 StartingCards = compiledCards,
                 BuildSpots = buildSpots,
+                BuildSpotUnlockCosts = buildSpotUnlockCosts,
                 PathPoints = pathPoints,
                 DraftOfferCount = dto.draftOfferCount,
                 TierWeights = dto.tierWeights ?? new[] { 48, 30, 15, 6, 1 },

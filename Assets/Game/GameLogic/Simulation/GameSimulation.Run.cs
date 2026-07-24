@@ -127,6 +127,13 @@ namespace RuleforgeTD.GameLogic.Simulation
                     "Build point is out of range.");
             }
 
+            if (!unlockedBuildSpots[buildPointIndex])
+            {
+                return CommandResult.Reject(
+                    CommandError.BuildPointLocked,
+                    "Build point is locked.");
+            }
+
             // 자유 좌표 배치가 아니라 한 지점당 한 타워인 규칙을 전체 타워 목록에서 확인한다.
             for (int i = 0; i < towers.Count; i++)
             {
@@ -167,6 +174,51 @@ namespace RuleforgeTD.GameLogic.Simulation
                 buildPointIndex,
                 0,
                 definition.StableId);
+            return CommandResult.Success();
+        }
+
+        /// <summary>
+        /// 계획 단계에서 골드를 지불해 잠긴 건설 지점을 영구적으로 해금한다.
+        /// </summary>
+        /// <remarks>
+        /// 모든 검증을 먼저 끝낸 뒤 골드와 해금 상태를 함께 변경한다.
+        /// 따라서 실패한 명령은 부분적으로 비용만 차감하는 상태를 만들지 않는다.
+        /// </remarks>
+        private CommandResult UnlockBuildSpot(int buildPointIndex)
+        {
+            if (phase != RunPhase.Planning)
+            {
+                return CommandResult.Reject(
+                    CommandError.InvalidPhase,
+                    "Build points can only be unlocked during planning.");
+            }
+
+            if (buildPointIndex < 0 ||
+                buildPointIndex >= unlockedBuildSpots.Length)
+            {
+                return CommandResult.Reject(
+                    CommandError.InvalidTarget,
+                    "Build point is out of range.");
+            }
+
+            if (unlockedBuildSpots[buildPointIndex])
+            {
+                return CommandResult.Reject(
+                    CommandError.InvalidTarget,
+                    "Build point is already unlocked.");
+            }
+
+            int unlockCost =
+                run.BuildSpotUnlockCostsInternal[buildPointIndex];
+            if (gold < unlockCost)
+            {
+                return CommandResult.Reject(
+                    CommandError.InsufficientGold,
+                    "Not enough gold to unlock the build point.");
+            }
+
+            gold = checked(gold - unlockCost);
+            unlockedBuildSpots[buildPointIndex] = true;
             return CommandResult.Success();
         }
 

@@ -87,6 +87,13 @@ namespace RuleforgeTD.GameLogic.Simulation
             }
 
             AppendPositions(ref hash, definition.BuildSpots);
+            int[] buildSpotUnlockCosts =
+                definition.BuildSpotUnlockCosts;
+            hash.Add(buildSpotUnlockCosts.Length);
+            for (int i = 0; i < buildSpotUnlockCosts.Length; i++)
+            {
+                hash.Add(buildSpotUnlockCosts[i]);
+            }
             AppendPositions(ref hash, definition.PathPoints);
             hash.Add(definition.DraftOfferCount);
 
@@ -154,7 +161,8 @@ namespace RuleforgeTD.GameLogic.Simulation
         SelectDraft = 4,
         StartWave = 5,
         MoveCard = 6,
-        UnequipCard = 7
+        UnequipCard = 7,
+        UnlockBuildSpot = 8
     }
 
     /// <summary>
@@ -194,7 +202,13 @@ namespace RuleforgeTD.GameLogic.Simulation
         InvalidDraftChoice = 9,
 
         /// <summary>전투 중이라 장착·이동·재정렬을 할 수 없다.</summary>
-        CombatLoadoutLocked = 10
+        CombatLoadoutLocked = 10,
+
+        /// <summary>골드 해금이 필요한 건설 지점에 아직 타워를 배치할 수 없다.</summary>
+        BuildPointLocked = 11,
+
+        /// <summary>요청한 건설 지점의 해금 비용보다 현재 골드가 적다.</summary>
+        InsufficientGold = 12
     }
 
     /// <summary>
@@ -297,6 +311,19 @@ namespace RuleforgeTD.GameLogic.Simulation
             return new GameCommand(
                 GameCommandType.PlaceTower,
                 towerId,
+                buildPointIndex,
+                -1,
+                -1);
+        }
+
+        /// <summary>
+        /// 계획 단계에서 골드를 지불해 잠긴 고정 건설 지점 하나를 해금한다.
+        /// </summary>
+        public static GameCommand UnlockBuildSpot(int buildPointIndex)
+        {
+            return new GameCommand(
+                GameCommandType.UnlockBuildSpot,
+                string.Empty,
                 buildPointIndex,
                 -1,
                 -1);

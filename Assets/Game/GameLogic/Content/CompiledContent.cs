@@ -332,6 +332,7 @@ namespace RuleforgeTD.GameLogic.Content
             Array.Empty<TowerDefinitionId>();
         private CardId[] startingCards = Array.Empty<CardId>();
         private SimPosition[] buildSpots = Array.Empty<SimPosition>();
+        private int[] buildSpotUnlockCosts = Array.Empty<int>();
         private SimPosition[] pathPoints = Array.Empty<SimPosition>();
         private int[] tierWeights = Array.Empty<int>();
 
@@ -391,6 +392,22 @@ namespace RuleforgeTD.GameLogic.Content
                     : (SimPosition[])value.Clone();
             }
         }
+
+        /// <summary>
+        /// 건설 지점 인덱스와 일치하는 해금 골드 비용 복사본이다.
+        /// 0인 지점은 새 런에서 즉시 해금된다.
+        /// </summary>
+        public int[] BuildSpotUnlockCosts
+        {
+            get { return (int[])buildSpotUnlockCosts.Clone(); }
+            internal set
+            {
+                buildSpotUnlockCosts = value == null
+                    ? Array.Empty<int>()
+                    : (int[])value.Clone();
+            }
+        }
+
         /// <summary>적이 순서대로 따라가는 경로 꼭짓점의 복사본이다.</summary>
         public SimPosition[] PathPoints
         {
@@ -436,6 +453,8 @@ namespace RuleforgeTD.GameLogic.Content
             initiallyUnlockedTowers;
         internal CardId[] StartingCardsInternal => startingCards;
         internal SimPosition[] BuildSpotsInternal => buildSpots;
+        internal int[] BuildSpotUnlockCostsInternal =>
+            buildSpotUnlockCosts;
         internal SimPosition[] PathPointsInternal => pathPoints;
         internal int[] TierWeightsInternal => tierWeights;
     }

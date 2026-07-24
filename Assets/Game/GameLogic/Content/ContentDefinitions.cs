@@ -483,6 +483,13 @@ namespace RuleforgeTD.GameLogic.Content
         // 같은 인덱스의 X와 Y가 한 점이며 컴파일 시 SimPosition 하나로 합쳐진다.
         public int[] buildSpotXMilli;
         public int[] buildSpotYMilli;
+
+        /// <summary>
+        /// 건설 지점별 해금 골드 비용이다. 좌표 배열과 같은 길이이며 0인 지점은
+        /// 런 시작부터 해금되고, 양수인 지점은 계획 단계에서 비용을 지불해야 한다.
+        /// </summary>
+        public int[] buildSpotUnlockCosts;
+
         public int[] pathPointXMilli;
         public int[] pathPointYMilli;
 

@@ -109,6 +109,10 @@ namespace RuleforgeTD.GameLogic.Simulation
         // 현재 웨이브의 각 스폰 묶음이 몇 마리까지 생성됐고 다음 생성 틱이 언제인지 기록한다.
         private WaveSpawnRuntime[] waveSpawns = new WaveSpawnRuntime[0];
 
+        // 비용이 0인 건설 지점은 새 런부터 true이고, 유료 지점은 해금 명령이 성공한 뒤 true다.
+        // 좌표 및 비용 배열과 같은 인덱스를 사용해 별도 Dictionary 순서에 의존하지 않는다.
+        private bool[] unlockedBuildSpots = new bool[0];
+
         /// <summary>현재 런 단계다. 계획, 전투, 드래프트, 승패 등의 명령 허용 여부를 결정한다.</summary>
         public RunPhase Phase => phase;
 
@@ -213,6 +217,13 @@ namespace RuleforgeTD.GameLogic.Simulation
             nextChainId = 0;
             nextActivationId = 0;
             waveSpawns = new WaveSpawnRuntime[0];
+            unlockedBuildSpots =
+                new bool[run.BuildSpotUnlockCostsInternal.Length];
+            for (int i = 0; i < unlockedBuildSpots.Length; i++)
+            {
+                unlockedBuildSpots[i] =
+                    run.BuildSpotUnlockCostsInternal[i] == 0;
+            }
             phase = RunPhase.AwaitingStartingTower;
 
             // 시작 카드도 정의 그 자체가 아니라 고유 InstanceId를 가진 소유 카드로 만든다.
@@ -246,6 +257,8 @@ namespace RuleforgeTD.GameLogic.Simulation
                     return ChooseStartingTower(command.ContentId);
                 case GameCommandType.PlaceTower:
                     return PlaceTower(command.ContentId, command.PrimaryId);
+                case GameCommandType.UnlockBuildSpot:
+                    return UnlockBuildSpot(command.PrimaryId);
                 case GameCommandType.EquipCard:
                     return EquipCard(
                         command.PrimaryId,
@@ -488,6 +501,17 @@ namespace RuleforgeTD.GameLogic.Simulation
                         unlockedDefinitionIds[i])).StableId;
             }
 
+            var buildSpotSnapshots =
+                new BuildSpotSnapshot[run.BuildSpotsInternal.Length];
+            for (int i = 0; i < buildSpotSnapshots.Length; i++)
+            {
+                buildSpotSnapshots[i] = new BuildSpotSnapshot(
+                    i,
+                    run.BuildSpotsInternal[i],
+                    run.BuildSpotUnlockCostsInternal[i],
+                    unlockedBuildSpots[i]);
+            }
+
             return new SimulationSnapshot(
                 tick,
                 phase,
@@ -500,7 +524,8 @@ namespace RuleforgeTD.GameLogic.Simulation
                 cardSnapshots,
                 draftOffers.ToArray(),
                 lineageSnapshots,
-                unlockedTowerIds);
+                unlockedTowerIds,
+                buildSpotSnapshots);
         }
 
         /// <summary>
@@ -588,6 +613,11 @@ namespace RuleforgeTD.GameLogic.Simulation
             }
 
             AddSortedIntSet(ref hash, ownedTowerDefinitions);
+            hash.Add(unlockedBuildSpots.Length);
+            for (int i = 0; i < unlockedBuildSpots.Length; i++)
+            {
+                hash.Add(unlockedBuildSpots[i]);
+            }
 
             // 타워와 장착 프로그램은 List의 안정된 순서로 추가한다.
             hash.Add(towers.Count);
@@ -1025,6 +1055,8 @@ namespace RuleforgeTD.GameLogic.Simulation
                 definition.StartingTowerChoicesInternal.Length == 0 ||
                 definition.StartingCardsInternal.Length == 0 ||
                 definition.BuildSpotsInternal.Length == 0 ||
+                definition.BuildSpotUnlockCostsInternal.Length !=
+                    definition.BuildSpotsInternal.Length ||
                 definition.PathPointsInternal.Length < 2 ||
                 definition.DraftOfferCount <= 0 ||
                 definition.TierWeightsInternal.Length != 5 ||
@@ -1036,6 +1068,18 @@ namespace RuleforgeTD.GameLogic.Simulation
                 throw new ArgumentException(
                     "RunConfig contains an invalid deterministic run definition.",
                     nameof(definition));
+            }
+
+            for (int i = 0;
+                 i < definition.BuildSpotUnlockCostsInternal.Length;
+                 i++)
+            {
+                if (definition.BuildSpotUnlockCostsInternal[i] < 0)
+                {
+                    throw new ArgumentException(
+                        "RunConfig build-spot unlock costs cannot be negative.",
+                        nameof(definition));
+                }
             }
 
             for (int i = 0;

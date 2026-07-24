@@ -419,6 +419,34 @@ namespace RuleforgeTD.GameLogic.Simulation
         public int Slot { get; }
     }
 
+    /// <summary>고정 건설 지점 하나의 위치와 해금 상태를 담는 외부 읽기 모델이다.</summary>
+    public readonly struct BuildSpotSnapshot
+    {
+        public BuildSpotSnapshot(
+            int index,
+            SimPosition position,
+            int unlockCost,
+            bool unlocked)
+        {
+            Index = index;
+            Position = position;
+            UnlockCost = unlockCost;
+            Unlocked = unlocked;
+        }
+
+        /// <summary>배치 및 해금 명령에서 사용하는 0 기반 건설 지점 인덱스다.</summary>
+        public int Index { get; }
+
+        /// <summary>맵 표현 계층이 사이트를 배치할 논리 좌표다.</summary>
+        public SimPosition Position { get; }
+
+        /// <summary>잠금 해제에 필요한 골드다. 0이면 런 시작부터 해금된다.</summary>
+        public int UnlockCost { get; }
+
+        /// <summary>현재 타워 배치가 허용되는 지점이면 true다.</summary>
+        public bool Unlocked { get; }
+    }
+
     /// <summary>배치된 타워 한 개의 외부 읽기 모델이다.</summary>
     public readonly struct TowerSnapshot
     {
@@ -478,7 +506,8 @@ namespace RuleforgeTD.GameLogic.Simulation
             CardInstanceSnapshot[] cards,
             CardId[] draftOffers,
             LineageSnapshot[] lineages,
-            string[] unlockedTowerIds)
+            string[] unlockedTowerIds,
+            BuildSpotSnapshot[] buildSpots)
         {
             Tick = tick;
             Phase = phase;
@@ -492,6 +521,7 @@ namespace RuleforgeTD.GameLogic.Simulation
             DraftOffers = draftOffers;
             Lineages = lineages;
             UnlockedTowerIds = unlockedTowerIds;
+            BuildSpots = buildSpots;
         }
 
         /// <summary>이 상태를 만든 시뮬레이션 틱이다.</summary>
@@ -518,5 +548,8 @@ namespace RuleforgeTD.GameLogic.Simulation
         public LineageSnapshot[] Lineages { get; }
         /// <summary>현재 플레이어가 배치할 수 있는 타워 안정 ID 목록이다.</summary>
         public string[] UnlockedTowerIds { get; }
+
+        /// <summary>고정 건설 지점별 위치, 원래 해금 비용과 현재 해금 상태다.</summary>
+        public BuildSpotSnapshot[] BuildSpots { get; }
     }
 }

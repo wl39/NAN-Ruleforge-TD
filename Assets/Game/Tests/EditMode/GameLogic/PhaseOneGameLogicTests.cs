@@ -93,8 +93,115 @@ namespace RuleforgeTD.Tests.EditMode.GameLogic
             Assert.That(content.Run.TickRate, Is.EqualTo(30));
             Assert.That(content.Run.StartingTowerChoices, Has.Length.EqualTo(2));
             Assert.That(content.Run.InitiallyUnlockedTowers, Has.Length.EqualTo(1));
+            Assert.That(content.Run.BuildSpots, Has.Length.EqualTo(8));
+            CollectionAssert.AreEqual(
+                new[] { 0, 0, 0, 0, 0, 75, 75, 0 },
+                content.Run.BuildSpotUnlockCosts);
             Assert.That(content.Safety.MaxEventsPerTick, Is.EqualTo(4096));
             Assert.That(content.Safety.MaxActiveHazards, Is.EqualTo(2048));
+        }
+
+        [Test]
+        public void LockedBuildSpot_RejectsPlacementAndUnlockWithoutGold()
+        {
+            var simulation = new GameSimulation();
+            simulation.Initialize(content, 51UL);
+            AssertAccepted(
+                simulation.Submit(
+                    GameCommand.ChooseStartingTower("ballista")),
+                "choose starting tower");
+
+            SimulationSnapshot initial = simulation.GetSnapshot();
+            Assert.That(initial.BuildSpots, Has.Length.EqualTo(8));
+            Assert.That(initial.BuildSpots[5].UnlockCost, Is.EqualTo(75));
+            Assert.That(initial.BuildSpots[5].Unlocked, Is.False);
+            Assert.That(initial.BuildSpots[6].UnlockCost, Is.EqualTo(75));
+            Assert.That(initial.BuildSpots[6].Unlocked, Is.False);
+            Assert.That(initial.BuildSpots[7].UnlockCost, Is.Zero);
+            Assert.That(initial.BuildSpots[7].Unlocked, Is.True);
+
+            ulong stateBeforePlacement = simulation.ComputeStateHash();
+            CommandResult placement = simulation.Submit(
+                GameCommand.PlaceTower("ballista", 5));
+
+            Assert.That(placement.Accepted, Is.False);
+            Assert.That(
+                placement.Error,
+                Is.EqualTo(CommandError.BuildPointLocked));
+            Assert.That(
+                simulation.ComputeStateHash(),
+                Is.EqualTo(stateBeforePlacement));
+            Assert.That(simulation.GetSnapshot().Gold, Is.EqualTo(initial.Gold));
+            Assert.That(simulation.GetSnapshot().Towers, Is.Empty);
+
+            ulong stateBeforeUnlock = simulation.ComputeStateHash();
+            CommandResult unlock = simulation.Submit(
+                GameCommand.UnlockBuildSpot(5));
+
+            Assert.That(unlock.Accepted, Is.False);
+            Assert.That(
+                unlock.Error,
+                Is.EqualTo(CommandError.InsufficientGold));
+            Assert.That(
+                simulation.ComputeStateHash(),
+                Is.EqualTo(stateBeforeUnlock));
+            SimulationSnapshot afterFailure = simulation.GetSnapshot();
+            Assert.That(afterFailure.Gold, Is.EqualTo(initial.Gold));
+            Assert.That(afterFailure.BuildSpots[5].Unlocked, Is.False);
+        }
+
+        [Test]
+        public void UnlockBuildSpot_PaysOnceAndDeterministicallyEnablesPlacement()
+        {
+            CompiledContent fundedContent = CompileCustomized(
+                source => source.run.startingGold = 100);
+            var first = new GameSimulation();
+            var second = new GameSimulation();
+            first.Initialize(fundedContent, 52UL);
+            second.Initialize(fundedContent, 52UL);
+            AssertAccepted(
+                first.Submit(
+                    GameCommand.ChooseStartingTower("ballista")),
+                "choose first starting tower");
+            AssertAccepted(
+                second.Submit(
+                    GameCommand.ChooseStartingTower("ballista")),
+                "choose second starting tower");
+
+            Assert.That(
+                first.ComputeStateHash(),
+                Is.EqualTo(second.ComputeStateHash()));
+            AssertAccepted(
+                first.Submit(GameCommand.UnlockBuildSpot(5)),
+                "unlock first build spot");
+            AssertAccepted(
+                second.Submit(GameCommand.UnlockBuildSpot(5)),
+                "unlock second build spot");
+
+            SimulationSnapshot unlocked = first.GetSnapshot();
+            Assert.That(unlocked.Gold, Is.EqualTo(25));
+            Assert.That(unlocked.BuildSpots[5].Unlocked, Is.True);
+            Assert.That(
+                first.ComputeStateHash(),
+                Is.EqualTo(second.ComputeStateHash()));
+
+            ulong stateBeforeRepeat = first.ComputeStateHash();
+            CommandResult repeated = first.Submit(
+                GameCommand.UnlockBuildSpot(5));
+            Assert.That(repeated.Accepted, Is.False);
+            Assert.That(repeated.Error, Is.EqualTo(CommandError.InvalidTarget));
+            Assert.That(first.GetSnapshot().Gold, Is.EqualTo(25));
+            Assert.That(
+                first.ComputeStateHash(),
+                Is.EqualTo(stateBeforeRepeat));
+
+            AssertAccepted(
+                first.Submit(GameCommand.PlaceTower("ballista", 5)),
+                "place tower on unlocked build spot");
+            Assert.That(first.GetSnapshot().Towers, Has.Length.EqualTo(1));
+            Assert.That(
+                first.GetSnapshot().Towers[0].BuildPointIndex,
+                Is.EqualTo(5));
         }
 
         [Test]
@@ -614,6 +721,9 @@ namespace RuleforgeTD.Tests.EditMode.GameLogic
             SimPosition[] path = content.Run.PathPoints;
             path[0] = SimPosition.FromMilliUnits(999999, 999999);
 
+            int[] unlockCosts = content.Run.BuildSpotUnlockCosts;
+            unlockCosts[5] = 999999;
+
             Assert.That(content.Cards[0], Is.Not.Null);
             Assert.That(
                 content.GetCard(new CardId(0)).Tags[0],
@@ -621,15 +731,18 @@ namespace RuleforgeTD.Tests.EditMode.GameLogic
             Assert.That(
                 content.Run.PathPoints[0],
                 Is.Not.EqualTo(path[0]));
+            Assert.That(content.Run.BuildSpotUnlockCosts[5], Is.EqualTo(75));
             Assert.That(content.ContentHash, Is.EqualTo(fingerprint));
         }
 
         [Test]
-        public void RunConfigFingerprint_DistinguishesDeterministicOverrides()
+        public void BuildSpotUnlockCosts_AffectContentAndRunFingerprints()
         {
             ContentCatalogDto changedSource = LoadPhaseOneDto();
-            changedSource.run.pathPointXMilli[1]++;
+            changedSource.run.buildSpotUnlockCosts[5]++;
             CompiledContent changed = Compile(changedSource);
+
+            Assert.That(changed.ContentHash, Is.Not.EqualTo(content.ContentHash));
 
             var first = new GameSimulation();
             first.Initialize(content, new RunConfig(content.Run), 41UL);
@@ -639,6 +752,20 @@ namespace RuleforgeTD.Tests.EditMode.GameLogic
             Assert.That(
                 first.ComputeStateHash(),
                 Is.Not.EqualTo(second.ComputeStateHash()));
+        }
+
+        [Test]
+        public void ContentCompiler_RejectsInvalidBuildSpotUnlockCosts()
+        {
+            ContentCatalogDto wrongLength = LoadPhaseOneDto();
+            wrongLength.run.buildSpotUnlockCosts = new int[7];
+            Assert.Throws<ContentValidationException>(
+                () => Compile(wrongLength));
+
+            ContentCatalogDto negativeCost = LoadPhaseOneDto();
+            negativeCost.run.buildSpotUnlockCosts[5] = -1;
+            Assert.Throws<ContentValidationException>(
+                () => Compile(negativeCost));
         }
 
         [Test]
@@ -1322,7 +1449,7 @@ namespace RuleforgeTD.Tests.EditMode.GameLogic
                     GameCommand.ChooseStartingTower("ballista")),
                 "choose headless ballista");
 
-            int[] buildPoints = { 0, 2, 3, 5 };
+            int[] buildPoints = { 0, 2, 3, 4 };
             for (int i = 0; i < buildPoints.Length; i++)
             {
                 AssertAccepted(

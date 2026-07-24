@@ -484,6 +484,7 @@
     "startingCards": ["split", "burn", "explode"],
     "buildSpotXMilli": [3000, 7500, 10500, 14000, 17500, 20500, 22500, 12000],
     "buildSpotYMilli": [2000, -2000, 3500, 8500, 9500, 14500, 9500, 1000],
+    "buildSpotUnlockCosts": [0, 0, 0, 0, 0, 75, 75, 0],
     "pathPointXMilli": [0, 8000, 8000, 16000, 16000, 24000],
     "pathPointYMilli": [0, 0, 6000, 6000, 12000, 12000],
     "draftOfferCount": 3,
