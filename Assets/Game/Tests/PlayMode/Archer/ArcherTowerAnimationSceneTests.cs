@@ -68,6 +68,33 @@ namespace RuleforgeTD.Tests.PlayMode
                 showcase.SetAutomaticPlayback(false);
                 showcase.RefreshTargets();
                 Assert.That(showcase.TargetCount, Is.EqualTo(4));
+                ArcherShowcaseCardProgram cardProgram =
+                    showcase.CardProgram;
+                Assert.That(cardProgram, Is.Not.Null);
+                Assert.That(cardProgram.IsReady, Is.True);
+                CollectionAssert.AreEqual(
+                    new[] { "split", "burn", "poison" },
+                    cardProgram.EquippedCardIds);
+                Assert.That(
+                    cardProgram.SplitProjectileCount,
+                    Is.EqualTo(2));
+                Assert.That(
+                    cardProgram.SplitDamageBasisPoints,
+                    Is.EqualTo(6500));
+                AssertStatusDefinition(
+                    cardProgram.BurnDefinition,
+                    500,
+                    90,
+                    15,
+                    10,
+                    0);
+                AssertStatusDefinition(
+                    cardProgram.PoisonDefinition,
+                    500,
+                    180,
+                    30,
+                    20,
+                    5000);
                 int expectedDirections = tower.UnitTier == 1
                     ? 5
                     : tower.UnitTier == 2
@@ -152,6 +179,8 @@ namespace RuleforgeTD.Tests.PlayMode
                 ArcherTowerShowcaseActor closedShowcase =
                     closedTower.GetComponent<ArcherTowerShowcaseActor>();
                 int requestedArrows = 0;
+                int launchesBeforeVolley =
+                    closedShowcase.TotalProjectileLaunchCount;
                 closedTower.ArrowRequested +=
                     (origin, direction, tier) => requestedArrows++;
 
@@ -174,12 +203,18 @@ namespace RuleforgeTD.Tests.PlayMode
                     Is.EqualTo(closedTower.ArcherCount),
                     "Every hidden internal archer must release one arrow.");
                 Assert.That(
+                    closedShowcase.TotalProjectileLaunchCount -
+                    launchesBeforeVolley,
+                    Is.EqualTo(closedTower.ArcherCount * 2),
+                    "Split must create two tracked projectiles per archer release.");
+                Assert.That(
                     closedShowcase.SuccessfulHitCount,
                     Is.GreaterThan(0),
                     "A closed-roof tower must damage a live enemy.");
                 Assert.That(
                     closedShowcase.PooledProjectileCount,
-                    Is.LessThanOrEqualTo(8));
+                    Is.LessThanOrEqualTo(
+                        ArcherTowerShowcaseActor.MaximumPooledProjectiles));
                 Assert.That(closedTower.AreArchersVisible, Is.False);
                 foreach (DirectionalArcherAnimator archer in closedTower
                              .GetComponentsInChildren<DirectionalArcherAnimator>(true))
@@ -249,6 +284,13 @@ namespace RuleforgeTD.Tests.PlayMode
                 "The archer must face its selected live enemy.");
 
             int healthBeforeHit = target.CurrentHealth;
+            ArcherEnemyCardStatusView targetStatus =
+                target.GetComponent<ArcherEnemyCardStatusView>();
+            Assert.That(targetStatus, Is.Not.Null);
+            int pendingDamageBeforeHit =
+                targetStatus.DirectPendingMilli;
+            int launchesBeforeHit =
+                levelOneShowcase.TotalProjectileLaunchCount;
             Assert.That(levelOne.PlayVolley(), Is.EqualTo(1));
             float hitTimeout = 2.5f;
             while (levelOneShowcase.SuccessfulHitCount == 0 &&
@@ -261,9 +303,281 @@ namespace RuleforgeTD.Tests.PlayMode
             Assert.That(levelOneShowcase.PooledProjectileCount, Is.GreaterThan(0));
             Assert.That(levelOneShowcase.SuccessfulHitCount, Is.GreaterThan(0));
             Assert.That(
+                levelOneShowcase.TotalProjectileLaunchCount -
+                launchesBeforeHit,
+                Is.EqualTo(2),
+                "The split card must turn one archer release into two arrows.");
+            Assert.That(
+                target.CurrentHealth < healthBeforeHit ||
+                targetStatus.DirectPendingMilli != pendingDamageBeforeHit,
+                Is.True,
+                "A 650-milli split arrow must deal or accumulate deterministic damage.");
+            Assert.That(targetStatus.HasBurn, Is.True);
+            Assert.That(targetStatus.HasPoison, Is.True);
+
+            targetStatus.enabled = false;
+            int healthBeforeStatusTicks = target.CurrentHealth;
+            targetStatus.SimulateTicksForTesting(30);
+            Assert.That(
                 target.CurrentHealth,
-                Is.LessThan(healthBeforeHit),
-                "A tracked arrow must reach and damage the live enemy.");
+                Is.LessThan(healthBeforeStatusTicks),
+                "Two authored burn intervals must convert milli damage into health loss.");
+        }
+
+        [UnityTest]
+        public IEnumerator CardStatuses_AccumulateMilliTicksAndClearOnRespawn()
+        {
+            SceneManager.LoadScene("ArcherTowerAnimationTest", LoadSceneMode.Single);
+            yield return null;
+
+            ArcherTowerShowcaseActor[] showcases =
+                Object.FindObjectsOfType<ArcherTowerShowcaseActor>();
+            foreach (ArcherTowerShowcaseActor showcase in showcases)
+            {
+                showcase.SetAutomaticPlayback(false);
+            }
+
+            ArcherShowcaseCardProgram cardProgram = showcases
+                .OrderBy(showcase =>
+                    showcase.GetComponent<ArcherTowerView>().Level)
+                .First()
+                .CardProgram;
+            Assert.That(cardProgram, Is.Not.Null);
+            Assert.That(cardProgram.IsReady, Is.True);
+
+            EnemyHealth enemy = Object.FindObjectsOfType<EnemyHealth>()
+                .OrderByDescending(candidate => candidate.MaxHealth)
+                .First();
+            EnemyTestActor enemyActor =
+                enemy.GetComponent<EnemyTestActor>();
+            Assert.That(enemyActor, Is.Not.Null);
+            enemyActor.SetMovementEnabled(false);
+
+            ArcherEnemyCardStatusView status =
+                enemy.GetComponent<ArcherEnemyCardStatusView>();
+            Assert.That(status, Is.Not.Null);
+            status.enabled = false;
+            status.ClearAll();
+            enemy.ResetHealth();
+            int maximumHealth = enemy.MaxHealth;
+
+            status.ApplyBurn(cardProgram.BurnDefinition);
+            Assert.That(status.HasBurn, Is.True);
+            Assert.That(status.BurnStacks, Is.EqualTo(1));
+            Assert.That(status.BurnRemainingTicks, Is.EqualTo(90));
+            Assert.That(status.BurnIntervalTicks, Is.EqualTo(15));
+            Assert.That(status.BurnTickCount, Is.Zero);
+
+            status.SimulateTicksForTesting(14);
+            Assert.That(status.BurnTickCount, Is.Zero);
+            Assert.That(status.BurnPendingDamageMilli, Is.Zero);
+            Assert.That(enemy.CurrentHealth, Is.EqualTo(maximumHealth));
+
+            status.SimulateTicksForTesting(1);
+            Assert.That(status.BurnTickCount, Is.EqualTo(1));
+            Assert.That(status.BurnPendingDamageMilli, Is.EqualTo(500));
+            Assert.That(enemy.CurrentHealth, Is.EqualTo(maximumHealth));
+
+            status.SimulateTicksForTesting(15);
+            Assert.That(status.BurnTickCount, Is.EqualTo(2));
+            Assert.That(status.BurnPendingDamageMilli, Is.Zero);
+            Assert.That(enemy.CurrentHealth, Is.EqualTo(maximumHealth - 1));
+
+            status.ClearAll();
+            enemy.ResetHealth();
+            for (int application = 0; application < 25; application++)
+            {
+                status.ApplyPoison(cardProgram.PoisonDefinition);
+            }
+
+            Assert.That(status.HasPoison, Is.True);
+            Assert.That(status.PoisonStacks, Is.EqualTo(20));
+            Assert.That(status.PoisonRemainingTicks, Is.EqualTo(180));
+            Assert.That(status.PoisonIntervalTicks, Is.EqualTo(30));
+            Assert.That(status.PoisonTickCount, Is.Zero);
+
+            status.SimulateTicksForTesting(29);
+            Assert.That(status.PoisonTickCount, Is.Zero);
+            Assert.That(status.PoisonPendingDamageMilli, Is.Zero);
+            Assert.That(enemy.CurrentHealth, Is.EqualTo(maximumHealth));
+
+            status.SimulateTicksForTesting(1);
+            Assert.That(status.PoisonTickCount, Is.EqualTo(1));
+            Assert.That(status.PoisonPendingDamageMilli, Is.Zero);
+            Assert.That(enemy.CurrentHealth, Is.EqualTo(maximumHealth - 10));
+
+            int healthBeforeDirectDamage = enemy.CurrentHealth;
+            Assert.That(status.ApplyDirectDamageMilli(650), Is.Zero);
+            Assert.That(status.DirectPendingMilli, Is.EqualTo(650));
+            Assert.That(
+                enemy.CurrentHealth,
+                Is.EqualTo(healthBeforeDirectDamage));
+            Assert.That(status.ApplyDirectDamageMilli(650), Is.EqualTo(1));
+            Assert.That(status.DirectPendingMilli, Is.EqualTo(300));
+            Assert.That(
+                enemy.CurrentHealth,
+                Is.EqualTo(healthBeforeDirectDamage - 1));
+
+            status.ApplyBurn(cardProgram.BurnDefinition);
+            Assert.That(status.HasBurn, Is.True);
+            enemy.Kill();
+            Assert.That(enemy.IsDead, Is.True);
+
+            float respawnTimeout = 2.4f;
+            while (enemy.IsDead && respawnTimeout > 0f)
+            {
+                respawnTimeout -= Time.deltaTime;
+                yield return null;
+            }
+
+            Assert.That(enemy.IsDead, Is.False);
+            Assert.That(enemy.CurrentHealth, Is.EqualTo(maximumHealth));
+            Assert.That(status.HasBurn, Is.False);
+            Assert.That(status.HasPoison, Is.False);
+            Assert.That(status.BurnStacks, Is.Zero);
+            Assert.That(status.PoisonStacks, Is.Zero);
+            Assert.That(status.BurnTickCount, Is.Zero);
+            Assert.That(status.PoisonTickCount, Is.Zero);
+            Assert.That(status.BurnPendingDamageMilli, Is.Zero);
+            Assert.That(status.PoisonPendingDamageMilli, Is.Zero);
+            Assert.That(status.DirectPendingMilli, Is.Zero);
+        }
+
+        [UnityTest]
+        public IEnumerator SplitVolley_UsesTwoBranchesAndRespectsPoolBound()
+        {
+            SceneManager.LoadScene("ArcherTowerAnimationTest", LoadSceneMode.Single);
+            yield return null;
+
+            ArcherTowerShowcaseActor[] showcases =
+                Object.FindObjectsOfType<ArcherTowerShowcaseActor>();
+            foreach (ArcherTowerShowcaseActor showcase in showcases)
+            {
+                showcase.SetAutomaticPlayback(false);
+            }
+
+            ArcherTowerView levelSeven = Object
+                .FindObjectsOfType<ArcherTowerView>()
+                .Single(tower => tower.Level == 7);
+            ArcherTowerShowcaseActor levelSevenShowcase =
+                levelSeven.GetComponent<ArcherTowerShowcaseActor>();
+            Assert.That(levelSevenShowcase.CardProgram.IsReady, Is.True);
+
+            EnemyHealth target = Object.FindObjectsOfType<EnemyHealth>()
+                .OrderByDescending(enemy => enemy.MaxHealth)
+                .First();
+            EnemyTestActor targetActor =
+                target.GetComponent<EnemyTestActor>();
+            Assert.That(targetActor, Is.Not.Null);
+            targetActor.SetMovementEnabled(false);
+            target.Configure(
+                1000,
+                target.GetComponent<RuleforgeTD.Rendering.DirectionalEnemyAnimator>());
+            target.transform.position =
+                levelSeven.transform.position + Vector3.up * 7.4f;
+            ArcherEnemyCardStatusView targetStatus =
+                target.GetComponent<ArcherEnemyCardStatusView>();
+            Assert.That(targetStatus, Is.Not.Null);
+            targetStatus.enabled = false;
+            targetStatus.ClearAll();
+
+            levelSevenShowcase.SetTargets(new[] { target });
+            Assert.That(levelSevenShowcase.AimAtNearestTarget(), Is.SameAs(target));
+
+            int initialLaunchCount =
+                levelSevenShowcase.TotalProjectileLaunchCount;
+            Assert.That(levelSeven.PlayVolley(), Is.EqualTo(3));
+            float firstVolleyStartedAt = Time.time;
+            while (Time.time - firstVolleyStartedAt < 0.72f)
+            {
+                yield return null;
+            }
+
+            Assert.That(
+                levelSevenShowcase.TotalProjectileLaunchCount,
+                Is.EqualTo(initialLaunchCount + 6));
+            Assert.That(levelSevenShowcase.PooledProjectileCount, Is.EqualTo(6));
+            Assert.That(levelSevenShowcase.ActiveProjectileCount, Is.EqualTo(6));
+
+            Assert.That(levelSeven.PlayVolley(), Is.EqualTo(3));
+            float secondVolleyStartedAt = Time.time;
+            float secondReleaseTimeout = 1.2f;
+            while (levelSevenShowcase.TotalProjectileLaunchCount <
+                       initialLaunchCount + 12 &&
+                   secondReleaseTimeout > 0f)
+            {
+                secondReleaseTimeout -= Time.deltaTime;
+                yield return null;
+            }
+
+            Assert.That(
+                levelSevenShowcase.TotalProjectileLaunchCount,
+                Is.EqualTo(initialLaunchCount + 12));
+            Assert.That(
+                levelSevenShowcase.PooledProjectileCount,
+                Is.EqualTo(
+                    ArcherTowerShowcaseActor.MaximumPooledProjectiles));
+            Assert.That(
+                levelSevenShowcase.ActiveProjectileCount,
+                Is.EqualTo(
+                    ArcherTowerShowcaseActor.MaximumPooledProjectiles));
+
+            while (Time.time - secondVolleyStartedAt < 0.72f)
+            {
+                yield return null;
+            }
+
+            Assert.That(levelSeven.PlayVolley(), Is.EqualTo(3));
+            float thirdReleaseTimeout = 1.2f;
+            while (levelSevenShowcase.TotalProjectileLaunchCount <
+                       initialLaunchCount + 18 &&
+                   thirdReleaseTimeout > 0f)
+            {
+                thirdReleaseTimeout -= Time.deltaTime;
+                yield return null;
+            }
+
+            Assert.That(
+                levelSevenShowcase.TotalProjectileLaunchCount,
+                Is.EqualTo(initialLaunchCount + 18));
+            Assert.That(
+                levelSevenShowcase.PooledProjectileCount,
+                Is.EqualTo(
+                    ArcherTowerShowcaseActor.MaximumPooledProjectiles));
+            Assert.That(
+                levelSevenShowcase.ActiveProjectileCount,
+                Is.LessThanOrEqualTo(
+                    ArcherTowerShowcaseActor.MaximumPooledProjectiles));
+
+            float expireTimeout = 2.8f;
+            while (levelSevenShowcase.ActiveProjectileCount > 0 &&
+                   expireTimeout > 0f)
+            {
+                expireTimeout -= Time.deltaTime;
+                yield return null;
+            }
+
+            Assert.That(levelSevenShowcase.ActiveProjectileCount, Is.Zero);
+            Assert.That(
+                levelSevenShowcase.PooledProjectileCount,
+                Is.EqualTo(
+                    ArcherTowerShowcaseActor.MaximumPooledProjectiles));
+        }
+
+        private static void AssertStatusDefinition(
+            ArcherShowcaseStatusDefinition definition,
+            int intensityMilli,
+            int durationTicks,
+            int intervalTicks,
+            int maxStacks,
+            int armorIgnoreBps)
+        {
+            Assert.That(definition.IntensityMilli, Is.EqualTo(intensityMilli));
+            Assert.That(definition.DurationTicks, Is.EqualTo(durationTicks));
+            Assert.That(definition.IntervalTicks, Is.EqualTo(intervalTicks));
+            Assert.That(definition.MaxStacks, Is.EqualTo(maxStacks));
+            Assert.That(definition.ArmorIgnoreBps, Is.EqualTo(armorIgnoreBps));
+            Assert.That(definition.TickRate, Is.EqualTo(30));
         }
     }
 }

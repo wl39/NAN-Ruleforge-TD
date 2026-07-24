@@ -36,6 +36,8 @@ namespace RuleforgeTD.Editor.AssetImport
         private const string PrefabRoot = "Assets/Game/Prefabs/Towers/Archer";
         private const string EnemyPrefabRoot = "Assets/Game/Prefabs/Enemies";
         private const string ShowcasePixelPath = DataRoot + "/ArcherShowcasePixel.asset";
+        private const string LogicContentPath =
+            "Assets/Game/Data/Logic/phase1-content.json";
 
         private const int TowerFrameWidth = 70;
         private const int TowerFrameHeight = 130;
@@ -263,7 +265,7 @@ namespace RuleforgeTD.Editor.AssetImport
 
             Debug.Log(
                 "RULEFORGE_ARCHER_BUILD_OK towerSheets=14 unitSheets=27 " +
-                "arrows=27 clips=41 prefabs=7 scene=" +
+                "arrows=27 cards=3 clips=41 prefabs=7 scene=" +
                 TestScenePath);
         }
 
@@ -971,6 +973,14 @@ namespace RuleforgeTD.Editor.AssetImport
             Sprite[][] arrowBanks,
             Sprite showcasePixel)
         {
+            TextAsset logicContent =
+                AssetDatabase.LoadAssetAtPath<TextAsset>(LogicContentPath);
+            if (logicContent == null)
+            {
+                throw new InvalidOperationException(
+                    "Missing compiled card content JSON: " + LogicContentPath);
+            }
+
             Scene previousActiveScene = SceneManager.GetActiveScene();
             Scene targetScene = SceneManager.GetSceneByPath(TestScenePath);
             bool wasAlreadyLoaded = targetScene.IsValid() && targetScene.isLoaded;
@@ -1006,7 +1016,7 @@ namespace RuleforgeTD.Editor.AssetImport
                 ClearScene(targetScene);
                 CreateShowcaseCamera();
                 CreateShowcaseBackground(showcasePixel);
-                CreateShowcaseText();
+                CreateShowcaseText(showcasePixel);
 
                 Vector2[] positions =
                 {
@@ -1038,6 +1048,9 @@ namespace RuleforgeTD.Editor.AssetImport
 
                     ArcherTowerView view = instance.GetComponent<ArcherTowerView>();
                     int unitTier = ArcherTowerView.GetDefaultUnitTier(level);
+                    ArcherShowcaseCardProgram cardProgram =
+                        instance.AddComponent<ArcherShowcaseCardProgram>();
+                    cardProgram.Configure(logicContent, showcasePixel);
                     ArcherTowerShowcaseActor actor =
                         instance.AddComponent<ArcherTowerShowcaseActor>();
                     actor.Configure(
@@ -1047,7 +1060,8 @@ namespace RuleforgeTD.Editor.AssetImport
                         0.7f + (level - 1) * 0.09f,
                         12.5f,
                         ArcherTowerShowcaseActor.GetDefaultVolleyInterval(level),
-                        ArcherTowerShowcaseActor.DefaultProjectileSpeed);
+                        ArcherTowerShowcaseActor.DefaultProjectileSpeed,
+                        cardProgram);
                     towerActors.Add(actor);
 
                     int archerCount =
@@ -1073,7 +1087,7 @@ namespace RuleforgeTD.Editor.AssetImport
                 }
 
                 EnemyHealth[] combatEnemies =
-                    CreateCombatEnemies(targetScene);
+                    CreateCombatEnemies(targetScene, showcasePixel);
                 for (int i = 0; i < towerActors.Count; i++)
                 {
                     towerActors[i].SetTargets(combatEnemies);
@@ -1097,7 +1111,9 @@ namespace RuleforgeTD.Editor.AssetImport
             }
         }
 
-        private static EnemyHealth[] CreateCombatEnemies(Scene targetScene)
+        private static EnemyHealth[] CreateCombatEnemies(
+            Scene targetScene,
+            Sprite showcasePixel)
         {
             Vector3[] routeCenters =
             {
@@ -1154,6 +1170,12 @@ namespace RuleforgeTD.Editor.AssetImport
                     1.05f,
                     0.18f,
                     movementSpeeds[i]);
+                ArcherEnemyCardStatusView cardStatus =
+                    instance.AddComponent<ArcherEnemyCardStatusView>();
+                cardStatus.Configure(
+                    health,
+                    instance.GetComponent<SpriteRenderer>(),
+                    showcasePixel);
                 enemies.Add(health);
             }
 
@@ -1219,7 +1241,7 @@ namespace RuleforgeTD.Editor.AssetImport
                 -80);
         }
 
-        private static void CreateShowcaseText()
+        private static void CreateShowcaseText(Sprite showcasePixel)
         {
             CreateText(
                 "Title",
@@ -1229,21 +1251,71 @@ namespace RuleforgeTD.Editor.AssetImport
                 64,
                 new Color(1f, 0.94f, 0.66f, 1f),
                 70);
+            CreateCardChip(
+                "Split Card Chip",
+                "SPLIT",
+                new Vector3(-2.7f, 5.12f, 0f),
+                new Color(0.18f, 0.52f, 0.68f, 0.98f),
+                showcasePixel);
             CreateText(
-                "Subtitle",
-                "7 LEVELS • CLOSED ROOFS FIRE • FASTER EACH LEVEL",
-                new Vector3(0f, 5.12f, 0f),
-                0.058f,
-                40,
-                new Color(0.78f, 0.9f, 0.82f, 1f),
+                "First Card Arrow",
+                "→",
+                new Vector3(-1.35f, 5.12f, 0f),
+                0.07f,
+                44,
+                new Color(0.82f, 0.9f, 0.88f, 1f),
                 70);
+            CreateCardChip(
+                "Burn Card Chip",
+                "BURN",
+                Vector3.up * 5.12f,
+                new Color(0.76f, 0.29f, 0.08f, 0.98f),
+                showcasePixel);
+            CreateText(
+                "Second Card Arrow",
+                "→",
+                new Vector3(1.35f, 5.12f, 0f),
+                0.07f,
+                44,
+                new Color(0.82f, 0.9f, 0.88f, 1f),
+                70);
+            CreateCardChip(
+                "Poison Card Chip",
+                "POISON",
+                new Vector3(2.7f, 5.12f, 0f),
+                new Color(0.43f, 0.19f, 0.58f, 0.98f),
+                showcasePixel);
             CreateText(
                 "Guide",
-                "LIVE ENEMIES  •  INTERNAL CREWS  •  8.5 SPEED ARROWS  •  AUTO RESPAWN",
+                "SPLIT 2 × 65%  •  BURN 0.5s TICKS  •  POISON 1.0s TICKS  •  AUTO RESPAWN",
                 new Vector3(0f, -5.48f, 0f),
                 0.052f,
                 36,
                 new Color(0.92f, 0.88f, 0.74f, 1f),
+                70);
+        }
+
+        private static void CreateCardChip(
+            string objectName,
+            string label,
+            Vector3 position,
+            Color backgroundColor,
+            Sprite showcasePixel)
+        {
+            CreateColoredSprite(
+                objectName + " Backdrop",
+                showcasePixel,
+                position,
+                new Vector2(1.65f, 0.42f),
+                backgroundColor,
+                69);
+            CreateText(
+                objectName + " Label",
+                label,
+                position,
+                0.065f,
+                44,
+                Color.white,
                 70);
         }
 
@@ -1408,6 +1480,11 @@ namespace RuleforgeTD.Editor.AssetImport
                 }
             }
 
+            if (AssetDatabase.LoadAssetAtPath<TextAsset>(LogicContentPath) == null)
+            {
+                errors.Add("Missing compiled card content JSON: " + LogicContentPath);
+            }
+
             if (AssetDatabase.LoadAssetAtPath<SceneAsset>(TestScenePath) == null)
             {
                 errors.Add("Missing archer tower showcase scene: " + TestScenePath);
@@ -1431,7 +1508,7 @@ namespace RuleforgeTD.Editor.AssetImport
 
             Debug.Log(
                 "RULEFORGE_ARCHER_VALIDATION_OK levels=7 archers=15 " +
-                "enemies=4 towerClips=14 unitClips=27 arrows=27 scene=1");
+                "enemies=4 cards=3 towerClips=14 unitClips=27 arrows=27 scene=1");
         }
 
         private static Sprite[] LoadSprites(string assetPath)

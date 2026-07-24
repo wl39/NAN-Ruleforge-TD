@@ -10,7 +10,7 @@ namespace RuleforgeTD.Towers.Testing
     [RequireComponent(typeof(ArcherTowerView))]
     public sealed class ArcherTowerShowcaseActor : MonoBehaviour
     {
-        private const int MaxPooledProjectiles = 8;
+        public const int MaximumPooledProjectiles = 12;
         public const float DefaultProjectileSpeed = 8.5f;
 
         private static readonly float[] DefaultVolleyIntervals =
@@ -40,23 +40,43 @@ namespace RuleforgeTD.Towers.Testing
         [SerializeField, Min(0.02f)] private float projectileHitRadius = 0.2f;
         [SerializeField] private EnemyHealth[] targets =
             Array.Empty<EnemyHealth>();
+        [SerializeField] private ArcherShowcaseCardProgram cardProgram;
         [SerializeField] private bool automaticPlayback = true;
 
         private readonly List<ArcherProjectileView> projectilePool =
-            new List<ArcherProjectileView>(MaxPooledProjectiles);
+            new List<ArcherProjectileView>(MaximumPooledProjectiles);
         private EnemyHealth currentTarget;
         private float upgradeTimer;
         private float volleyTimer;
         private float targetScanTimer;
         private bool subscribed;
         private int successfulHitCount;
+        private int totalProjectileLaunchCount;
 
         public int ArrowDirectionCount =>
             arrowDirectionBank == null ? 0 : arrowDirectionBank.Length;
         public int PooledProjectileCount => projectilePool.Count;
+        public int ActiveProjectileCount
+        {
+            get
+            {
+                int activeCount = 0;
+                for (int i = 0; i < projectilePool.Count; i++)
+                {
+                    if (projectilePool[i].IsActive)
+                    {
+                        activeCount++;
+                    }
+                }
+
+                return activeCount;
+            }
+        }
         public int TargetCount => targets == null ? 0 : targets.Length;
         public EnemyHealth CurrentTarget => currentTarget;
         public int SuccessfulHitCount => successfulHitCount;
+        public int TotalProjectileLaunchCount => totalProjectileLaunchCount;
+        public ArcherShowcaseCardProgram CardProgram => cardProgram;
         public bool AutomaticPlayback => automaticPlayback;
         public float VolleyInterval => volleyInterval;
         public float ProjectileSpeed => projectileSpeed;
@@ -66,6 +86,11 @@ namespace RuleforgeTD.Towers.Testing
             if (towerView == null)
             {
                 towerView = GetComponent<ArcherTowerView>();
+            }
+
+            if (cardProgram == null)
+            {
+                cardProgram = GetComponent<ArcherShowcaseCardProgram>();
             }
 
             EnsureTargets();
@@ -123,7 +148,8 @@ namespace RuleforgeTD.Towers.Testing
             float firstVolleyDelay,
             float repeatedUpgradeInterval,
             float repeatedVolleyInterval,
-            float projectileTravelSpeed)
+            float projectileTravelSpeed,
+            ArcherShowcaseCardProgram equippedCardProgram = null)
         {
             Unsubscribe();
             towerView = view;
@@ -133,6 +159,9 @@ namespace RuleforgeTD.Towers.Testing
             upgradeInterval = Mathf.Max(2f, repeatedUpgradeInterval);
             volleyInterval = Mathf.Max(0.5f, repeatedVolleyInterval);
             projectileSpeed = Mathf.Max(0.1f, projectileTravelSpeed);
+            cardProgram = equippedCardProgram != null
+                ? equippedCardProgram
+                : GetComponent<ArcherShowcaseCardProgram>();
             Subscribe();
             ResetTimers();
         }
@@ -231,21 +260,57 @@ namespace RuleforgeTD.Towers.Testing
                 return;
             }
 
-            ArcherProjectileView projectile = GetAvailableProjectile();
-            if (projectile == null)
+            int branchCount = cardProgram != null && cardProgram.IsReady
+                ? cardProgram.SplitProjectileCount
+                : 1;
+            int damageBasisPoints = cardProgram != null && cardProgram.IsReady
+                ? cardProgram.SplitDamageBasisPoints
+                : 10000;
+            int damageMilli = Mathf.Max(
+                1,
+                (int)((long)Mathf.Max(1, unitTier) *
+                      1000L *
+                      damageBasisPoints /
+                      10000L));
+            Vector2 normalizedDirection = direction.sqrMagnitude <= 0.000001f
+                ? Vector2.up
+                : direction.normalized;
+            Vector2 perpendicular = new Vector2(
+                -normalizedDirection.y,
+                normalizedDirection.x);
+
+            if (branchCount > 1)
             {
-                return;
+                cardProgram.PlaySplitBurst(origin, normalizedDirection);
             }
 
-            projectile.Launch(
-                arrowDirectionBank,
-                origin,
-                target,
-                projectileSpeed,
-                projectileLifetime,
-                projectileScale,
-                projectileHitRadius,
-                Mathf.Max(1, unitTier));
+            for (int branchIndex = 0;
+                 branchIndex < branchCount;
+                 branchIndex++)
+            {
+                ArcherProjectileView projectile = GetAvailableProjectile();
+                if (projectile == null)
+                {
+                    break;
+                }
+
+                EnemyHealth branchTarget = branchIndex == 0
+                    ? target
+                    : AcquireAlternateTarget(target, origin) ?? target;
+                float branchOffset = branchCount <= 1
+                    ? 0f
+                    : (branchIndex - (branchCount - 1) * 0.5f) * 0.18f;
+                projectile.Launch(
+                    arrowDirectionBank,
+                    origin + (Vector3)(perpendicular * branchOffset),
+                    branchTarget,
+                    projectileSpeed,
+                    projectileLifetime,
+                    projectileScale,
+                    projectileHitRadius,
+                    damageMilli);
+                totalProjectileLaunchCount++;
+            }
         }
 
         private ArcherProjectileView GetAvailableProjectile()
@@ -258,7 +323,7 @@ namespace RuleforgeTD.Towers.Testing
                 }
             }
 
-            if (projectilePool.Count >= MaxPooledProjectiles)
+            if (projectilePool.Count >= MaximumPooledProjectiles)
             {
                 return null;
             }
@@ -346,6 +411,37 @@ namespace RuleforgeTD.Towers.Testing
                    !candidate.IsDead;
         }
 
+        private EnemyHealth AcquireAlternateTarget(
+            EnemyHealth primaryTarget,
+            Vector3 origin)
+        {
+            float bestDistanceSquared = targetRange * targetRange;
+            EnemyHealth bestTarget = null;
+            if (targets == null)
+            {
+                return null;
+            }
+
+            for (int i = 0; i < targets.Length; i++)
+            {
+                EnemyHealth candidate = targets[i];
+                if (candidate == primaryTarget || !IsValidTarget(candidate))
+                {
+                    continue;
+                }
+
+                float distanceSquared =
+                    (candidate.transform.position - origin).sqrMagnitude;
+                if (distanceSquared < bestDistanceSquared)
+                {
+                    bestDistanceSquared = distanceSquared;
+                    bestTarget = candidate;
+                }
+            }
+
+            return bestTarget;
+        }
+
         private static int CompareTargets(EnemyHealth left, EnemyHealth right)
         {
             if (ReferenceEquals(left, right))
@@ -371,6 +467,19 @@ namespace RuleforgeTD.Towers.Testing
             EnemyHealth hitEnemy)
         {
             successfulHitCount++;
+            if (!hitEnemy.IsDead &&
+                cardProgram != null &&
+                cardProgram.IsReady)
+            {
+                ArcherEnemyCardStatusView status =
+                    hitEnemy.GetComponent<ArcherEnemyCardStatusView>();
+                if (status != null)
+                {
+                    status.ApplyBurn(cardProgram.BurnDefinition);
+                    status.ApplyPoison(cardProgram.PoisonDefinition);
+                }
+            }
+
             if (hitEnemy == currentTarget && hitEnemy.IsDead)
             {
                 currentTarget = null;

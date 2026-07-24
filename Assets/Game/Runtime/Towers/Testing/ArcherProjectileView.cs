@@ -19,13 +19,14 @@ namespace RuleforgeTD.Towers.Testing
         private float speed;
         private float remainingLifetime;
         private float hitRadius;
-        private int damage;
+        private int damageMilli;
 
         public event Action<ArcherProjectileView> Expired;
         public event Action<ArcherProjectileView, EnemyHealth> Hit;
 
         public bool IsActive => gameObject.activeSelf;
         public EnemyHealth Target => target;
+        public int DamageMilli => damageMilli;
 
         private void Awake()
         {
@@ -52,7 +53,18 @@ namespace RuleforgeTD.Towers.Testing
             {
                 transform.position = targetPosition;
                 EnemyHealth hitEnemy = target;
-                hitEnemy.TakeDamage(damage);
+                ArcherEnemyCardStatusView status =
+                    hitEnemy.GetComponent<ArcherEnemyCardStatusView>();
+                if (status != null)
+                {
+                    status.ApplyDirectDamageMilli(damageMilli);
+                }
+                else
+                {
+                    hitEnemy.TakeDamage(
+                        Mathf.Max(1, Mathf.RoundToInt(damageMilli / 1000f)));
+                }
+
                 Hit?.Invoke(this, hitEnemy);
                 Expire();
                 return;
@@ -81,7 +93,7 @@ namespace RuleforgeTD.Towers.Testing
             float lifetime,
             float visualScale,
             float collisionRadius,
-            int hitDamage)
+            int hitDamageMilli)
         {
             if (spriteRenderer == null)
             {
@@ -96,7 +108,7 @@ namespace RuleforgeTD.Towers.Testing
             speed = Mathf.Max(0.01f, travelSpeed);
             remainingLifetime = Mathf.Max(0.01f, lifetime);
             hitRadius = Mathf.Max(0.01f, collisionRadius);
-            damage = Mathf.Max(1, hitDamage);
+            damageMilli = Mathf.Max(1, hitDamageMilli);
 
             Vector2 displacement = target == null
                 ? Vector2.up

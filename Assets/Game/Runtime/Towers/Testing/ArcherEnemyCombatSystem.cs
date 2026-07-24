@@ -111,6 +111,13 @@ namespace RuleforgeTD.Towers.Testing
             }
 
             enemy.transform.position = routeCenters[index];
+            ArcherEnemyCardStatusView cardStatus =
+                enemy.GetComponent<ArcherEnemyCardStatusView>();
+            if (cardStatus != null)
+            {
+                cardStatus.ClearAll();
+            }
+
             enemy.ResetHealth();
 
             EnemyTestActor actor = enemy.GetComponent<EnemyTestActor>();
