@@ -14,7 +14,7 @@ namespace RuleforgeTD.Tests.PlayMode
     public sealed class ArcherTowerAnimationSceneTests
     {
         [UnityTest]
-        public IEnumerator ShowcaseScene_ConfiguresAllLevelsUnitsAndProjectiles()
+        public IEnumerator ShowcaseScene_ConfiguresEnemySplitProgramAndSingleProjectiles()
         {
             SceneManager.LoadScene("ArcherTowerAnimationTest", LoadSceneMode.Single);
             yield return null;
@@ -34,10 +34,31 @@ namespace RuleforgeTD.Tests.PlayMode
                 Object.FindObjectOfType<ArcherEnemyCombatSystem>();
             Assert.That(combatSystem, Is.Not.Null);
             Assert.That(combatSystem.EnemyCount, Is.EqualTo(4));
+            Assert.That(combatSystem.RootEnemyCount, Is.EqualTo(4));
+            Assert.That(combatSystem.PooledEnemyCount, Is.EqualTo(8));
+            Assert.That(combatSystem.TargetCount, Is.EqualTo(12));
+            Assert.That(combatSystem.ActiveSplitEnemyCount, Is.Zero);
             Assert.That(combatSystem.LivingEnemyCount, Is.EqualTo(4));
-            Assert.That(
-                Object.FindObjectsOfType<EnemyTestMovementSystem>(),
-                Has.Length.EqualTo(1));
+            EnemyTestMovementSystem movementSystem =
+                Object.FindObjectOfType<EnemyTestMovementSystem>();
+            Assert.That(movementSystem, Is.Not.Null);
+            Assert.That(movementSystem.ActorCount, Is.EqualTo(12));
+
+            EnemyHealth[] authoredTargets =
+                combatSystem.GetAllTargets();
+            Assert.That(authoredTargets, Has.Length.EqualTo(12));
+            foreach (EnemyHealth authoredTarget in authoredTargets)
+            {
+                Assert.That(authoredTarget, Is.Not.Null);
+                Assert.That(authoredTarget.MaxHealth, Is.EqualTo(1000));
+                Assert.That(authoredTarget.CurrentHealth, Is.EqualTo(1000));
+                Assert.That(
+                    authoredTarget.GetComponent<EnemyTestActor>(),
+                    Is.Not.Null);
+                Assert.That(
+                    authoredTarget.GetComponent<ArcherEnemyCardStatusView>(),
+                    Is.Not.Null);
+            }
 
             for (int i = 0; i < towers.Length; i++)
             {
@@ -67,7 +88,7 @@ namespace RuleforgeTD.Tests.PlayMode
                 Assert.That(showcase, Is.Not.Null);
                 showcase.SetAutomaticPlayback(false);
                 showcase.RefreshTargets();
-                Assert.That(showcase.TargetCount, Is.EqualTo(4));
+                Assert.That(showcase.TargetCount, Is.EqualTo(12));
                 ArcherShowcaseCardProgram cardProgram =
                     showcase.CardProgram;
                 Assert.That(cardProgram, Is.Not.Null);
@@ -76,11 +97,11 @@ namespace RuleforgeTD.Tests.PlayMode
                     new[] { "split", "burn", "poison" },
                     cardProgram.EquippedCardIds);
                 Assert.That(
-                    cardProgram.SplitProjectileCount,
+                    cardProgram.SplitEnemyCount,
                     Is.EqualTo(2));
                 Assert.That(
-                    cardProgram.SplitDamageBasisPoints,
-                    Is.EqualTo(6500));
+                    cardProgram.SplitHealthBasisPoints,
+                    Is.EqualTo(4500));
                 AssertStatusDefinition(
                     cardProgram.BurnDefinition,
                     500,
@@ -205,8 +226,8 @@ namespace RuleforgeTD.Tests.PlayMode
                 Assert.That(
                     closedShowcase.TotalProjectileLaunchCount -
                     launchesBeforeVolley,
-                    Is.EqualTo(closedTower.ArcherCount * 2),
-                    "Split must create two tracked projectiles per archer release.");
+                    Is.EqualTo(closedTower.ArcherCount),
+                    "Enemy interpretation must keep one arrow per archer release.");
                 Assert.That(
                     closedShowcase.SuccessfulHitCount,
                     Is.GreaterThan(0),
@@ -237,6 +258,8 @@ namespace RuleforgeTD.Tests.PlayMode
             ArcherTowerView levelOne = towers[0];
             ArcherTowerShowcaseActor levelOneShowcase =
                 levelOne.GetComponent<ArcherTowerShowcaseActor>();
+            combatSystem.ResetAllLineages();
+            levelOneShowcase.RefreshTargets();
             DirectionalArcherAnimator[] archers =
                 levelOne.GetComponentsInChildren<DirectionalArcherAnimator>(true);
             Assert.That(archers, Has.Length.EqualTo(1));
@@ -273,6 +296,7 @@ namespace RuleforgeTD.Tests.PlayMode
 
             EnemyHealth target = levelOneShowcase.AimAtNearestTarget();
             Assert.That(target, Is.Not.Null);
+            int maximumHealthBeforeHit = target.MaxHealth;
             Vector2 expectedAim =
                 ArcherProjectileView.GetTargetAimPoint(target) -
                 archers[0].transform.position;
@@ -291,9 +315,12 @@ namespace RuleforgeTD.Tests.PlayMode
                 targetStatus.DirectPendingMilli;
             int launchesBeforeHit =
                 levelOneShowcase.TotalProjectileLaunchCount;
+            int successfulHitsBefore =
+                levelOneShowcase.SuccessfulHitCount;
             Assert.That(levelOne.PlayVolley(), Is.EqualTo(1));
             float hitTimeout = 2.5f;
-            while (levelOneShowcase.SuccessfulHitCount == 0 &&
+            while (levelOneShowcase.SuccessfulHitCount ==
+                       successfulHitsBefore &&
                    hitTimeout > 0f)
             {
                 hitTimeout -= Time.deltaTime;
@@ -305,15 +332,32 @@ namespace RuleforgeTD.Tests.PlayMode
             Assert.That(
                 levelOneShowcase.TotalProjectileLaunchCount -
                 launchesBeforeHit,
-                Is.EqualTo(2),
-                "The split card must turn one archer release into two arrows.");
+                Is.EqualTo(1),
+                "Enemy interpretation must not split the projectile.");
             Assert.That(
                 target.CurrentHealth < healthBeforeHit ||
                 targetStatus.DirectPendingMilli != pendingDamageBeforeHit,
                 Is.True,
-                "A 650-milli split arrow must deal or accumulate deterministic damage.");
-            Assert.That(targetStatus.HasBurn, Is.True);
-            Assert.That(targetStatus.HasPoison, Is.True);
+                "The full-damage arrow must deal deterministic damage before splitting.");
+
+            EnemyHealth[] splitMembers =
+                combatSystem.GetActiveLineageMembers(target);
+            Assert.That(splitMembers, Has.Length.EqualTo(2));
+            Assert.That(combatSystem.ActiveSplitEnemyCount, Is.EqualTo(1));
+            int expectedSplitMaximum = Mathf.Max(
+                1,
+                maximumHealthBeforeHit *
+                levelOneShowcase.CardProgram.SplitHealthBasisPoints /
+                10000);
+            foreach (EnemyHealth member in splitMembers)
+            {
+                Assert.That(member.MaxHealth, Is.EqualTo(expectedSplitMaximum));
+                ArcherEnemyCardStatusView memberStatus =
+                    member.GetComponent<ArcherEnemyCardStatusView>();
+                Assert.That(memberStatus, Is.Not.Null);
+                Assert.That(memberStatus.HasBurn, Is.True);
+                Assert.That(memberStatus.HasPoison, Is.True);
+            }
 
             targetStatus.enabled = false;
             int healthBeforeStatusTicks = target.CurrentHealth;
@@ -444,7 +488,7 @@ namespace RuleforgeTD.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator SplitVolley_UsesTwoBranchesAndRespectsPoolBound()
+        public IEnumerator EnemySplit_UsesHealthFloorDynamicPoolDeepCopyScaleAndReset()
         {
             SceneManager.LoadScene("ArcherTowerAnimationTest", LoadSceneMode.Single);
             yield return null;
@@ -456,112 +500,374 @@ namespace RuleforgeTD.Tests.PlayMode
                 showcase.SetAutomaticPlayback(false);
             }
 
-            ArcherTowerView levelSeven = Object
-                .FindObjectsOfType<ArcherTowerView>()
-                .Single(tower => tower.Level == 7);
-            ArcherTowerShowcaseActor levelSevenShowcase =
-                levelSeven.GetComponent<ArcherTowerShowcaseActor>();
-            Assert.That(levelSevenShowcase.CardProgram.IsReady, Is.True);
+            ArcherShowcaseCardProgram cardProgram = showcases
+                .OrderBy(showcase =>
+                    showcase.GetComponent<ArcherTowerView>().Level)
+                .First()
+                .CardProgram;
+            Assert.That(cardProgram, Is.Not.Null);
+            Assert.That(cardProgram.IsReady, Is.True);
+            ArcherEnemyCombatSystem combatSystem =
+                Object.FindObjectOfType<ArcherEnemyCombatSystem>();
+            Assert.That(combatSystem, Is.Not.Null);
+            combatSystem.ResetAllLineages();
+            EnemyTestMovementSystem movementSystem =
+                Object.FindObjectOfType<EnemyTestMovementSystem>();
+            Assert.That(movementSystem, Is.Not.Null);
 
             EnemyHealth target = Object.FindObjectsOfType<EnemyHealth>()
-                .OrderByDescending(enemy => enemy.MaxHealth)
+                .OrderBy(enemy => enemy.name)
                 .First();
             EnemyTestActor targetActor =
                 target.GetComponent<EnemyTestActor>();
             Assert.That(targetActor, Is.Not.Null);
             targetActor.SetMovementEnabled(false);
+            RuleforgeTD.Rendering.DirectionalEnemyAnimator targetAnimator =
+                target.GetComponent<
+                    RuleforgeTD.Rendering.DirectionalEnemyAnimator>();
             target.Configure(
                 1000,
-                target.GetComponent<RuleforgeTD.Rendering.DirectionalEnemyAnimator>());
-            target.transform.position =
-                levelSeven.transform.position + Vector3.up * 7.4f;
+                1000,
+                targetAnimator);
             ArcherEnemyCardStatusView targetStatus =
                 target.GetComponent<ArcherEnemyCardStatusView>();
             Assert.That(targetStatus, Is.Not.Null);
             targetStatus.enabled = false;
             targetStatus.ClearAll();
 
-            levelSevenShowcase.SetTargets(new[] { target });
-            Assert.That(levelSevenShowcase.AimAtNearestTarget(), Is.SameAs(target));
+            Vector3 baseScale = target.transform.localScale;
+            int initialPooledEnemyCount =
+                combatSystem.PooledEnemyCount;
+            int initialTargetCount =
+                combatSystem.TargetCount;
+            Assert.That(initialPooledEnemyCount, Is.EqualTo(8));
+            Assert.That(initialTargetCount, Is.EqualTo(12));
+            Assert.That(
+                movementSystem.ActorCount,
+                Is.EqualTo(initialTargetCount));
+            Assert.That(target.MaxHealth, Is.EqualTo(1000));
+            Assert.That(target.CurrentHealth, Is.EqualTo(1000));
+            Assert.That(combatSystem.GetGeneration(target), Is.Zero);
 
-            int initialLaunchCount =
-                levelSevenShowcase.TotalProjectileLaunchCount;
-            Assert.That(levelSeven.PlayVolley(), Is.EqualTo(3));
-            float firstVolleyStartedAt = Time.time;
-            while (Time.time - firstVolleyStartedAt < 0.72f)
+            targetStatus.ApplyBurn(cardProgram.BurnDefinition);
+            targetStatus.ApplyPoison(cardProgram.PoisonDefinition);
+            targetStatus.ApplyPoison(cardProgram.PoisonDefinition);
+            targetStatus.SimulateTicksForTesting(15);
+            target.Configure(1000, 1000, targetAnimator);
+            Assert.That(targetStatus.BurnTickCount, Is.EqualTo(1));
+            Assert.That(
+                targetStatus.BurnPendingDamageMilli,
+                Is.EqualTo(500));
+            Assert.That(
+                targetStatus.PoisonTicksUntilDamage,
+                Is.EqualTo(15));
+
+            int[] expectedHealthByGeneration =
             {
-                yield return null;
+                450,
+                202,
+                90,
+                40,
+                18,
+                8,
+                3,
+                1
+            };
+            EnemyHealth branch = target;
+
+            for (int generation = 1;
+                 generation <= expectedHealthByGeneration.Length;
+                 generation++)
+            {
+                EnemyHealth child =
+                    combatSystem.ApplyEnemyProgram(
+                        branch,
+                        cardProgram);
+                Assert.That(
+                    child,
+                    Is.Not.Null,
+                    "Generation " + generation +
+                    " must split while both scaled health values stay >= 1.");
+
+                int expectedHealth =
+                    expectedHealthByGeneration[generation - 1];
+                Assert.That(branch.MaxHealth, Is.EqualTo(expectedHealth));
+                Assert.That(branch.CurrentHealth, Is.EqualTo(expectedHealth));
+                Assert.That(child.MaxHealth, Is.EqualTo(expectedHealth));
+                Assert.That(child.CurrentHealth, Is.EqualTo(expectedHealth));
+                Assert.That(
+                    combatSystem.GetGeneration(branch),
+                    Is.EqualTo(generation));
+                Assert.That(
+                    combatSystem.GetGeneration(child),
+                    Is.EqualTo(generation));
+
+                Vector3 expectedScale =
+                    baseScale * Mathf.Pow(0.9f, generation);
+                Assert.That(
+                    Vector3.Distance(
+                        branch.transform.localScale,
+                        expectedScale),
+                    Is.LessThan(0.0001f));
+                Assert.That(
+                    Vector3.Distance(
+                        child.transform.localScale,
+                        expectedScale),
+                    Is.LessThan(0.0001f));
+
+                ArcherEnemyCardStatusView branchStatus =
+                    branch.GetComponent<ArcherEnemyCardStatusView>();
+                ArcherEnemyCardStatusView childStatus =
+                    child.GetComponent<ArcherEnemyCardStatusView>();
+                Assert.That(branchStatus, Is.Not.Null);
+                Assert.That(childStatus, Is.Not.Null);
+                AssertStatusRuntimeEqual(branchStatus, childStatus);
+
+                if (generation == 1)
+                {
+                    Assert.That(
+                        childStatus.BurnTickCount,
+                        Is.EqualTo(1),
+                        "The child must inherit the source tick history.");
+                    Assert.That(
+                        childStatus.BurnPendingDamageMilli,
+                        Is.EqualTo(500),
+                        "The child must inherit fractional status damage.");
+                    Assert.That(
+                        childStatus.PoisonTicksUntilDamage,
+                        Is.EqualTo(15),
+                        "The child must inherit the next poison tick.");
+                    Assert.That(
+                        childStatus.BurnIntensityMilli,
+                        Is.EqualTo(500));
+                    Assert.That(
+                        childStatus.BurnMaxStacks,
+                        Is.EqualTo(10));
+                    Assert.That(
+                        childStatus.PoisonIntensityMilli,
+                        Is.EqualTo(500));
+                    Assert.That(
+                        childStatus.PoisonMaxStacks,
+                        Is.EqualTo(20));
+
+                    int sourceBurnRemaining =
+                        branchStatus.BurnRemainingTicks;
+                    int sourcePoisonRemaining =
+                        branchStatus.PoisonRemainingTicks;
+                    childStatus.enabled = false;
+                    childStatus.SimulateTicksForTesting(1);
+                    Assert.That(
+                        branchStatus.BurnRemainingTicks,
+                        Is.EqualTo(sourceBurnRemaining));
+                    Assert.That(
+                        branchStatus.PoisonRemainingTicks,
+                        Is.EqualTo(sourcePoisonRemaining));
+                    Assert.That(
+                        childStatus.BurnRemainingTicks,
+                        Is.EqualTo(sourceBurnRemaining - 1));
+                    Assert.That(
+                        childStatus.PoisonRemainingTicks,
+                        Is.EqualTo(sourcePoisonRemaining - 1));
+                }
+
+                Assert.That(
+                    combatSystem.GetActiveLineageMembers(branch),
+                    Has.Length.EqualTo(generation + 1));
+
+                if (generation >= 3)
+                {
+                    Assert.That(
+                        combatSystem.PooledEnemyCount,
+                        Is.GreaterThan(initialPooledEnemyCount),
+                        "The third split must grow beyond the two seeded children.");
+                    Assert.That(
+                        combatSystem.TargetCount,
+                        Is.GreaterThan(initialTargetCount));
+                    Assert.That(
+                        movementSystem.ActorCount,
+                        Is.EqualTo(combatSystem.TargetCount),
+                        "Every high-water child must join deterministic movement.");
+                }
             }
 
+            Assert.That(branch.MaxHealth, Is.EqualTo(1));
+            Assert.That(branch.CurrentHealth, Is.EqualTo(1));
+            Assert.That(combatSystem.GetGeneration(branch), Is.EqualTo(8));
             Assert.That(
-                levelSevenShowcase.TotalProjectileLaunchCount,
-                Is.EqualTo(initialLaunchCount + 6));
-            Assert.That(levelSevenShowcase.PooledProjectileCount, Is.EqualTo(6));
-            Assert.That(levelSevenShowcase.ActiveProjectileCount, Is.EqualTo(6));
+                combatSystem.GetActiveLineageMembers(branch),
+                Has.Length.EqualTo(9));
+            Assert.That(combatSystem.TotalSuccessfulSplits, Is.EqualTo(8));
 
-            Assert.That(levelSeven.PlayVolley(), Is.EqualTo(3));
-            float secondVolleyStartedAt = Time.time;
-            float secondReleaseTimeout = 1.2f;
-            while (levelSevenShowcase.TotalProjectileLaunchCount <
-                       initialLaunchCount + 12 &&
-                   secondReleaseTimeout > 0f)
-            {
-                secondReleaseTimeout -= Time.deltaTime;
-                yield return null;
-            }
+            ArcherEnemyCardStatusView finalStatus =
+                branch.GetComponent<ArcherEnemyCardStatusView>();
+            int burnStacksBeforeRejectedSplit =
+                finalStatus.BurnStacks;
+            int poisonStacksBeforeRejectedSplit =
+                finalStatus.PoisonStacks;
+            int poolCountBeforeRejectedSplit =
+                combatSystem.PooledEnemyCount;
+            int targetCountBeforeRejectedSplit =
+                combatSystem.TargetCount;
+            Vector3 scaleBeforeRejectedSplit =
+                branch.transform.localScale;
 
             Assert.That(
-                levelSevenShowcase.TotalProjectileLaunchCount,
-                Is.EqualTo(initialLaunchCount + 12));
+                combatSystem.ApplyEnemyProgram(branch, cardProgram),
+                Is.Null,
+                "Scaling one health by 45% yields zero, so split must stop.");
+            Assert.That(branch.MaxHealth, Is.EqualTo(1));
+            Assert.That(branch.CurrentHealth, Is.EqualTo(1));
+            Assert.That(combatSystem.GetGeneration(branch), Is.EqualTo(8));
             Assert.That(
-                levelSevenShowcase.PooledProjectileCount,
+                Vector3.Distance(
+                    branch.transform.localScale,
+                    scaleBeforeRejectedSplit),
+                Is.LessThan(0.0001f));
+            Assert.That(
+                combatSystem.PooledEnemyCount,
+                Is.EqualTo(poolCountBeforeRejectedSplit));
+            Assert.That(
+                combatSystem.TargetCount,
+                Is.EqualTo(targetCountBeforeRejectedSplit));
+            Assert.That(
+                finalStatus.BurnStacks,
                 Is.EqualTo(
-                    ArcherTowerShowcaseActor.MaximumPooledProjectiles));
+                    Mathf.Min(
+                        finalStatus.BurnMaxStacks,
+                        burnStacksBeforeRejectedSplit + 1)),
+                "Remaining cards must execute after a rejected split.");
             Assert.That(
-                levelSevenShowcase.ActiveProjectileCount,
+                finalStatus.PoisonStacks,
                 Is.EqualTo(
-                    ArcherTowerShowcaseActor.MaximumPooledProjectiles));
+                    Mathf.Min(
+                        finalStatus.PoisonMaxStacks,
+                        poisonStacksBeforeRejectedSplit + 1)));
 
-            while (Time.time - secondVolleyStartedAt < 0.72f)
+            combatSystem.ResetAllLineages();
+
+            Assert.That(combatSystem.ActiveSplitEnemyCount, Is.Zero);
+            Assert.That(combatSystem.LivingEnemyCount, Is.EqualTo(4));
+            Assert.That(combatSystem.TotalSuccessfulSplits, Is.Zero);
+            Assert.That(
+                combatSystem.PooledEnemyCount,
+                Is.GreaterThan(initialPooledEnemyCount),
+                "Reset must retain the grown high-water pool.");
+            Assert.That(
+                movementSystem.ActorCount,
+                Is.EqualTo(combatSystem.TargetCount));
+            Assert.That(
+                combatSystem.GetActiveLineageMembers(target),
+                Has.Length.EqualTo(1));
+            foreach (EnemyHealth resetTarget in combatSystem.GetAllTargets())
             {
-                yield return null;
+                Assert.That(resetTarget.MaxHealth, Is.EqualTo(1000));
+                Assert.That(resetTarget.CurrentHealth, Is.EqualTo(1000));
+                Assert.That(
+                    combatSystem.GetGeneration(resetTarget),
+                    Is.Zero);
+                Assert.That(
+                    Vector3.Distance(
+                        resetTarget.transform.localScale,
+                        baseScale),
+                    Is.LessThan(0.0001f));
+
+                ArcherEnemyCardStatusView resetStatus =
+                    resetTarget.GetComponent<ArcherEnemyCardStatusView>();
+                Assert.That(resetStatus, Is.Not.Null);
+                Assert.That(resetStatus.HasBurn, Is.False);
+                Assert.That(resetStatus.HasPoison, Is.False);
+                Assert.That(resetStatus.BurnStacks, Is.Zero);
+                Assert.That(resetStatus.PoisonStacks, Is.Zero);
+                Assert.That(resetStatus.BurnRemainingTicks, Is.Zero);
+                Assert.That(resetStatus.PoisonRemainingTicks, Is.Zero);
+                Assert.That(resetStatus.BurnIntervalTicks, Is.Zero);
+                Assert.That(resetStatus.PoisonIntervalTicks, Is.Zero);
+                Assert.That(resetStatus.BurnTicksUntilDamage, Is.Zero);
+                Assert.That(resetStatus.PoisonTicksUntilDamage, Is.Zero);
+                Assert.That(resetStatus.BurnIntensityMilli, Is.Zero);
+                Assert.That(resetStatus.PoisonIntensityMilli, Is.Zero);
+                Assert.That(resetStatus.BurnMaxStacks, Is.Zero);
+                Assert.That(resetStatus.PoisonMaxStacks, Is.Zero);
+                Assert.That(resetStatus.BurnPendingDamageMilli, Is.Zero);
+                Assert.That(resetStatus.PoisonPendingDamageMilli, Is.Zero);
+                Assert.That(resetStatus.BurnTickCount, Is.Zero);
+                Assert.That(resetStatus.PoisonTickCount, Is.Zero);
+                Assert.That(resetStatus.DirectPendingMilli, Is.Zero);
+                Assert.That(resetStatus.FixedTickAccumulator, Is.Zero);
             }
 
-            Assert.That(levelSeven.PlayVolley(), Is.EqualTo(3));
-            float thirdReleaseTimeout = 1.2f;
-            while (levelSevenShowcase.TotalProjectileLaunchCount <
-                       initialLaunchCount + 18 &&
-                   thirdReleaseTimeout > 0f)
-            {
-                thirdReleaseTimeout -= Time.deltaTime;
-                yield return null;
-            }
+            combatSystem.Configure(
+                new[] { target },
+                1.8f);
+            target.Configure(1000, 1000, targetAnimator);
+            EnemyHealth fallbackChild =
+                combatSystem.ApplyEnemyProgram(target, cardProgram);
+            Assert.That(
+                fallbackChild,
+                Is.Not.Null,
+                "The compatibility Configure overload must grow a pool " +
+                "from the root when no seed children were supplied.");
+            Assert.That(combatSystem.PooledEnemyCount, Is.EqualTo(1));
+            Assert.That(combatSystem.TargetCount, Is.EqualTo(2));
+        }
 
+        private static void AssertStatusRuntimeEqual(
+            ArcherEnemyCardStatusView expected,
+            ArcherEnemyCardStatusView actual)
+        {
+            Assert.That(actual.BurnStacks, Is.EqualTo(expected.BurnStacks));
             Assert.That(
-                levelSevenShowcase.TotalProjectileLaunchCount,
-                Is.EqualTo(initialLaunchCount + 18));
+                actual.BurnRemainingTicks,
+                Is.EqualTo(expected.BurnRemainingTicks));
             Assert.That(
-                levelSevenShowcase.PooledProjectileCount,
-                Is.EqualTo(
-                    ArcherTowerShowcaseActor.MaximumPooledProjectiles));
+                actual.BurnIntervalTicks,
+                Is.EqualTo(expected.BurnIntervalTicks));
             Assert.That(
-                levelSevenShowcase.ActiveProjectileCount,
-                Is.LessThanOrEqualTo(
-                    ArcherTowerShowcaseActor.MaximumPooledProjectiles));
-
-            float expireTimeout = 2.8f;
-            while (levelSevenShowcase.ActiveProjectileCount > 0 &&
-                   expireTimeout > 0f)
-            {
-                expireTimeout -= Time.deltaTime;
-                yield return null;
-            }
-
-            Assert.That(levelSevenShowcase.ActiveProjectileCount, Is.Zero);
+                actual.BurnTicksUntilDamage,
+                Is.EqualTo(expected.BurnTicksUntilDamage));
             Assert.That(
-                levelSevenShowcase.PooledProjectileCount,
-                Is.EqualTo(
-                    ArcherTowerShowcaseActor.MaximumPooledProjectiles));
+                actual.BurnIntensityMilli,
+                Is.EqualTo(expected.BurnIntensityMilli));
+            Assert.That(
+                actual.BurnMaxStacks,
+                Is.EqualTo(expected.BurnMaxStacks));
+            Assert.That(
+                actual.BurnPendingDamageMilli,
+                Is.EqualTo(expected.BurnPendingDamageMilli));
+            Assert.That(
+                actual.BurnTickCount,
+                Is.EqualTo(expected.BurnTickCount));
+            Assert.That(
+                actual.PoisonStacks,
+                Is.EqualTo(expected.PoisonStacks));
+            Assert.That(
+                actual.PoisonRemainingTicks,
+                Is.EqualTo(expected.PoisonRemainingTicks));
+            Assert.That(
+                actual.PoisonIntervalTicks,
+                Is.EqualTo(expected.PoisonIntervalTicks));
+            Assert.That(
+                actual.PoisonTicksUntilDamage,
+                Is.EqualTo(expected.PoisonTicksUntilDamage));
+            Assert.That(
+                actual.PoisonIntensityMilli,
+                Is.EqualTo(expected.PoisonIntensityMilli));
+            Assert.That(
+                actual.PoisonMaxStacks,
+                Is.EqualTo(expected.PoisonMaxStacks));
+            Assert.That(
+                actual.PoisonPendingDamageMilli,
+                Is.EqualTo(expected.PoisonPendingDamageMilli));
+            Assert.That(
+                actual.PoisonTickCount,
+                Is.EqualTo(expected.PoisonTickCount));
+            Assert.That(actual.TickRate, Is.EqualTo(expected.TickRate));
+            Assert.That(
+                actual.FixedTickAccumulator,
+                Is.EqualTo(expected.FixedTickAccumulator).Within(0.0001f));
+            Assert.That(
+                actual.DirectPendingMilli,
+                Is.EqualTo(expected.DirectPendingMilli));
         }
 
         private static void AssertStatusDefinition(

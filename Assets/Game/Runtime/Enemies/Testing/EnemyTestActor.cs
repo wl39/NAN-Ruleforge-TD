@@ -44,6 +44,37 @@ namespace RuleforgeTD.Enemies.Testing
             initialized = true;
         }
 
+        public void CopyRuntimeRouteFrom(
+            EnemyTestActor source,
+            Vector2 positionOffset)
+        {
+            if (source == null ||
+                !source.gameObject.activeInHierarchy)
+            {
+                return;
+            }
+
+            if (!source.initialized)
+            {
+                source.InitializeRoute();
+            }
+
+            if (directionalAnimator == null)
+            {
+                directionalAnimator = GetComponent<DirectionalEnemyAnimator>();
+            }
+
+            horizontalHalfRange = source.horizontalHalfRange;
+            verticalHalfRange = source.verticalHalfRange;
+            movementSpeed = source.movementSpeed;
+            routeCenter = source.routeCenter;
+            targetWaypointIndex = source.targetWaypointIndex;
+            transform.position =
+                source.transform.position + (Vector3)positionOffset;
+            initialized = true;
+            movementEnabled = source.movementEnabled;
+        }
+
         public void SetMovementEnabled(bool enabled)
         {
             movementEnabled = enabled;

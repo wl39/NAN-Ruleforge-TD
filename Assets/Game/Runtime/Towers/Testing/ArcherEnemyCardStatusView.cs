@@ -40,6 +40,8 @@ namespace RuleforgeTD.Towers.Testing
         public int BurnPendingDamageMilli => burn.PendingMilli;
         public int BurnTicksUntilDamage => burn.TicksUntilDamage;
         public int BurnTickCount => burn.DamageTickCount;
+        public int BurnIntensityMilli => burn.IntensityMilli;
+        public int BurnMaxStacks => burn.MaxStacks;
         public int PoisonStacks => poison.Stacks;
         public int PoisonRemainingTicks => poison.RemainingTicks;
         public int PoisonIntervalTicks => poison.IntervalTicks;
@@ -47,8 +49,11 @@ namespace RuleforgeTD.Towers.Testing
         public int PoisonPendingDamageMilli => poison.PendingMilli;
         public int PoisonTicksUntilDamage => poison.TicksUntilDamage;
         public int PoisonTickCount => poison.DamageTickCount;
+        public int PoisonIntensityMilli => poison.IntensityMilli;
+        public int PoisonMaxStacks => poison.MaxStacks;
         public int DirectPendingMilli => directPendingMilli;
         public int TickRate => tickRate;
+        public float FixedTickAccumulator => fixedTickAccumulator;
         public bool HasBurn => burn.IsActive;
         public bool HasPoison => poison.IsActive;
         public bool IsBurning => burn.IsActive;
@@ -152,6 +157,24 @@ namespace RuleforgeTD.Towers.Testing
             directPendingMilli = 0;
             fixedTickAccumulator = 0f;
             RefreshBadges(true);
+        }
+
+        public void CopyAllFrom(ArcherEnemyCardStatusView source)
+        {
+            if (source == null || ReferenceEquals(source, this))
+            {
+                return;
+            }
+
+            burn.CopyFrom(source.burn);
+            poison.CopyFrom(source.poison);
+            tickRate = Mathf.Max(1, source.tickRate);
+            fixedTickAccumulator = source.fixedTickAccumulator;
+
+            // Direct projectile damage is not a status effect. A split child
+            // starts with no fractional direct-damage remainder.
+            directPendingMilli = 0;
+            RefreshBadges(health == null || health.IsDead);
         }
 
         public void SimulateTicksForTesting(int tickCount)
@@ -478,6 +501,24 @@ namespace RuleforgeTD.Towers.Testing
                 TicksUntilDamage = 0;
                 IntensityMilli = 0;
                 MaxStacks = 0;
+            }
+
+            public void CopyFrom(StatusRuntime source)
+            {
+                if (source == null)
+                {
+                    Clear();
+                    return;
+                }
+
+                Stacks = source.Stacks;
+                RemainingTicks = source.RemainingTicks;
+                IntervalTicks = source.IntervalTicks;
+                TicksUntilDamage = source.TicksUntilDamage;
+                IntensityMilli = source.IntensityMilli;
+                MaxStacks = source.MaxStacks;
+                PendingMilli = source.PendingMilli;
+                DamageTickCount = source.DamageTickCount;
             }
 
             public void Clear()

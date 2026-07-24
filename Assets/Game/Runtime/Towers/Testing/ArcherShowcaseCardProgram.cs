@@ -58,17 +58,14 @@ namespace RuleforgeTD.Towers.Testing
         private readonly List<ArcherSplitBurstView> splitBursts =
             new List<ArcherSplitBurstView>(MaximumSplitBursts);
         private bool initialized;
-        private int splitProjectileCount = 1;
-        private int splitDamageMultiplierBps = 10000;
+        private int splitEnemyCount = 1;
+        private int splitHealthBasisPoints = 10000;
         private ArcherShowcaseStatusDefinition burnDefinition;
         private ArcherShowcaseStatusDefinition poisonDefinition;
 
         public bool IsReady => initialized;
-        public int SplitProjectileCount => splitProjectileCount;
-        public int SplitDamageMultiplierBps => splitDamageMultiplierBps;
-        public int SplitDamageBasisPoints => splitDamageMultiplierBps;
-        public float SplitDamageMultiplier =>
-            splitDamageMultiplierBps / 10000f;
+        public int SplitEnemyCount => splitEnemyCount;
+        public int SplitHealthBasisPoints => splitHealthBasisPoints;
         public ArcherShowcaseStatusDefinition BurnDefinition =>
             burnDefinition;
         public ArcherShowcaseStatusDefinition PoisonDefinition =>
@@ -97,7 +94,7 @@ namespace RuleforgeTD.Towers.Testing
             Initialize();
         }
 
-        public void PlaySplitBurst(Vector3 origin, Vector2 direction)
+        public void PlaySplitBurst(Vector3 enemyPosition)
         {
             if (!initialized || effectPixel == null)
             {
@@ -128,7 +125,14 @@ namespace RuleforgeTD.Towers.Testing
                 splitBursts.Add(burst);
             }
 
-            burst?.Play(origin, direction);
+            burst?.Play(enemyPosition);
+        }
+
+        public void PlaySplitBurst(
+            Vector3 enemyPosition,
+            Vector2 unusedDirection)
+        {
+            PlaySplitBurst(enemyPosition);
         }
 
         private void Initialize()
@@ -139,21 +143,21 @@ namespace RuleforgeTD.Towers.Testing
             }
 
             CompiledContent content = LoadContent(contentJson);
-            CompiledEffectNode split = FindProjectileNode(
+            CompiledEffectNode split = FindEnemyNode(
                 content,
                 SplitCardId,
                 EffectOperation.Split);
-            CompiledEffectNode burn = FindProjectileNode(
+            CompiledEffectNode burn = FindEnemyNode(
                 content,
                 BurnCardId,
-                EffectOperation.BindBurn);
-            CompiledEffectNode poison = FindProjectileNode(
+                EffectOperation.ApplyBurn);
+            CompiledEffectNode poison = FindEnemyNode(
                 content,
                 PoisonCardId,
-                EffectOperation.BindPoison);
+                EffectOperation.ApplyPoison);
 
-            splitProjectileCount = Mathf.Max(1, split.Amount);
-            splitDamageMultiplierBps = Mathf.Clamp(
+            splitEnemyCount = Mathf.Max(1, split.Amount);
+            splitHealthBasisPoints = Mathf.Clamp(
                 split.Amount2,
                 1,
                 10000);
@@ -186,7 +190,7 @@ namespace RuleforgeTD.Towers.Testing
             return cachedContent;
         }
 
-        private static CompiledEffectNode FindProjectileNode(
+        private static CompiledEffectNode FindEnemyNode(
             CompiledContent content,
             string stableCardId,
             EffectOperation operation)
@@ -198,7 +202,7 @@ namespace RuleforgeTD.Towers.Testing
             }
 
             CompiledEffectNode[] nodes =
-                content.GetCard(cardId).ProjectileEffects;
+                content.GetCard(cardId).EnemyEffects;
             for (int i = 0; i < nodes.Length; i++)
             {
                 if (nodes[i].Operation == operation)
@@ -209,21 +213,19 @@ namespace RuleforgeTD.Towers.Testing
 
             throw new InvalidOperationException(
                 "Card '" + stableCardId +
-                "' has no projectile operation " + operation + ".");
+                "' has no enemy operation " + operation + ".");
         }
     }
 
     internal sealed class ArcherSplitBurstView : MonoBehaviour
     {
-        private const float Duration = 0.18f;
+        private const float Duration = 0.24f;
         private static readonly Color SplitColor =
             new Color(0.47f, 0.84f, 1f, 1f);
 
-        private readonly Transform[] sparks = new Transform[3];
+        private readonly Transform[] sparks = new Transform[6];
         private readonly SpriteRenderer[] renderers =
-            new SpriteRenderer[3];
-        private Vector2 direction;
-        private Vector2 perpendicular;
+            new SpriteRenderer[6];
         private float elapsed;
 
         public bool IsActive => gameObject.activeSelf;
@@ -235,14 +237,19 @@ namespace RuleforgeTD.Towers.Testing
             float alpha = 1f - progress;
             for (int i = 0; i < sparks.Length; i++)
             {
-                float lane = i - 1f;
+                float angle =
+                    Mathf.PI * 2f * i / sparks.Length +
+                    progress * 0.35f;
+                Vector2 radialDirection = new Vector2(
+                    Mathf.Cos(angle),
+                    Mathf.Sin(angle));
                 sparks[i].localPosition =
-                    (Vector3)(perpendicular * lane * 0.12f * progress +
-                              direction * 0.08f * progress);
-                float size = Mathf.Lerp(0.08f, 0.025f, progress);
+                    (Vector3)(radialDirection *
+                              Mathf.Lerp(0.04f, 0.38f, progress));
+                float size = Mathf.Lerp(0.09f, 0.025f, progress);
                 sparks[i].localScale = new Vector3(
                     size,
-                    size * (i == 1 ? 1.4f : 1f),
+                    size,
                     1f);
                 Color color = SplitColor;
                 color.a = alpha;
@@ -271,13 +278,9 @@ namespace RuleforgeTD.Towers.Testing
             }
         }
 
-        public void Play(Vector3 origin, Vector2 launchDirection)
+        public void Play(Vector3 enemyPosition)
         {
-            direction = launchDirection.sqrMagnitude <= 0.000001f
-                ? Vector2.up
-                : launchDirection.normalized;
-            perpendicular = new Vector2(-direction.y, direction.x);
-            transform.position = origin;
+            transform.position = enemyPosition;
             elapsed = 0f;
             gameObject.SetActive(true);
         }

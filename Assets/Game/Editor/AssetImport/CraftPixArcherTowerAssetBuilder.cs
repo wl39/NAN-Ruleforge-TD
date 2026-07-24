@@ -47,7 +47,10 @@ namespace RuleforgeTD.Editor.AssetImport
         private const int ExpectedUnitSheets = 27;
         private const int ExpectedArrowSprites = 27;
         private const int ExpectedGeneratedClips = 41;
+        private const int InitialSplitChildrenPerRoot = 2;
+        private const int ShowcaseEnemyMaximumHealth = 1000;
         private const float TowerIdleFrameDuration = 0.12f;
+        private const float EnemyRespawnDelay = 1.8f;
         private const int TowerBodySortingOrder = 20;
         private const int ArcherSortingOrder = 21;
 
@@ -265,7 +268,10 @@ namespace RuleforgeTD.Editor.AssetImport
 
             Debug.Log(
                 "RULEFORGE_ARCHER_BUILD_OK towerSheets=14 unitSheets=27 " +
-                "arrows=27 cards=3 clips=41 prefabs=7 scene=" +
+                "arrows=27 cards=3 cardSubject=enemy roots=4 seedPooled=8 " +
+                "seedTargets=12 enemyHealth=1000 splitStop=health<1 " +
+                "statusCopy=all scalePerGeneration=0.9 " +
+                "pool=dynamic-high-water clips=41 prefabs=7 scene=" +
                 TestScenePath);
         }
 
@@ -1086,11 +1092,15 @@ namespace RuleforgeTD.Editor.AssetImport
                         60);
                 }
 
-                EnemyHealth[] combatEnemies =
-                    CreateCombatEnemies(targetScene, showcasePixel);
+                EnemyHealth[] combatTargets =
+                    CreateCombatEnemies(
+                        targetScene,
+                        showcasePixel,
+                        out ArcherEnemyCombatSystem combatSystem);
                 for (int i = 0; i < towerActors.Count; i++)
                 {
-                    towerActors[i].SetTargets(combatEnemies);
+                    towerActors[i].SetTargets(combatTargets);
+                    towerActors[i].SetEnemyCombatSystem(combatSystem);
                 }
 
                 EditorSceneManager.MarkSceneDirty(targetScene);
@@ -1113,7 +1123,8 @@ namespace RuleforgeTD.Editor.AssetImport
 
         private static EnemyHealth[] CreateCombatEnemies(
             Scene targetScene,
-            Sprite showcasePixel)
+            Sprite showcasePixel,
+            out ArcherEnemyCombatSystem combatSystem)
         {
             Vector3[] routeCenters =
             {
@@ -1123,7 +1134,13 @@ namespace RuleforgeTD.Editor.AssetImport
                 new Vector3(6.3f, -0.7f, 0f)
             };
             float[] movementSpeeds = { 0.86f, 1.08f, 0.92f, 0.78f };
-            var enemies = new List<EnemyHealth>(CombatEnemyNames.Length);
+            var rootEnemies =
+                new List<EnemyHealth>(CombatEnemyNames.Length);
+            var pooledEnemies = new List<EnemyHealth>(
+                CombatEnemyNames.Length * InitialSplitChildrenPerRoot);
+            var allActors = new List<EnemyTestActor>(
+                CombatEnemyNames.Length *
+                (InitialSplitChildrenPerRoot + 1));
 
             for (int i = 0; i < CombatEnemyNames.Length; i++)
             {
@@ -1138,55 +1155,121 @@ namespace RuleforgeTD.Editor.AssetImport
                         "Missing combat enemy prefab: " + prefabPath);
                 }
 
-                GameObject instance =
-                    PrefabUtility.InstantiatePrefab(prefab, targetScene)
-                    as GameObject;
-                if (instance == null)
+                EnemyHealth rootHealth = CreateCombatEnemy(
+                    prefab,
+                    targetScene,
+                    "Live Target " + enemyName,
+                    routeCenters[i],
+                    movementSpeeds[i],
+                    showcasePixel,
+                    out EnemyTestActor rootActor);
+                rootEnemies.Add(rootHealth);
+                allActors.Add(rootActor);
+
+                for (int childIndex = 0;
+                     childIndex < InitialSplitChildrenPerRoot;
+                     childIndex++)
                 {
-                    throw new InvalidOperationException(
-                        "Failed to instantiate combat enemy: " + enemyName);
+                    EnemyHealth childHealth = CreateCombatEnemy(
+                        prefab,
+                        targetScene,
+                        "Split Pool " +
+                        enemyName +
+                        " " +
+                        (childIndex + 1).ToString("00"),
+                        routeCenters[i],
+                        movementSpeeds[i],
+                        showcasePixel,
+                        out EnemyTestActor childActor);
+                    childHealth.gameObject.SetActive(false);
+                    pooledEnemies.Add(childHealth);
+                    allActors.Add(childActor);
                 }
-
-                instance.name = "Live Target " + enemyName;
-                instance.transform.position = routeCenters[i];
-                instance.transform.localScale = Vector3.one * 0.84f;
-
-                DirectionalEnemyAnimator directionalAnimator =
-                    instance.GetComponent<DirectionalEnemyAnimator>();
-                EnemyTestActor testActor =
-                    instance.GetComponent<EnemyTestActor>();
-                EnemyHealth health = instance.GetComponent<EnemyHealth>();
-                if (directionalAnimator == null ||
-                    testActor == null ||
-                    health == null)
-                {
-                    throw new InvalidOperationException(
-                        "Combat enemy prefab is missing runtime components: " +
-                        prefabPath);
-                }
-
-                testActor.Configure(
-                    directionalAnimator,
-                    1.05f,
-                    0.18f,
-                    movementSpeeds[i]);
-                ArcherEnemyCardStatusView cardStatus =
-                    instance.AddComponent<ArcherEnemyCardStatusView>();
-                cardStatus.Configure(
-                    health,
-                    instance.GetComponent<SpriteRenderer>(),
-                    showcasePixel);
-                enemies.Add(health);
             }
 
-            new GameObject("Live Enemy Movement System")
-                .AddComponent<EnemyTestMovementSystem>();
-            ArcherEnemyCombatSystem combatSystem =
+            EnemyTestMovementSystem movementSystem =
+                new GameObject("Live Enemy Movement System")
+                    .AddComponent<EnemyTestMovementSystem>();
+            movementSystem.Configure(allActors.ToArray());
+
+            combatSystem =
                 new GameObject("Archer Enemy Combat System")
                     .AddComponent<ArcherEnemyCombatSystem>();
-            EnemyHealth[] combatEnemies = enemies.ToArray();
-            combatSystem.Configure(combatEnemies, 1.8f);
-            return combatEnemies;
+            EnemyHealth[] roots = rootEnemies.ToArray();
+            EnemyHealth[] pool = pooledEnemies.ToArray();
+            combatSystem.Configure(
+                roots,
+                pool,
+                movementSystem,
+                EnemyRespawnDelay);
+
+            var allTargets =
+                new EnemyHealth[roots.Length + pool.Length];
+            Array.Copy(roots, 0, allTargets, 0, roots.Length);
+            Array.Copy(pool, 0, allTargets, roots.Length, pool.Length);
+            return allTargets;
+        }
+
+        private static EnemyHealth CreateCombatEnemy(
+            GameObject prefab,
+            Scene targetScene,
+            string instanceName,
+            Vector3 routeCenter,
+            float movementSpeed,
+            Sprite showcasePixel,
+            out EnemyTestActor testActor)
+        {
+            GameObject instance =
+                PrefabUtility.InstantiatePrefab(prefab, targetScene)
+                as GameObject;
+            if (instance == null)
+            {
+                throw new InvalidOperationException(
+                    "Failed to instantiate combat enemy: " + instanceName);
+            }
+
+            instance.name = instanceName;
+            instance.transform.position = routeCenter;
+            instance.transform.localScale = Vector3.one * 0.84f;
+
+            DirectionalEnemyAnimator directionalAnimator =
+                instance.GetComponent<DirectionalEnemyAnimator>();
+            testActor = instance.GetComponent<EnemyTestActor>();
+            EnemyHealth health = instance.GetComponent<EnemyHealth>();
+            SpriteRenderer enemyRenderer =
+                instance.GetComponent<SpriteRenderer>();
+            if (directionalAnimator == null ||
+                testActor == null ||
+                health == null ||
+                enemyRenderer == null)
+            {
+                throw new InvalidOperationException(
+                    "Combat enemy prefab is missing runtime components: " +
+                    AssetDatabase.GetAssetPath(prefab));
+            }
+
+            testActor.Configure(
+                directionalAnimator,
+                1.05f,
+                0.18f,
+                movementSpeed);
+            health.Configure(
+                ShowcaseEnemyMaximumHealth,
+                ShowcaseEnemyMaximumHealth,
+                directionalAnimator);
+            ArcherEnemyCardStatusView cardStatus =
+                instance.GetComponent<ArcherEnemyCardStatusView>();
+            if (cardStatus == null)
+            {
+                cardStatus =
+                    instance.AddComponent<ArcherEnemyCardStatusView>();
+            }
+
+            cardStatus.Configure(
+                health,
+                enemyRenderer,
+                showcasePixel);
+            return health;
         }
 
         private static void CreateShowcaseCamera()
@@ -1253,14 +1336,15 @@ namespace RuleforgeTD.Editor.AssetImport
                 70);
             CreateCardChip(
                 "Split Card Chip",
-                "SPLIT",
-                new Vector3(-2.7f, 5.12f, 0f),
+                "ENEMY SPLIT",
+                new Vector3(-3f, 5.12f, 0f),
                 new Color(0.18f, 0.52f, 0.68f, 0.98f),
-                showcasePixel);
+                showcasePixel,
+                2.25f);
             CreateText(
                 "First Card Arrow",
                 "→",
-                new Vector3(-1.35f, 5.12f, 0f),
+                new Vector3(-1.45f, 5.12f, 0f),
                 0.07f,
                 44,
                 new Color(0.82f, 0.9f, 0.88f, 1f),
@@ -1287,10 +1371,11 @@ namespace RuleforgeTD.Editor.AssetImport
                 showcasePixel);
             CreateText(
                 "Guide",
-                "SPLIT 2 × 65%  •  BURN 0.5s TICKS  •  POISON 1.0s TICKS  •  AUTO RESPAWN",
-                new Vector3(0f, -5.48f, 0f),
-                0.052f,
-                36,
+                "1 ARROW HIT → ENEMY SPLIT 2 × 45% HP → BURN → POISON\n" +
+                "HEALTH < 1 STOPS • COPY ALL STATUS • -10% SCALE • DYNAMIC POOL",
+                new Vector3(0f, -5.42f, 0f),
+                0.043f,
+                32,
                 new Color(0.92f, 0.88f, 0.74f, 1f),
                 70);
         }
@@ -1300,13 +1385,14 @@ namespace RuleforgeTD.Editor.AssetImport
             string label,
             Vector3 position,
             Color backgroundColor,
-            Sprite showcasePixel)
+            Sprite showcasePixel,
+            float width = 1.65f)
         {
             CreateColoredSprite(
                 objectName + " Backdrop",
                 showcasePixel,
                 position,
-                new Vector2(1.65f, 0.42f),
+                new Vector2(width, 0.42f),
                 backgroundColor,
                 69);
             CreateText(
@@ -1508,7 +1594,11 @@ namespace RuleforgeTD.Editor.AssetImport
 
             Debug.Log(
                 "RULEFORGE_ARCHER_VALIDATION_OK levels=7 archers=15 " +
-                "enemies=4 cards=3 towerClips=14 unitClips=27 arrows=27 scene=1");
+                "roots=4 seedPooled=8 seedTargets=12 enemyHealth=1000 " +
+                "cards=3 cardSubject=enemy splitStop=health<1 " +
+                "statusCopy=all scalePerGeneration=0.9 " +
+                "pool=dynamic-high-water " +
+                "towerClips=14 unitClips=27 arrows=27 scene=1");
         }
 
         private static Sprite[] LoadSprites(string assetPath)

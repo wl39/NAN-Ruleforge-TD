@@ -34,10 +34,25 @@ namespace RuleforgeTD.Enemies
 
         public void Configure(int health, DirectionalEnemyAnimator targetAnimator)
         {
-            maxHealth = Mathf.Max(1, health);
-            currentHealth = maxHealth;
+            Configure(health, health, targetAnimator);
+        }
+
+        public void Configure(
+            int maximumHealth,
+            int health,
+            DirectionalEnemyAnimator targetAnimator)
+        {
+            maxHealth = Mathf.Max(1, maximumHealth);
+            currentHealth = Mathf.Clamp(health, 0, maxHealth);
             initialized = true;
             directionalAnimator = targetAnimator;
+            HealthChanged?.Invoke(currentHealth, maxHealth);
+
+            if (currentHealth > 0 && directionalAnimator != null)
+            {
+                directionalAnimator.PlayBehaviour(
+                    EnemyAnimationBehaviour.Walk);
+            }
         }
 
         public int TakeDamage(int amount)

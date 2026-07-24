@@ -41,15 +41,19 @@ namespace RuleforgeTD.Towers.Testing
         [SerializeField] private EnemyHealth[] targets =
             Array.Empty<EnemyHealth>();
         [SerializeField] private ArcherShowcaseCardProgram cardProgram;
+        [SerializeField] private ArcherEnemyCombatSystem enemyCombatSystem;
         [SerializeField] private bool automaticPlayback = true;
 
         private readonly List<ArcherProjectileView> projectilePool =
             new List<ArcherProjectileView>(MaximumPooledProjectiles);
+        private readonly List<EnemyHealth> dynamicTargetBuffer =
+            new List<EnemyHealth>();
         private EnemyHealth currentTarget;
         private float upgradeTimer;
         private float volleyTimer;
         private float targetScanTimer;
         private bool subscribed;
+        private bool useExplicitTargets;
         private int successfulHitCount;
         private int totalProjectileLaunchCount;
 
@@ -72,7 +76,10 @@ namespace RuleforgeTD.Towers.Testing
                 return activeCount;
             }
         }
-        public int TargetCount => targets == null ? 0 : targets.Length;
+        public int TargetCount =>
+            !useExplicitTargets && enemyCombatSystem != null
+                ? enemyCombatSystem.TargetCount
+                : targets == null ? 0 : targets.Length;
         public EnemyHealth CurrentTarget => currentTarget;
         public int SuccessfulHitCount => successfulHitCount;
         public int TotalProjectileLaunchCount => totalProjectileLaunchCount;
@@ -179,7 +186,10 @@ namespace RuleforgeTD.Towers.Testing
 
         public void RefreshTargets()
         {
-            targets = FindObjectsOfType<EnemyHealth>();
+            useExplicitTargets = false;
+            targets = enemyCombatSystem != null
+                ? enemyCombatSystem.GetAllTargets()
+                : FindObjectsOfType<EnemyHealth>();
             Array.Sort(targets, CompareTargets);
             targetScanTimer = 0f;
             AcquireNearestTarget();
@@ -187,6 +197,7 @@ namespace RuleforgeTD.Towers.Testing
 
         public void SetTargets(EnemyHealth[] combatTargets)
         {
+            useExplicitTargets = true;
             if (combatTargets == null || combatTargets.Length == 0)
             {
                 targets = Array.Empty<EnemyHealth>();
@@ -195,6 +206,20 @@ namespace RuleforgeTD.Towers.Testing
             {
                 targets = new EnemyHealth[combatTargets.Length];
                 Array.Copy(combatTargets, targets, combatTargets.Length);
+            }
+
+            targetScanTimer = 0f;
+            AcquireNearestTarget();
+        }
+
+        public void SetEnemyCombatSystem(
+            ArcherEnemyCombatSystem combatSystem)
+        {
+            enemyCombatSystem = combatSystem;
+            useExplicitTargets = false;
+            if (enemyCombatSystem != null)
+            {
+                targets = enemyCombatSystem.GetAllTargets();
             }
 
             targetScanTimer = 0f;
@@ -260,57 +285,25 @@ namespace RuleforgeTD.Towers.Testing
                 return;
             }
 
-            int branchCount = cardProgram != null && cardProgram.IsReady
-                ? cardProgram.SplitProjectileCount
-                : 1;
-            int damageBasisPoints = cardProgram != null && cardProgram.IsReady
-                ? cardProgram.SplitDamageBasisPoints
-                : 10000;
             int damageMilli = Mathf.Max(
                 1,
-                (int)((long)Mathf.Max(1, unitTier) *
-                      1000L *
-                      damageBasisPoints /
-                      10000L));
-            Vector2 normalizedDirection = direction.sqrMagnitude <= 0.000001f
-                ? Vector2.up
-                : direction.normalized;
-            Vector2 perpendicular = new Vector2(
-                -normalizedDirection.y,
-                normalizedDirection.x);
-
-            if (branchCount > 1)
+                Mathf.Max(1, unitTier) * 1000);
+            ArcherProjectileView projectile = GetAvailableProjectile();
+            if (projectile == null)
             {
-                cardProgram.PlaySplitBurst(origin, normalizedDirection);
+                return;
             }
 
-            for (int branchIndex = 0;
-                 branchIndex < branchCount;
-                 branchIndex++)
-            {
-                ArcherProjectileView projectile = GetAvailableProjectile();
-                if (projectile == null)
-                {
-                    break;
-                }
-
-                EnemyHealth branchTarget = branchIndex == 0
-                    ? target
-                    : AcquireAlternateTarget(target, origin) ?? target;
-                float branchOffset = branchCount <= 1
-                    ? 0f
-                    : (branchIndex - (branchCount - 1) * 0.5f) * 0.18f;
-                projectile.Launch(
-                    arrowDirectionBank,
-                    origin + (Vector3)(perpendicular * branchOffset),
-                    branchTarget,
-                    projectileSpeed,
-                    projectileLifetime,
-                    projectileScale,
-                    projectileHitRadius,
-                    damageMilli);
-                totalProjectileLaunchCount++;
-            }
+            projectile.Launch(
+                arrowDirectionBank,
+                origin,
+                target,
+                projectileSpeed,
+                projectileLifetime,
+                projectileScale,
+                projectileHitRadius,
+                damageMilli);
+            totalProjectileLaunchCount++;
         }
 
         private ArcherProjectileView GetAvailableProjectile()
@@ -380,23 +373,29 @@ namespace RuleforgeTD.Towers.Testing
             float bestDistanceSquared = maximumDistanceSquared;
             EnemyHealth bestTarget = null;
             Vector3 towerPosition = towerView.transform.position;
-            if (targets != null)
+            if (!useExplicitTargets && enemyCombatSystem != null)
+            {
+                enemyCombatSystem.CopyTargetsTo(dynamicTargetBuffer);
+                for (int i = 0; i < dynamicTargetBuffer.Count; i++)
+                {
+                    EnemyHealth candidate = dynamicTargetBuffer[i];
+                    EvaluateCandidate(
+                        candidate,
+                        towerPosition,
+                        ref bestDistanceSquared,
+                        ref bestTarget);
+                }
+            }
+            else if (targets != null)
             {
                 for (int i = 0; i < targets.Length; i++)
                 {
                     EnemyHealth candidate = targets[i];
-                    if (!IsValidTarget(candidate))
-                    {
-                        continue;
-                    }
-
-                    float distanceSquared =
-                        (candidate.transform.position - towerPosition).sqrMagnitude;
-                    if (distanceSquared < bestDistanceSquared)
-                    {
-                        bestDistanceSquared = distanceSquared;
-                        bestTarget = candidate;
-                    }
+                    EvaluateCandidate(
+                        candidate,
+                        towerPosition,
+                        ref bestDistanceSquared,
+                        ref bestTarget);
                 }
             }
 
@@ -404,42 +403,31 @@ namespace RuleforgeTD.Towers.Testing
             return currentTarget;
         }
 
+        private static void EvaluateCandidate(
+            EnemyHealth candidate,
+            Vector3 towerPosition,
+            ref float bestDistanceSquared,
+            ref EnemyHealth bestTarget)
+        {
+            if (!IsValidTarget(candidate))
+            {
+                return;
+            }
+
+            float distanceSquared =
+                (candidate.transform.position - towerPosition).sqrMagnitude;
+            if (distanceSquared < bestDistanceSquared)
+            {
+                bestDistanceSquared = distanceSquared;
+                bestTarget = candidate;
+            }
+        }
+
         private static bool IsValidTarget(EnemyHealth candidate)
         {
             return candidate != null &&
                    candidate.gameObject.activeInHierarchy &&
                    !candidate.IsDead;
-        }
-
-        private EnemyHealth AcquireAlternateTarget(
-            EnemyHealth primaryTarget,
-            Vector3 origin)
-        {
-            float bestDistanceSquared = targetRange * targetRange;
-            EnemyHealth bestTarget = null;
-            if (targets == null)
-            {
-                return null;
-            }
-
-            for (int i = 0; i < targets.Length; i++)
-            {
-                EnemyHealth candidate = targets[i];
-                if (candidate == primaryTarget || !IsValidTarget(candidate))
-                {
-                    continue;
-                }
-
-                float distanceSquared =
-                    (candidate.transform.position - origin).sqrMagnitude;
-                if (distanceSquared < bestDistanceSquared)
-                {
-                    bestDistanceSquared = distanceSquared;
-                    bestTarget = candidate;
-                }
-            }
-
-            return bestTarget;
         }
 
         private static int CompareTargets(EnemyHealth left, EnemyHealth right)
@@ -471,12 +459,21 @@ namespace RuleforgeTD.Towers.Testing
                 cardProgram != null &&
                 cardProgram.IsReady)
             {
-                ArcherEnemyCardStatusView status =
-                    hitEnemy.GetComponent<ArcherEnemyCardStatusView>();
-                if (status != null)
+                if (enemyCombatSystem != null)
                 {
-                    status.ApplyBurn(cardProgram.BurnDefinition);
-                    status.ApplyPoison(cardProgram.PoisonDefinition);
+                    enemyCombatSystem.ApplyEnemyProgram(
+                        hitEnemy,
+                        cardProgram);
+                }
+                else
+                {
+                    ArcherEnemyCardStatusView status =
+                        hitEnemy.GetComponent<ArcherEnemyCardStatusView>();
+                    if (status != null)
+                    {
+                        status.ApplyBurn(cardProgram.BurnDefinition);
+                        status.ApplyPoison(cardProgram.PoisonDefinition);
+                    }
                 }
             }
 
