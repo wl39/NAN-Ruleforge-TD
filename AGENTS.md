@@ -1957,6 +1957,120 @@ effect.poison.cloud
 ui.card.frame.common
 ```
 
+## Fields 타일셋 및 스테이지 맵 규칙
+
+Fields 원본은 다음 경로를 정식 Unity 임포트 위치로 사용한다.
+
+```text
+Assets/ThirdParty/CraftPix/Raw/Maps/Fields/
+  Tiles/
+    FieldsTileset.png
+    FieldsTilesetTest.png
+    FieldsTile_01.png ... FieldsTile_64.png
+  Objects/
+  Animated Objects/
+```
+
+루트의 임시 다운로드 폴더나 `Assets` 밖의 파일은 런타임과 Editor 생성기에서 직접 참조하지 않는다.
+
+### 지형 타일 번호와 충돌 의미
+
+* `FieldsTileset.png`은 게임에 표시하는 최종 `256x256` 아틀라스다.
+* 각 타일은 `32x32`, PPU는 `32`, Filter Mode는 Point, 압축은 사용하지 않는다.
+* 타일 번호는 좌측 상단이 1, 우측 하단이 64인 8열 행 우선 순서다.
+* Unity Sprite Rect의 Y축은 아래에서 시작하므로 1번 Rect는 `(0, 224, 32, 32)`, 38번은 `(160, 96, 32, 32)`, 64번은 `(224, 0, 32, 32)`다.
+* `FieldsTile_01.png`부터 `FieldsTile_64.png`까지의 개별 파일은 아틀라스 조각과 픽셀 단위로 동일해야 한다.
+* `FieldsTilesetTest.png`은 표시용 이미지가 아니라 이동 가능 영역을 정의하는 의미 마스크다.
+* 의미 마스크의 `#A6B04F` 초록 픽셀은 몬스터가 통과할 수 없고, `#EB9661` 주황 픽셀은 통과할 수 있다.
+* 최종 아틀라스의 장식용 초록색 픽셀을 충돌로 오인하지 않는다. 충돌 마스크는 반드시 `FieldsTilesetTest.png`에서 빌드 시점에 굽고 런타임에 텍스처를 다시 스캔하지 않는다.
+* 38번 타일은 1024픽셀 전체가 초록색인 완전 차단 타일이다.
+* 11, 18, 20, 27번 타일은 완전 통과 타일이다.
+* 부분 차단 타일은 32행 비트 마스크를 `FieldTerrainTile`에 저장하고 같은 마스크에서 Sprite Physics Shape를 생성한다.
+* `TilemapCollider2D`와 `CompositeCollider2D`는 표시·물리 안전장치다. 결정적 적 이동의 권위 데이터는 계속 `GameLogic.PathModel`이며, 타일 충돌이 경로 진행도를 대신하지 않는다.
+
+### 정적 오브젝트와 건설 지점
+
+`Objects`의 9개 분류와 현재 변형 수는 다음과 같다.
+
+| 분류 | 변형 수 |
+| --- | ---: |
+| Shadow | 6 |
+| Fence | 10 |
+| Pointer | 6 |
+| Stone | 16 |
+| Grass | 6 |
+| Flower | 12 |
+| Decor | 22 |
+| Camp | 6 |
+| Bush | 6 |
+
+총 90개 오브젝트는 충돌 의미를 직접 소유하지 않는 별도 Props Tilemap에 배치한다. 주로 38번 완전 차단 타일 또는 다른 지형 타일의 초록색 차단 영역 위에 장식한다. 오브젝트 외곽을 보고 몬스터 충돌을 새로 추론하지 않는다.
+
+* `PlaceForTower1.png`은 즉시 건설 가능한 지점이다.
+* `PlaceForTower2.png`은 잠긴 지점이며, 현재 상태에서는 타워를 배치할 수 없다.
+* 잠금 해제 비용은 `phase1-content.json`의 `buildSpotUnlockCosts`가 작성 원본이다. 프리팹이나 씬에 경제 규칙을 중복 하드코딩하지 않는다.
+* 잠금 해제는 계획 단계에서만 가능하고, `GameSimulation`이 재화를 한 번 차감한 뒤 해당 지점을 사용 가능 상태로 바꾼다.
+* 잠긴 지점을 누르면 해금 명령과 비용 안내를 제공하고, 해금 뒤에는 동일한 `TowerBuildSiteView`가 PlaceForTower1 표시로 전환한다.
+* 건설 지점의 프레젠테이션 상태는 `Locked`, `Available`, `Occupied` 세 가지다.
+
+### 애니메이션 오브젝트
+
+모든 애니메이션 시트는 왼쪽에서 오른쪽으로 6프레임이며 기본 프레임 시간은 `0.12초`다.
+
+Flag 방향은 다음 규칙을 사용한다.
+
+| 원본 | 방향 | 좌우 반전 시 |
+| --- | --- | --- |
+| 1 | Down, 6시 | 사용하지 않음 |
+| 2 | DownLeft, 7시 30분 | DownRight, 4시 30분 |
+| 3 | Up, 12시 | 사용하지 않음 |
+| 4 | UpLeft, 10시 30분 | UpRight, 1시 30분 |
+| 5 | Left, 9시 | Right, 3시 |
+
+2, 4, 5번만 같은 프레임을 X축 반전해 우측 방향 은행을 만든다. 반전 사본 PNG를 생성하지 않고 Tile transform으로 표현한다.
+
+* Campfire 1은 불이 꺼진 연기 상태 애니메이션이다.
+* Campfire 2는 불이 붙은 상태 애니메이션이다.
+* 두 상태는 별도 `FieldAnimatedTile`로 제공하며 Animated Objects Tilemap에서 편집한다.
+
+### 생성 에셋과 Stage01 편집 규칙
+
+생성기는 다음 위치를 사용한다.
+
+```text
+Assets/Game/Data/Maps/Fields/
+  Tiles/Terrain/
+  Tiles/Props/
+  Tiles/Animated/
+  Palettes/
+Assets/Game/Prefabs/Maps/Fields/TowerBuildSite.prefab
+Assets/Game/Scenes/Battle/Stage01.unity
+```
+
+Unity 메뉴 `Ruleforge TD/Assets/Rebuild Fields Tilemap Content`는 원본 임포트 설정, 타일 에셋, 3개 Palette와 프리팹을 멱등적으로 갱신한다. 이미 존재하는 `Stage01.unity`는 사용자의 수동 Tilemap 작업을 보호하기 위해 일반 재생성에서 덮어쓰지 않는다. 생성 기준 맵으로 되돌릴 때만 `Ruleforge TD/Scenes/Rebuild Stage 01 (Overwrite)`를 사용하고 확인 대화상자를 거친다.
+
+`Stage01`의 Grid는 다음 계층을 유지한다.
+
+```text
+Stage 01
+  Grid
+    Terrain
+    Decals
+    Props
+    Animated Objects
+  Navigation
+  Build Sites
+  Camera
+```
+
+* Terrain은 의미 마스크와 Collider를 가진 지형 타일 전용이다.
+* Decals는 충돌 없는 지면 장식 전용이다.
+* Props는 90개 정적 오브젝트 전용이다.
+* Animated Objects는 Flag와 Campfire 전용이다.
+* `StagePathAuthoring`의 웨이포인트와 건설 지점 좌표는 `phase1-content.json`과 일치시킨다.
+* 생성기 검증은 64개 타일 순서, 90개 오브젝트, 10개 애니메이션 타일, 38번 완전 차단, 경로 여유 폭, 건설 지점 수와 잠금 상태, 씬 Collider 구성을 확인한다.
+* 타일 추가와 수동 맵 수정은 생성된 Palette를 통해 수행한다. 원본 PNG를 씬에 직접 SpriteRenderer로 흩어 놓지 않는다.
+
 ## Archer Tower 스프라이트 및 애니메이션 규칙
 
 Archer Tower 원본은 다음 경로를 정식 Unity 임포트 위치로 사용한다.
