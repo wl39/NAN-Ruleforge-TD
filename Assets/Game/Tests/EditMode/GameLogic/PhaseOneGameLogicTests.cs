@@ -188,7 +188,7 @@ namespace RuleforgeTD.Tests.EditMode.GameLogic
         }
 
         [Test]
-        public void MutationSplit_PreservesRewardAndContinuesWithoutPriorBindings()
+        public void MutationSplit_PreservesRewardDeepCopiesStatusesAndSkipsDeathBindings()
         {
             GameSimulation continuationSimulation = CreateCombatSimulation(
                 "mutation_obelisk",
@@ -215,14 +215,42 @@ namespace RuleforgeTD.Tests.EditMode.GameLogic
 
             Assert.That(inheritanceEnemies, Has.Length.EqualTo(2));
             AssertSplitRewardIsPreserved(inheritanceEnemies, "raider");
-            EnemySnapshot nonInheritedChild = FindNewestEnemy(inheritanceEnemies);
-            CollectionAssert.DoesNotContain(nonInheritedChild.Statuses, StatusType.Burn);
-            Assert.That(nonInheritedChild.DeathBindingCount, Is.EqualTo(1),
-                "The split child must continue at explode without inheriting burn.");
+            EnemySnapshot inheritedChild = FindNewestEnemy(inheritanceEnemies);
+            EnemySnapshot inheritedOriginal =
+                inheritanceEnemies[0].Id == inheritedChild.Id
+                    ? inheritanceEnemies[1]
+                    : inheritanceEnemies[0];
+            CollectionAssert.Contains(inheritedChild.Statuses, StatusType.Burn);
+            Assert.That(inheritedChild.DeathBindingCount, Is.EqualTo(1),
+                "The split child must continue at explode after inheriting burn.");
+
+            EnemyState originalState = FindEnemyState(
+                inheritanceSimulation,
+                inheritedOriginal.Id);
+            EnemyState childState = FindEnemyState(
+                inheritanceSimulation,
+                inheritedChild.Id);
+            Assert.That(originalState.Statuses, Has.Count.EqualTo(1));
+            Assert.That(childState.Statuses, Has.Count.EqualTo(1));
+            AssertStatusWasDeepCopied(
+                originalState.Statuses[0],
+                childState.Statuses[0]);
+
+            GameSimulation bindingSimulation = CreateCombatSimulation(
+                "mutation_obelisk",
+                new[] { "explode", "split" },
+                17UL);
+            bindingSimulation.Step();
+            EnemySnapshot[] bindingEnemies =
+                bindingSimulation.GetSnapshot().Enemies;
+            Assert.That(bindingEnemies, Has.Length.EqualTo(2));
+            EnemySnapshot bindingChild = FindNewestEnemy(bindingEnemies);
+            Assert.That(bindingChild.DeathBindingCount, Is.Zero,
+                "Death bindings created before split must not be inherited.");
         }
 
         [Test]
-        public void EnemySplit_LimitsTheWholeLineageToTwoSplitOperations()
+        public void EnemySplit_IgnoresLegacyLineageCapsAndShrinksEachGeneration()
         {
             CompiledContent splitContent = CompileCustomized(source =>
             {
@@ -239,8 +267,11 @@ namespace RuleforgeTD.Tests.EditMode.GameLogic
                 source.run.buildSpotYMilli[1] = 0;
                 FindTowerDto(source, "mutation_obelisk")
                     .rangeMilli = 500;
-                FindEnemyDto(source, "raider")
-                    .speedMilliPerTick = 1000;
+                EnemyDefinitionDto raider = FindEnemyDto(source, "raider");
+                raider.maxHealthMilli = 1_000_000;
+                raider.speedMilliPerTick = 1000;
+                source.safety.maxEnemySplitCount = 1;
+                source.safety.maxEnemyLineageMembers = 2;
             });
 
             var simulation = new GameSimulation();
@@ -286,16 +317,89 @@ namespace RuleforgeTD.Tests.EditMode.GameLogic
 
             SimulationSnapshot snapshot =
                 simulation.GetSnapshot();
-            Assert.That(snapshot.Enemies, Has.Length.EqualTo(3));
+            Assert.That(snapshot.Enemies, Has.Length.EqualTo(4));
             Assert.That(snapshot.Lineages, Has.Length.EqualTo(1));
-            Assert.That(snapshot.Lineages[0].SplitCount, Is.EqualTo(2));
+            Assert.That(snapshot.Lineages[0].SplitCount, Is.EqualTo(3));
             Assert.That(
                 snapshot.Lineages[0].SpawnedEntityCount,
-                Is.EqualTo(3));
+                Is.EqualTo(4));
+            for (int enemyIndex = 0;
+                 enemyIndex < snapshot.Enemies.Length;
+                 enemyIndex++)
+            {
+                Assert.That(snapshot.Enemies[enemyIndex].Generation, Is.EqualTo(2));
+                Assert.That(
+                    snapshot.Enemies[enemyIndex].SizeMultiplierBps,
+                    Is.EqualTo(8100));
+            }
+
+            for (int diagnosticIndex = 0;
+                 diagnosticIndex < simulation.Diagnostics.Count;
+                 diagnosticIndex++)
+            {
+                Assert.That(
+                    simulation.Diagnostics[diagnosticIndex].Code,
+                    Is.Not.EqualTo(DiagnosticCode.EnemyLineageLimitReached));
+            }
+        }
+
+        [TestCase(2222, false)]
+        [TestCase(2223, true)]
+        public void EnemySplit_RequiresAtLeastOneHealthForBothResults(
+            int startingHealthMilli,
+            bool shouldSplit)
+        {
+            CompiledContent splitContent = CompileCustomized(source =>
+            {
+                ConfigureSingleWave(source, "raider", 1, 1);
+                source.run.startingTowerChoices =
+                    new[] { "mutation_obelisk" };
+                source.run.initiallyUnlockedTowers =
+                    Array.Empty<string>();
+                source.run.startingCards =
+                    new[] { "split" };
+                EnemyDefinitionDto raider = FindEnemyDto(source, "raider");
+                raider.maxHealthMilli = startingHealthMilli;
+                raider.speedMilliPerTick = 1;
+            });
+            GameSimulation simulation = CreateCombatSimulation(
+                splitContent,
+                "mutation_obelisk",
+                new[] { "split" },
+                0x51A7UL);
+
+            simulation.Step();
+
+            SimulationSnapshot snapshot = simulation.GetSnapshot();
             Assert.That(
-                simulation.Diagnostics[0].Code,
-                Is.EqualTo(
-                    DiagnosticCode.EnemyLineageLimitReached));
+                snapshot.Enemies,
+                Has.Length.EqualTo(shouldSplit ? 2 : 1));
+            Assert.That(snapshot.Lineages, Has.Length.EqualTo(1));
+            Assert.That(
+                snapshot.Lineages[0].SplitCount,
+                Is.EqualTo(shouldSplit ? 1 : 0));
+            Assert.That(
+                snapshot.Lineages[0].SpawnedEntityCount,
+                Is.EqualTo(shouldSplit ? 2 : 1));
+
+            for (int enemyIndex = 0;
+                 enemyIndex < snapshot.Enemies.Length;
+                 enemyIndex++)
+            {
+                EnemySnapshot enemy = snapshot.Enemies[enemyIndex];
+                Assert.That(
+                    enemy.MaxHealthMilli,
+                    Is.EqualTo(shouldSplit ? 1000 : startingHealthMilli));
+                Assert.That(
+                    enemy.HealthMilli,
+                    Is.EqualTo(shouldSplit ? 1000 : startingHealthMilli));
+                Assert.That(
+                    enemy.Generation,
+                    Is.EqualTo(shouldSplit ? 1 : 0));
+                Assert.That(
+                    enemy.SizeMultiplierBps,
+                    Is.EqualTo(shouldSplit ? 9000 : 10000));
+            }
         }
 
         [Test]
@@ -1364,6 +1468,63 @@ namespace RuleforgeTD.Tests.EditMode.GameLogic
             }
 
             return newest;
+        }
+
+        private static EnemyState FindEnemyState(
+            GameSimulation simulation,
+            int enemyId)
+        {
+            var field = typeof(GameSimulation).GetField(
+                "enemies",
+                System.Reflection.BindingFlags.Instance |
+                System.Reflection.BindingFlags.NonPublic);
+            Assert.That(field, Is.Not.Null);
+            var states = (List<EnemyState>)field.GetValue(simulation);
+            for (int index = 0; index < states.Count; index++)
+            {
+                if (states[index].Id.Value == enemyId)
+                {
+                    return states[index];
+                }
+            }
+
+            Assert.Fail("Missing internal enemy state {0}.", enemyId);
+            return null;
+        }
+
+        private static void AssertStatusWasDeepCopied(
+            StatusInstance original,
+            StatusInstance clone)
+        {
+            Assert.That(clone, Is.Not.SameAs(original));
+            Assert.That(clone.InstanceId, Is.Not.EqualTo(original.InstanceId));
+            Assert.That(clone.Type, Is.EqualTo(original.Type));
+            Assert.That(clone.SourceEntityId, Is.EqualTo(original.SourceEntityId));
+            Assert.That(clone.SourceTowerId, Is.EqualTo(original.SourceTowerId));
+            Assert.That(clone.SourceCardId, Is.EqualTo(original.SourceCardId));
+            Assert.That(
+                clone.SourceCardInstanceId,
+                Is.EqualTo(original.SourceCardInstanceId));
+            Assert.That(clone.Stacks, Is.EqualTo(original.Stacks));
+            Assert.That(clone.Intensity, Is.EqualTo(original.Intensity));
+            Assert.That(
+                clone.RemainingTicks,
+                Is.EqualTo(original.RemainingTicks));
+            Assert.That(clone.MaxStacks, Is.EqualTo(original.MaxStacks));
+            Assert.That(clone.TickInterval, Is.EqualTo(original.TickInterval));
+            Assert.That(clone.NextTick, Is.EqualTo(original.NextTick));
+            Assert.That(clone.Inherited, Is.EqualTo(original.Inherited));
+            Assert.That(clone.Dispellable, Is.EqualTo(original.Dispellable));
+            Assert.That(clone.Limit, Is.EqualTo(original.Limit));
+            Assert.That(clone.RadiusMilli, Is.EqualTo(original.RadiusMilli));
+            Assert.That(
+                clone.ArmorIgnoreBps,
+                Is.EqualTo(original.ArmorIgnoreBps));
+
+            int originalStacks = original.Stacks;
+            clone.Stacks++;
+            Assert.That(original.Stacks, Is.EqualTo(originalStacks),
+                "Changing the split child's status must not mutate the original.");
         }
 
         private int GetFirstArmoredDamageWithMutationCard(

@@ -104,7 +104,7 @@ namespace RuleforgeTD.GameLogic.Simulation
 
         /// <summary>
         /// 적 분열 카드의 핵심 규칙을 적용한다.
-        /// 분열 가계 한도와 두 가지의 남은 카드 실행 예산을 모두 통과한 경우에만 체력·보상·진행도를
+        /// 두 결과가 모두 최소 체력을 유지하고 남은 카드 실행 예산을 확보한 경우에만 체력·보상·진행도를
         /// 나누고 자식을 만든다. 실패하면 원본 적도 전혀 변경하지 않는 원자적 처리다.
         /// </summary>
         internal EntityId SplitEnemy(
@@ -117,27 +117,26 @@ namespace RuleforgeTD.GameLogic.Simulation
                 return EntityId.Invalid;
             }
 
-            LineageState lineage = lineages[original.LineageId.Value];
-            int resultingGeneration = original.Generation + 1;
-            // 개별 적 수가 아니라 최초 적에서 시작한 lineage 전체의 분열 횟수와 누적 생성 수를 제한한다.
-            // 자식이 다시 분열해 제한을 우회하는 것을 막기 위한 규칙이다.
-            if (lineage.SplitCount >=
-                content.Safety.MaxEnemySplitsPerLineage ||
-                lineage.SpawnedEntityCount + 1 >
-                content.Safety.MaxEnemiesPerLineage)
+            // 체력 1은 milli 단위로 1,000이다. 반올림으로 1 미만인 가지를 억지로 살리지 않고,
+            // 예산을 예약하기 전에 두 결과를 모두 검사해 실패 경로가 어떤 상태도 소비하지 않게 한다.
+            const long MinimumSplitHealthMilli = 1000L;
+            long newMax = DeterministicMath.MultiplyBasisPoints(
+                original.MaxHealthMilli,
+                node.Amount2);
+            long newCurrent = DeterministicMath.MultiplyBasisPoints(
+                original.HealthMilli,
+                node.Amount2);
+            if (newMax < MinimumSplitHealthMilli ||
+                newCurrent < MinimumSplitHealthMilli)
             {
-                AddDiagnostic(
-                    DiagnosticCode.EnemyLineageLimitReached,
-                    CreateDiagnosticEvent(
-                        EventType.EnemySplit,
-                        context.RootChainId,
-                        context.TowerId,
-                        context.CardId,
-                        context.SubjectId,
-                        SubjectType.Enemy),
-                    lineage.LiveMembers);
                 return EntityId.Invalid;
             }
+
+            LineageState lineage = lineages[original.LineageId.Value];
+            int resultingGeneration = original.Generation + 1;
+            int splitSizeMultiplierBps = MultiplyBps(
+                original.SizeMultiplierBps,
+                9000);
 
             int continuationCount = context.ContinuationCardCount;
             // 원본과 자식 모두 오른쪽 카드들을 끝까지 실행할 수 있을 때만 분열을 허용한다.
@@ -169,16 +168,6 @@ namespace RuleforgeTD.GameLogic.Simulation
 
             // 체력은 카드 비율로 각 가지에 다시 설정하지만, 보상과 웨이브 진행도는 기존 총량을 반으로 나눈다.
             // 정수 나눗셈의 나머지는 원본에 남아 전체 합계가 절대로 증가하지 않는다.
-            long newMax = Math.Max(
-                1,
-                DeterministicMath.MultiplyBasisPoints(
-                    original.MaxHealthMilli,
-                    node.Amount2));
-            long newCurrent = Math.Max(
-                1,
-                DeterministicMath.MultiplyBasisPoints(
-                    original.HealthMilli,
-                    node.Amount2));
             int childReward = original.RewardBudget / 2;
             int childProgress = original.WaveProgressBudget / 2;
             original.RewardBudget -= childReward;
@@ -186,6 +175,7 @@ namespace RuleforgeTD.GameLogic.Simulation
             original.MaxHealthMilli = newMax;
             original.HealthMilli = Math.Min(newMax, newCurrent);
             original.Generation++;
+            original.SizeMultiplierBps = splitSizeMultiplierBps;
 
             var child = new EnemyState
             {
@@ -200,7 +190,7 @@ namespace RuleforgeTD.GameLogic.Simulation
                 Armor = original.Armor,
                 BaseSpeedMilliPerTick = original.BaseSpeedMilliPerTick,
                 SpeedMultiplierBps = original.SpeedMultiplierBps,
-                SizeMultiplierBps = original.SizeMultiplierBps,
+                SizeMultiplierBps = splitSizeMultiplierBps,
                 AreaDamageTakenBps = original.AreaDamageTakenBps,
                 SingleDamageTakenBps = original.SingleDamageTakenBps,
                 RewardBudget = childReward,
@@ -208,9 +198,37 @@ namespace RuleforgeTD.GameLogic.Simulation
                 ControlThreshold = original.ControlThreshold,
                 ControlThresholdStep = original.ControlThresholdStep
             };
-            // Statuses와 DeathBindings를 복사하지 않는 것이 중요하다.
-            // 예를 들어 [화상 → 분열]이면 기존 화상은 원본에만 남고,
-            // [분열 → 화상]이면 continuation을 통해 원본과 자식 모두 새 화상을 받는다.
+            // 분열 시점의 상태이상은 독립된 인스턴스로 완전히 복제한다. InstanceId만 새로 발급해
+            // 이후 한 가지의 중첩·만료 변경이 다른 가지에 영향을 주지 않게 한다.
+            for (int statusIndex = 0;
+                 statusIndex < original.Statuses.Count;
+                 statusIndex++)
+            {
+                StatusInstance status = original.Statuses[statusIndex];
+                child.Statuses.Add(new StatusInstance
+                {
+                    InstanceId = nextStatusInstanceId++,
+                    Type = status.Type,
+                    SourceEntityId = status.SourceEntityId,
+                    SourceTowerId = status.SourceTowerId,
+                    SourceCardId = status.SourceCardId,
+                    SourceCardInstanceId = status.SourceCardInstanceId,
+                    Stacks = status.Stacks,
+                    Intensity = status.Intensity,
+                    RemainingTicks = status.RemainingTicks,
+                    MaxStacks = status.MaxStacks,
+                    TickInterval = status.TickInterval,
+                    NextTick = status.NextTick,
+                    Inherited = status.Inherited,
+                    Dispellable = status.Dispellable,
+                    Limit = status.Limit,
+                    RadiusMilli = status.RadiusMilli,
+                    ArmorIgnoreBps = status.ArmorIgnoreBps
+                });
+            }
+
+            // 사망 바인딩은 상태이상이 아니므로 복제하지 않는다. 분열 오른쪽에 있는 사망 카드는
+            // continuation을 통해 원본과 자식에 각각 새 바인딩을 만든다.
             enemies.Add(child);
             // 사거리 진입형 타워의 내부/쿨다운 상태는 상속해, 범위 안에서 태어난 자식이
             // 새로 진입한 것처럼 즉시 같은 타워를 재발동시키는 우회를 막는다.
