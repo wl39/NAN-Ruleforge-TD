@@ -111,20 +111,15 @@ namespace RuleforgeTD.Tests.PlayMode
         private static void AssertBuildSites(FieldStageMap stage)
         {
             Assert.That(stage.BuildSiteCount, Is.EqualTo(8));
-            int[] expectedCosts = { 0, 0, 0, 0, 0, 75, 75, 0 };
             for (int i = 0; i < stage.BuildSiteCount; i++)
             {
                 TowerBuildSiteView site = stage.GetBuildSite(i);
                 Assert.That(site.BuildPointIndex, Is.EqualTo(i));
-                Assert.That(site.UnlockCost, Is.EqualTo(expectedCosts[i]));
-                bool shouldBeLocked = i == 5 || i == 6;
+                Assert.That(site.UnlockCost, Is.Zero);
                 Assert.That(
                     site.State,
-                    Is.EqualTo(
-                        shouldBeLocked
-                            ? TowerBuildSiteVisualState.Locked
-                            : TowerBuildSiteVisualState.Available));
-                Assert.That(site.CanBuild, Is.EqualTo(!shouldBeLocked));
+                    Is.EqualTo(TowerBuildSiteVisualState.Available));
+                Assert.That(site.CanBuild, Is.True);
 
                 SpriteRenderer renderer =
                     site.GetComponent<SpriteRenderer>();
@@ -132,24 +127,7 @@ namespace RuleforgeTD.Tests.PlayMode
                 Assert.That(renderer.sprite, Is.Not.Null);
                 Assert.That(
                     renderer.sprite.texture.name,
-                    Is.EqualTo(
-                        shouldBeLocked
-                            ? "PlaceForTower2"
-                            : "PlaceForTower1"));
-
-                if (shouldBeLocked)
-                {
-                    site.ApplySimulationState(true, false);
-                    Assert.That(
-                        site.State,
-                        Is.EqualTo(
-                            TowerBuildSiteVisualState.Available));
-                    Assert.That(site.CanBuild, Is.True);
-                    Assert.That(
-                        renderer.sprite.texture.name,
-                        Is.EqualTo("PlaceForTower1"));
-                    site.ApplySimulationState(false, false);
-                }
+                    Is.EqualTo("PlaceForTower1"));
             }
         }
 

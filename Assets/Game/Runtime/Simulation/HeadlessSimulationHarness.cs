@@ -1,4 +1,5 @@
 using System;
+using RuleforgeTD.GameLogic.Content;
 using RuleforgeTD.GameLogic.Simulation;
 using UnityEngine;
 
@@ -10,11 +11,12 @@ namespace RuleforgeTD.Simulation
         [SerializeField] private TextAsset contentJson;
         [SerializeField] private ulong seed = 12345UL;
         [SerializeField, Min(1)] private int ticksPerFrame = 30;
-        [SerializeField, Min(1)] private int maximumTicks = 18000;
+        [SerializeField, Min(1)] private int maximumTicks = 60000;
         [SerializeField] private ulong expectedFinalHash;
 
         private GameSimulation simulation;
         private int processedTicks;
+        private int maximumEventsPerTick;
         private bool completed;
 
         public GameSimulation Simulation => simulation;
@@ -26,8 +28,12 @@ namespace RuleforgeTD.Simulation
         {
             try
             {
+                CompiledContent compiledContent =
+                    LogicContentJsonLoader.Load(contentJson);
+                maximumEventsPerTick =
+                    compiledContent.Safety.MaxEventsPerTick;
                 simulation = HeadlessReplayDriver.Create(
-                    LogicContentJsonLoader.Load(contentJson),
+                    compiledContent,
                     seed);
             }
             catch (Exception exception)
@@ -50,8 +56,18 @@ namespace RuleforgeTD.Simulation
                 int count = Math.Min(ticksPerFrame, maximumTicks - processedTicks);
                 for (int i = 0; i < count; i++)
                 {
+                    RunPhase phaseBeforeStep = simulation.Phase;
+                    long tickBeforeStep = simulation.Tick;
                     simulation.Step();
+                    if ((phaseBeforeStep == RunPhase.CardPackChoice ||
+                         phaseBeforeStep == RunPhase.CardPackLoadout) &&
+                        simulation.Tick != tickBeforeStep)
+                    {
+                        throw new InvalidOperationException(
+                            "Card-pack pause advanced the simulation tick.");
+                    }
                     processedTicks++;
+                    ValidatePresentationBudget();
                     HandleRunTransition();
 
                     if (simulation.Phase == RunPhase.Victory ||
@@ -93,6 +109,29 @@ namespace RuleforgeTD.Simulation
         private void HandleRunTransition()
         {
             HeadlessReplayDriver.AdvanceRunTransition(simulation);
+        }
+
+        private void ValidatePresentationBudget()
+        {
+            SimulationEventBuffer events =
+                simulation.ReadPresentationEvents();
+            if (events.Count > maximumEventsPerTick)
+            {
+                throw new InvalidOperationException(
+                    "Presentation events exceeded the per-tick limit: " +
+                    events.Count + " > " + maximumEventsPerTick + ".");
+            }
+
+            for (int i = 0; i < events.Count; i++)
+            {
+                if (events[i].Type ==
+                    PresentationEventType.SafetyLimitReached)
+                {
+                    throw new InvalidOperationException(
+                        "A safety limit was reached: " +
+                        events[i].ContentId + ".");
+                }
+            }
         }
 
         private void Complete()

@@ -25,7 +25,7 @@ namespace RuleforgeTD.Editor.BuildTools
         private const string HarnessObjectName = "HeadlessSimulationHarness";
         private const ulong ReplaySeed = 12345UL;
         private const int TicksPerFrame = 30;
-        private const int MaximumTicks = 18000;
+        private const int MaximumTicks = 60000;
 
         [MenuItem("Ruleforge TD/Build/Rebuild Headless Logic Test Scene")]
         public static void RebuildHeadlessLogicTestScene()

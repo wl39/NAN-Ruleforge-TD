@@ -138,14 +138,6 @@ namespace RuleforgeTD.GameLogic.Simulation
                 original.SizeMultiplierBps,
                 9000);
 
-            int continuationCount = context.ContinuationCardCount;
-            // 원본과 자식 모두 오른쪽 카드들을 끝까지 실행할 수 있을 때만 분열을 허용한다.
-            int missingOriginalContinuations = Math.Max(
-                0,
-                continuationCount -
-                context.ReservedContinuationEvents);
-            int newlyReservedContinuations = checked(
-                missingOriginalContinuations + continuationCount);
             GameEvent diagnosticEvent = WithDiagnosticDepth(
                 CreateDiagnosticEvent(
                     EventType.EnemySplit,
@@ -155,6 +147,31 @@ namespace RuleforgeTD.GameLogic.Simulation
                     context.SubjectId,
                     SubjectType.Enemy),
                 context.Depth);
+            if (lineage.SplitCount >=
+                    content.Safety.MaxEnemySplitsPerLineage ||
+                lineage.SpawnedEntityCount >=
+                    content.Safety.MaxEnemiesPerLineage)
+            {
+                BudgetFailure failure =
+                    lineage.SplitCount >=
+                        content.Safety.MaxEnemySplitsPerLineage
+                        ? BudgetFailure.EnemySplitLimit
+                        : BudgetFailure.EnemyLineageEntityLimit;
+                AddDiagnostic(
+                    DiagnosticCode.EnemyLineageLimitReached,
+                    diagnosticEvent,
+                    (int)failure);
+                return EntityId.Invalid;
+            }
+
+            int continuationCount = context.ContinuationCardCount;
+            // 원본과 자식 모두 오른쪽 카드들을 끝까지 실행할 수 있을 때만 분열을 허용한다.
+            int missingOriginalContinuations = Math.Max(
+                0,
+                continuationCount -
+                context.ReservedContinuationEvents);
+            int newlyReservedContinuations = checked(
+                missingOriginalContinuations + continuationCount);
             if (!TryReserveComposite(
                     in diagnosticEvent,
                     chainEventCount: newlyReservedContinuations,
@@ -170,8 +187,14 @@ namespace RuleforgeTD.GameLogic.Simulation
             // 정수 나눗셈의 나머지는 원본에 남아 전체 합계가 절대로 증가하지 않는다.
             int childReward = original.RewardBudget / 2;
             int childProgress = original.WaveProgressBudget / 2;
+            int splitCardPackProgress = (int)
+                DeterministicMath.MultiplyBasisPoints(
+                    original.CardPackProgressBudget,
+                    run.SplitCardPackProgressBps);
             original.RewardBudget -= childReward;
             original.WaveProgressBudget -= childProgress;
+            original.CardPackProgressBudget =
+                splitCardPackProgress;
             original.MaxHealthMilli = newMax;
             original.HealthMilli = Math.Min(newMax, newCurrent);
             original.Generation++;
@@ -183,6 +206,8 @@ namespace RuleforgeTD.GameLogic.Simulation
                 DefinitionId = original.DefinitionId,
                 LineageId = original.LineageId,
                 Generation = original.Generation,
+                SpawnOrigin = EnemySpawnOrigin.Split,
+                SummonerId = original.SummonerId,
                 PathProgressMilli = original.PathProgressMilli,
                 Position = original.Position,
                 HealthMilli = original.HealthMilli,
@@ -195,8 +220,18 @@ namespace RuleforgeTD.GameLogic.Simulation
                 SingleDamageTakenBps = original.SingleDamageTakenBps,
                 RewardBudget = childReward,
                 WaveProgressBudget = childProgress,
+                CardPackProgressBudget =
+                    splitCardPackProgress,
+                IsShimmering = original.IsShimmering,
                 ControlThreshold = original.ControlThreshold,
-                ControlThresholdStep = original.ControlThresholdStep
+                ControlThresholdStep = original.ControlThresholdStep,
+                BossAbilityCooldownTicks =
+                    original.BossAbilityCooldownTicks,
+                BossCastRemainingTicks =
+                    original.BossCastRemainingTicks,
+                BossEnraged = original.BossEnraged,
+                BossPhaseAnnounced =
+                    original.BossPhaseAnnounced
             };
             // 분열 시점의 상태이상은 독립된 인스턴스로 완전히 복제한다. InstanceId만 새로 발급해
             // 이후 한 가지의 중첩·만료 변경이 다른 가지에 영향을 주지 않게 한다.
@@ -1312,6 +1347,14 @@ namespace RuleforgeTD.GameLogic.Simulation
             }
 
             long amount = gameEvent.PayloadValue;
+            if (enemy.ShieldMilli > 0)
+            {
+                long absorbed = Math.Min(
+                    enemy.ShieldMilli,
+                    amount);
+                enemy.ShieldMilli -= absorbed;
+                amount -= absorbed;
+            }
             enemy.HealthMilli = Math.Max(0, enemy.HealthMilli - amount);
             AddPresentation(
                 PresentationEventType.EnemyDamaged,
@@ -1360,6 +1403,7 @@ namespace RuleforgeTD.GameLogic.Simulation
             }
 
             enemy.Alive = false;
+            AwardCardPackProgress(enemy);
             DecrementLineage(enemy);
             // 분열된 각 개체가 나눠 가진 웨이브 진행도를 lineage 장부에서 소진한다.
             if (lineages.TryGetValue(
@@ -1609,6 +1653,11 @@ namespace RuleforgeTD.GameLogic.Simulation
             if (lineages.TryGetValue(enemy.LineageId.Value, out LineageState lineage))
             {
                 lineage.LiveMembers = Math.Max(0, lineage.LiveMembers - 1);
+                lineage.LastResolvedPosition = enemy.Position;
+                if (lineage.LiveMembers == 0)
+                {
+                    ResolveCompletedLineage(lineage);
+                }
             }
         }
 

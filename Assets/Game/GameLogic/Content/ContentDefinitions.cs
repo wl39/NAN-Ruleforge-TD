@@ -194,6 +194,18 @@ namespace RuleforgeTD.GameLogic.Content
     }
 
     /// <summary>
+    /// 보스가 고정 틱 시뮬레이션에서 실행할 데이터 기반 핵심 능력이다.
+    /// 렌더링 에셋이나 애니메이션 이름과는 독립적이다.
+    /// </summary>
+    public enum BossAbilityType
+    {
+        None = 0,
+        Shield = 1,
+        Summon = 2,
+        Teleport = 3
+    }
+
+    /// <summary>
     /// JSON에 적힌 카드 효과 한 단계를 그대로 받는 입력 레코드다.
     /// 각 숫자 필드의 의미는 operation마다 다르며 ContentCompiler가 조합과 범위를 검증한다.
     /// 사용하지 않는 칸은 0으로 두어 하나의 공통 형식으로 여러 효과를 표현한다.
@@ -369,6 +381,31 @@ namespace RuleforgeTD.GameLogic.Content
 
         /// <summary>강한 제어를 받을 때 누적되는 기본 게이지 양이다.</summary>
         public int controlGaugeStep;
+
+        /// <summary>BossAbilityType 이름. 일반/정예 적은 None을 사용한다.</summary>
+        public string bossAbility = "None";
+
+        /// <summary>기본/50% 이하 단계의 능력 재사용 대기시간이다.</summary>
+        public int bossAbilityIntervalTicks;
+        public int bossEnragedAbilityIntervalTicks;
+
+        /// <summary>두 번째 단계가 시작되는 체력 비율이다. 5000은 50%다.</summary>
+        public int bossPhaseHealthBps = 5000;
+
+        /// <summary>Shield 능력이 최대 체력 대비 생성하는 보호막 비율이다.</summary>
+        public int bossShieldBps;
+
+        /// <summary>Summon 능력이 생성할 적 안정 ID와 단계별 수량/동시 상한이다.</summary>
+        public string bossSummonEnemyId;
+        public int bossSummonCount;
+        public int bossEnragedSummonCount;
+        public int bossMaxActiveSummons;
+        public int bossSummonHealthBps = 5000;
+
+        /// <summary>Teleport 능력의 시전 시간과 단계별 경로 전진 비율이다.</summary>
+        public int bossCastTicks;
+        public int bossTeleportDistanceBps;
+        public int bossEnragedTeleportDistanceBps;
     }
 
     /// <summary>웨이브 안에서 특정 적 종류를 언제, 몇 마리 생성할지 적는 한 묶음이다.</summary>
@@ -490,11 +527,34 @@ namespace RuleforgeTD.GameLogic.Content
         /// </summary>
         public int[] buildSpotUnlockCosts;
 
+        /// <summary>무료 시작 타워 이후 모든 추가 타워에 적용하는 고정 건설 비용이다.</summary>
+        public int towerConstructionCost = 100;
+
         public int[] pathPointXMilli;
         public int[] pathPointYMilli;
 
         /// <summary>웨이브 뒤 한 번에 제시할 서로 다른 드래프트 카드 수다.</summary>
         public int draftOfferCount = 3;
+
+        /// <summary>일반 드래프트 및 보스 확정 카드팩을 지급하는 1 기반 웨이브 번호다.</summary>
+        public int[] regularDraftWaveNumbers;
+        public int[] bossCardPackWaveNumbers;
+
+        /// <summary>
+        /// 반짝이는 운반 몬스터를 예약하는 누적 처치 진행도 임계값이다.
+        /// 일반 적 한 마리는 기본적으로 10,000 진행도를 제공한다.
+        /// </summary>
+        public int[] cardPackProgressThresholds;
+        public int normalKillProgress = 10000;
+        public int eliteKillProgress = 30000;
+
+        /// <summary>분열 후 각 가지가 부모 진행도의 몇 bps를 상속하는지 나타낸다.</summary>
+        public int splitCardPackProgressBps = 5100;
+
+        /// <summary>반짝이는 운반 몬스터의 체력·속도·크기 배율이다.</summary>
+        public int shimmeringHealthBps = 15000;
+        public int shimmeringSpeedBps = 12000;
+        public int shimmeringSizeBps = 11000;
 
         /// <summary>일반부터 신화까지 5개 티어의 드래프트 상대 가중치다.</summary>
         public int[] tierWeights;

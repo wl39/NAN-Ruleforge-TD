@@ -51,7 +51,14 @@ namespace RuleforgeTD.GameLogic.Simulation
         /// <summary>본진 체력 고갈로 런이 패배했다.</summary>
         RunLost = 18,
         /// <summary>무한 연쇄 방지 예산 때문에 효과 일부가 거절되었다.</summary>
-        SafetyLimitReached = 19
+        SafetyLimitReached = 19,
+        ShimmeringCarrierSpawned = 20,
+        CardPackDropped = 21,
+        CardPackLost = 22,
+        CardPackOpened = 23,
+        BossAbilityTelegraphed = 24,
+        BossAbilityActivated = 25,
+        BossPhaseChanged = 26
     }
 
     /// <summary>
@@ -147,8 +154,11 @@ namespace RuleforgeTD.GameLogic.Simulation
             int controlThreshold,
             int rewardBudget,
             int waveProgressBudget,
+            int cardPackProgressBudget,
             int generation,
             bool alive,
+            bool isShimmering,
+            long shieldMilli,
             StatusType[] statuses,
             StatusSnapshot[] statusDetails,
             int deathBindingCount)
@@ -168,8 +178,11 @@ namespace RuleforgeTD.GameLogic.Simulation
             ControlThreshold = controlThreshold;
             RewardBudget = rewardBudget;
             WaveProgressBudget = waveProgressBudget;
+            CardPackProgressBudget = cardPackProgressBudget;
             Generation = generation;
             Alive = alive;
+            IsShimmering = isShimmering;
+            ShieldMilli = shieldMilli;
             Statuses = statuses;
             StatusDetails = statusDetails;
             DeathBindingCount = deathBindingCount;
@@ -205,10 +218,13 @@ namespace RuleforgeTD.GameLogic.Simulation
         public int RewardBudget { get; }
         /// <summary>이 가지가 아직 보유한 웨이브 정산 기여도다.</summary>
         public int WaveProgressBudget { get; }
+        public int CardPackProgressBudget { get; }
         /// <summary>원본은 0이며 분열될 때마다 증가하는 세대 깊이다.</summary>
         public int Generation { get; }
         /// <summary>현재 전투 대상으로 유효한 살아 있는 개체인지 나타낸다.</summary>
         public bool Alive { get; }
+        public bool IsShimmering { get; }
+        public long ShieldMilli { get; }
         /// <summary>UI 아이콘처럼 종류만 빠르게 그릴 때 쓰는 상태 목록이다.</summary>
         public StatusType[] Statuses { get; }
         /// <summary>출처·중첩·남은 시간까지 포함한 상태 상세 복사본이다.</summary>
@@ -344,6 +360,10 @@ namespace RuleforgeTD.GameLogic.Simulation
             int forfeitedReward,
             int progressBudget,
             int consumedProgress,
+            int baseCardPackProgress,
+            int awardedCardPackProgress,
+            int forfeitedCardPackProgress,
+            bool isShimmering,
             int rewardAugmentCount)
         {
             Id = id;
@@ -357,6 +377,10 @@ namespace RuleforgeTD.GameLogic.Simulation
             ForfeitedReward = forfeitedReward;
             ProgressBudget = progressBudget;
             ConsumedProgress = consumedProgress;
+            BaseCardPackProgress = baseCardPackProgress;
+            AwardedCardPackProgress = awardedCardPackProgress;
+            ForfeitedCardPackProgress = forfeitedCardPackProgress;
+            IsShimmering = isShimmering;
             RewardAugmentCount = rewardAugmentCount;
         }
 
@@ -382,6 +406,10 @@ namespace RuleforgeTD.GameLogic.Simulation
         public int ProgressBudget { get; }
         /// <summary>사망·도달로 이미 정산한 웨이브 기여도다.</summary>
         public int ConsumedProgress { get; }
+        public int BaseCardPackProgress { get; }
+        public int AwardedCardPackProgress { get; }
+        public int ForfeitedCardPackProgress { get; }
+        public bool IsShimmering { get; }
         /// <summary>중복 방지 원장에 기록된 보상 증액 키 수다.</summary>
         public int RewardAugmentCount { get; }
     }
@@ -478,6 +506,26 @@ namespace RuleforgeTD.GameLogic.Simulation
         public int[] CardInstanceIds { get; }
     }
 
+    public readonly struct CardPackSnapshot
+    {
+        public CardPackSnapshot(
+            int id,
+            CardPackSource source,
+            SimPosition position,
+            bool worldDrop)
+        {
+            Id = id;
+            Source = source;
+            Position = position;
+            WorldDrop = worldDrop;
+        }
+
+        public int Id { get; }
+        public CardPackSource Source { get; }
+        public SimPosition Position { get; }
+        public bool WorldDrop { get; }
+    }
+
     /// <summary>
     /// 특정 틱의 전체 게임 상태를 화면 계층에 전달하는 방어적 복사본이다.
     /// </summary>
@@ -505,9 +553,17 @@ namespace RuleforgeTD.GameLogic.Simulation
             TowerSnapshot[] towers,
             CardInstanceSnapshot[] cards,
             CardId[] draftOffers,
+            CardId[] cardPackOffers,
             LineageSnapshot[] lineages,
             string[] unlockedTowerIds,
-            BuildSpotSnapshot[] buildSpots)
+            BuildSpotSnapshot[] buildSpots,
+            CardPackSnapshot[] cardPacks,
+            int cardPackProgress,
+            int cardPackProgressBps,
+            int nextCardPackThreshold,
+            int[] rewardQueueCardPackIds,
+            int pendingCardInstanceId,
+            int towerConstructionCost)
         {
             Tick = tick;
             Phase = phase;
@@ -519,9 +575,17 @@ namespace RuleforgeTD.GameLogic.Simulation
             Towers = towers;
             Cards = cards;
             DraftOffers = draftOffers;
+            CardPackOffers = cardPackOffers;
             Lineages = lineages;
             UnlockedTowerIds = unlockedTowerIds;
             BuildSpots = buildSpots;
+            CardPacks = cardPacks;
+            CardPackProgress = cardPackProgress;
+            CardPackProgressBps = cardPackProgressBps;
+            NextCardPackThreshold = nextCardPackThreshold;
+            RewardQueueCardPackIds = rewardQueueCardPackIds;
+            PendingCardInstanceId = pendingCardInstanceId;
+            TowerConstructionCost = towerConstructionCost;
         }
 
         /// <summary>이 상태를 만든 시뮬레이션 틱이다.</summary>
@@ -544,6 +608,7 @@ namespace RuleforgeTD.GameLogic.Simulation
         public CardInstanceSnapshot[] Cards { get; }
         /// <summary>드래프트 단계에 제시된 카드 정의 ID 목록이다.</summary>
         public CardId[] DraftOffers { get; }
+        public CardId[] CardPackOffers { get; }
         /// <summary>적 분열 가계별 보상·진행도 원장 복사본이다.</summary>
         public LineageSnapshot[] Lineages { get; }
         /// <summary>현재 플레이어가 배치할 수 있는 타워 안정 ID 목록이다.</summary>
@@ -551,5 +616,14 @@ namespace RuleforgeTD.GameLogic.Simulation
 
         /// <summary>고정 건설 지점별 위치, 원래 해금 비용과 현재 해금 상태다.</summary>
         public BuildSpotSnapshot[] BuildSpots { get; }
+        public CardPackSnapshot[] CardPacks { get; }
+        public int CardPackProgress { get; }
+        /// <summary>현재 카드팩 구간의 진행률이다. 10,000이 100%다.</summary>
+        public int CardPackProgressBps { get; }
+        public int NextCardPackThreshold { get; }
+        /// <summary>웨이브 종료 보상 처리 순서의 카드팩 ID 복사본이다.</summary>
+        public int[] RewardQueueCardPackIds { get; }
+        public int PendingCardInstanceId { get; }
+        public int TowerConstructionCost { get; }
     }
 }

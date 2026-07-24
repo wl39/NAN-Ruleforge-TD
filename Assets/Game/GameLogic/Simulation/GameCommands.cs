@@ -62,6 +62,7 @@ namespace RuleforgeTD.GameLogic.Simulation
             hash.Add(definition.TickRate);
             hash.Add(definition.BaseHealth);
             hash.Add(definition.StartingGold);
+            hash.Add(definition.TowerConstructionCost);
 
             TowerDefinitionId[] startingChoices =
                 definition.StartingTowerChoices;
@@ -96,6 +97,21 @@ namespace RuleforgeTD.GameLogic.Simulation
             }
             AppendPositions(ref hash, definition.PathPoints);
             hash.Add(definition.DraftOfferCount);
+            AppendIntegers(
+                ref hash,
+                definition.RegularDraftWaveIndices);
+            AppendIntegers(
+                ref hash,
+                definition.BossCardPackWaveIndices);
+            AppendIntegers(
+                ref hash,
+                definition.CardPackProgressThresholds);
+            hash.Add(definition.NormalKillProgress);
+            hash.Add(definition.EliteKillProgress);
+            hash.Add(definition.SplitCardPackProgressBps);
+            hash.Add(definition.ShimmeringHealthBps);
+            hash.Add(definition.ShimmeringSpeedBps);
+            hash.Add(definition.ShimmeringSizeBps);
 
             int[] tierWeights = definition.TierWeights;
             hash.Add(tierWeights.Length);
@@ -119,6 +135,17 @@ namespace RuleforgeTD.GameLogic.Simulation
             for (int i = 0; i < positions.Length; i++)
             {
                 hash.Add(positions[i]);
+            }
+        }
+
+        private static void AppendIntegers(
+            ref StableHashBuilder hash,
+            int[] values)
+        {
+            hash.Add(values.Length);
+            for (int i = 0; i < values.Length; i++)
+            {
+                hash.Add(values[i]);
             }
         }
     }
@@ -145,7 +172,13 @@ namespace RuleforgeTD.GameLogic.Simulation
         Victory = 4,
 
         /// <summary>본진 체력이 0이 된 종료 상태다.</summary>
-        Defeat = 5
+        Defeat = 5,
+
+        /// <summary>카드팩의 세 선택지를 보고 하나를 고르는 일시정지 단계다.</summary>
+        CardPackChoice = 6,
+
+        /// <summary>선택한 카드와 전체 장착 구성을 편집하는 일시정지 단계다.</summary>
+        CardPackLoadout = 7
     }
 
     /// <summary>
@@ -162,7 +195,9 @@ namespace RuleforgeTD.GameLogic.Simulation
         StartWave = 5,
         MoveCard = 6,
         UnequipCard = 7,
-        UnlockBuildSpot = 8
+        OpenCardPack = 9,
+        SelectCardPack = 10,
+        ResumeCardPackCombat = 11
     }
 
     /// <summary>
@@ -208,7 +243,13 @@ namespace RuleforgeTD.GameLogic.Simulation
         BuildPointLocked = 11,
 
         /// <summary>요청한 건설 지점의 해금 비용보다 현재 골드가 적다.</summary>
-        InsufficientGold = 12
+        InsufficientGold = 12,
+
+        /// <summary>현재 카드팩의 제안 범위를 벗어난 선택이다.</summary>
+        InvalidCardPackChoice = 13,
+
+        /// <summary>전투 중 획득한 새 카드를 장착하지 않아 재개할 수 없다.</summary>
+        CardPackRequiresEquippedCard = 14
     }
 
     /// <summary>
@@ -316,19 +357,6 @@ namespace RuleforgeTD.GameLogic.Simulation
                 -1);
         }
 
-        /// <summary>
-        /// 계획 단계에서 골드를 지불해 잠긴 고정 건설 지점 하나를 해금한다.
-        /// </summary>
-        public static GameCommand UnlockBuildSpot(int buildPointIndex)
-        {
-            return new GameCommand(
-                GameCommandType.UnlockBuildSpot,
-                string.Empty,
-                buildPointIndex,
-                -1,
-                -1);
-        }
-
         /// <summary>인벤토리 카드 인스턴스를 특정 타워 슬롯에 장착한다.</summary>
         public static GameCommand EquipCard(
             int cardInstanceId,
@@ -394,6 +422,36 @@ namespace RuleforgeTD.GameLogic.Simulation
                 GameCommandType.SelectDraft,
                 string.Empty,
                 offerIndex,
+                -1,
+                -1);
+        }
+
+        public static GameCommand OpenCardPack(int cardPackId)
+        {
+            return new GameCommand(
+                GameCommandType.OpenCardPack,
+                string.Empty,
+                cardPackId,
+                -1,
+                -1);
+        }
+
+        public static GameCommand SelectCardPack(int offerIndex)
+        {
+            return new GameCommand(
+                GameCommandType.SelectCardPack,
+                string.Empty,
+                offerIndex,
+                -1,
+                -1);
+        }
+
+        public static GameCommand ResumeCardPackCombat()
+        {
+            return new GameCommand(
+                GameCommandType.ResumeCardPackCombat,
+                string.Empty,
+                -1,
                 -1,
                 -1);
         }

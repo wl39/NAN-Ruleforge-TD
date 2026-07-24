@@ -255,6 +255,22 @@ namespace RuleforgeTD.GameLogic.Content
 
         /// <summary>강한 제어 1회가 기본적으로 누적하는 게이지 값이다.</summary>
         public int ControlGaugeStep { get; internal set; }
+
+        /// <summary>보스의 데이터 기반 핵심 능력이며 일반 적은 None이다.</summary>
+        public BossAbilityType BossAbility { get; internal set; }
+
+        public int BossAbilityIntervalTicks { get; internal set; }
+        public int BossEnragedAbilityIntervalTicks { get; internal set; }
+        public int BossPhaseHealthBps { get; internal set; }
+        public int BossShieldBps { get; internal set; }
+        public EnemyDefinitionId BossSummonEnemyId { get; internal set; }
+        public int BossSummonCount { get; internal set; }
+        public int BossEnragedSummonCount { get; internal set; }
+        public int BossMaxActiveSummons { get; internal set; }
+        public int BossSummonHealthBps { get; internal set; }
+        public int BossCastTicks { get; internal set; }
+        public int BossTeleportDistanceBps { get; internal set; }
+        public int BossEnragedTeleportDistanceBps { get; internal set; }
     }
 
     /// <summary>
@@ -335,6 +351,9 @@ namespace RuleforgeTD.GameLogic.Content
         private int[] buildSpotUnlockCosts = Array.Empty<int>();
         private SimPosition[] pathPoints = Array.Empty<SimPosition>();
         private int[] tierWeights = Array.Empty<int>();
+        private int[] regularDraftWaveIndices = Array.Empty<int>();
+        private int[] bossCardPackWaveIndices = Array.Empty<int>();
+        private int[] cardPackProgressThresholds = Array.Empty<int>();
 
         /// <summary>초당 고정 시뮬레이션 틱 수다. 현재 30으로 검증된다.</summary>
         public int TickRate { get; internal set; }
@@ -344,6 +363,9 @@ namespace RuleforgeTD.GameLogic.Content
 
         /// <summary>새 런의 시작 골드다.</summary>
         public int StartingGold { get; internal set; }
+
+        /// <summary>무료 시작 타워 이후 추가 타워 한 기의 고정 골드 비용이다.</summary>
+        public int TowerConstructionCost { get; internal set; }
 
         /// <summary>런 시작 화면에서 하나를 선택할 수 있는 타워 ID 복사본이다.</summary>
         public TowerDefinitionId[] StartingTowerChoices
@@ -422,6 +444,46 @@ namespace RuleforgeTD.GameLogic.Content
         /// <summary>웨이브 뒤 제시할 서로 다른 카드 선택지 수다.</summary>
         public int DraftOfferCount { get; internal set; }
 
+        public int[] RegularDraftWaveIndices
+        {
+            get { return (int[])regularDraftWaveIndices.Clone(); }
+            internal set
+            {
+                regularDraftWaveIndices = value == null
+                    ? Array.Empty<int>()
+                    : (int[])value.Clone();
+            }
+        }
+
+        public int[] BossCardPackWaveIndices
+        {
+            get { return (int[])bossCardPackWaveIndices.Clone(); }
+            internal set
+            {
+                bossCardPackWaveIndices = value == null
+                    ? Array.Empty<int>()
+                    : (int[])value.Clone();
+            }
+        }
+
+        public int[] CardPackProgressThresholds
+        {
+            get { return (int[])cardPackProgressThresholds.Clone(); }
+            internal set
+            {
+                cardPackProgressThresholds = value == null
+                    ? Array.Empty<int>()
+                    : (int[])value.Clone();
+            }
+        }
+
+        public int NormalKillProgress { get; internal set; }
+        public int EliteKillProgress { get; internal set; }
+        public int SplitCardPackProgressBps { get; internal set; }
+        public int ShimmeringHealthBps { get; internal set; }
+        public int ShimmeringSpeedBps { get; internal set; }
+        public int ShimmeringSizeBps { get; internal set; }
+
         /// <summary>일반~신화 5개 티어의 드래프트 상대 가중치 복사본이다.</summary>
         public int[] TierWeights
         {
@@ -457,6 +519,12 @@ namespace RuleforgeTD.GameLogic.Content
             buildSpotUnlockCosts;
         internal SimPosition[] PathPointsInternal => pathPoints;
         internal int[] TierWeightsInternal => tierWeights;
+        internal int[] RegularDraftWaveIndicesInternal =>
+            regularDraftWaveIndices;
+        internal int[] BossCardPackWaveIndicesInternal =>
+            bossCardPackWaveIndices;
+        internal int[] CardPackProgressThresholdsInternal =>
+            cardPackProgressThresholds;
     }
 
     /// <summary>

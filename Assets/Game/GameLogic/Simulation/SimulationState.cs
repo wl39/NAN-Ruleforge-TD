@@ -4,6 +4,20 @@ using RuleforgeTD.GameLogic.Core;
 
 namespace RuleforgeTD.GameLogic.Simulation
 {
+    internal enum EnemySpawnOrigin
+    {
+        Scheduled = 0,
+        Split = 1,
+        BossSummon = 2,
+        ShimmeringCarrier = 3
+    }
+
+    public enum CardPackSource
+    {
+        ShimmeringCarrier = 0,
+        Boss = 1
+    }
+
     /// <summary>
     /// 피해 계산에서 어떤 저항과 방어 규칙을 적용할지 구분하는 내부 분류다.
     /// 화면에 보이는 속성 이름이 아니라 계산 파이프라인 선택용이다.
@@ -218,6 +232,8 @@ namespace RuleforgeTD.GameLogic.Simulation
         public EnemyDefinitionId DefinitionId;
         public LineageId LineageId;
         public int Generation;
+        public EnemySpawnOrigin SpawnOrigin;
+        public EntityId SummonerId = EntityId.Invalid;
 
         // 이동의 원본은 경로 진행 거리다. Position은 공간 검색용 환산 좌표다.
         public long PathProgressMilli;
@@ -238,6 +254,8 @@ namespace RuleforgeTD.GameLogic.Simulation
         // 이 분열 가지에 현재 배정된 골드와 웨이브 기여도.
         public int RewardBudget;
         public int WaveProgressBudget;
+        public int CardPackProgressBudget;
+        public bool IsShimmering;
 
         // 사망 요청과 실제 제거 사이의 중복 처리를 막는 생명주기 플래그.
         public bool Alive = true;
@@ -248,6 +266,13 @@ namespace RuleforgeTD.GameLogic.Simulation
         public int ControlGauge;
         public int ControlThreshold;
         public int ControlThresholdStep;
+
+        // 보스 전용 상태. 일반 적은 모두 기본값을 유지한다.
+        public long ShieldMilli;
+        public int BossAbilityCooldownTicks;
+        public int BossCastRemainingTicks;
+        public bool BossEnraged;
+        public bool BossPhaseAnnounced;
 
         // 현재 상태, 사망 시 실행 효과, 보상 중복 방지 상태.
         public readonly List<StatusInstance> Statuses = new List<StatusInstance>(4);
@@ -281,9 +306,25 @@ namespace RuleforgeTD.GameLogic.Simulation
         public int ProgressBudget;
         public int ConsumedProgress;
 
+        // 카드팩 처치 진행도는 골드/웨이브 예산과 독립적으로 0.51 분열 규칙을 사용한다.
+        public int BaseCardPackProgress;
+        public int AwardedCardPackProgress;
+        public int ForfeitedCardPackProgress;
+        public bool IsShimmering;
+        public bool ShimmeringFailed;
+        public SimPosition LastResolvedPosition;
+
         // 동일 카드 인스턴스가 여러 분열 가지에서 보상을 중복 증가시키는 것을 막는다.
         public readonly HashSet<RewardAugmentKey> AppliedRewardAugments =
             new HashSet<RewardAugmentKey>();
+    }
+
+    internal sealed class CardPackState
+    {
+        public int Id;
+        public CardPackSource Source;
+        public SimPosition Position;
+        public bool WorldDrop;
     }
 
     /// <summary>

@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "cards": [
     {
       "id": "split",
@@ -419,6 +419,72 @@
       "poisonResistanceBps": 1000,
       "controlGaugeThreshold": 100,
       "controlGaugeStep": 25
+    },
+    {
+      "id": "boss_guardian",
+      "displayNameKey": "enemy.boss_guardian.name",
+      "rank": "Boss",
+      "maxHealthMilli": 300000,
+      "armor": 40,
+      "speedMilliPerTick": 16,
+      "rewardBudget": 0,
+      "waveProgressBudget": 0,
+      "leakDamage": 5,
+      "fireResistanceBps": 500,
+      "poisonResistanceBps": 500,
+      "controlGaugeThreshold": 100,
+      "controlGaugeStep": 25,
+      "bossAbility": "Shield",
+      "bossAbilityIntervalTicks": 240,
+      "bossEnragedAbilityIntervalTicks": 180,
+      "bossPhaseHealthBps": 5000,
+      "bossShieldBps": 400
+    },
+    {
+      "id": "boss_summoner",
+      "displayNameKey": "enemy.boss_summoner.name",
+      "rank": "Boss",
+      "maxHealthMilli": 600000,
+      "armor": 35,
+      "speedMilliPerTick": 15,
+      "rewardBudget": 0,
+      "waveProgressBudget": 0,
+      "leakDamage": 10,
+      "fireResistanceBps": 750,
+      "poisonResistanceBps": 750,
+      "controlGaugeThreshold": 110,
+      "controlGaugeStep": 25,
+      "bossAbility": "Summon",
+      "bossAbilityIntervalTicks": 240,
+      "bossEnragedAbilityIntervalTicks": 180,
+      "bossPhaseHealthBps": 5000,
+      "bossSummonEnemyId": "runner",
+      "bossSummonCount": 2,
+      "bossEnragedSummonCount": 3,
+      "bossMaxActiveSummons": 6,
+      "bossSummonHealthBps": 5000
+    },
+    {
+      "id": "boss_time_walker",
+      "displayNameKey": "enemy.boss_time_walker.name",
+      "rank": "Boss",
+      "maxHealthMilli": 1100000,
+      "armor": 50,
+      "speedMilliPerTick": 14,
+      "rewardBudget": 0,
+      "waveProgressBudget": 0,
+      "leakDamage": 20,
+      "fireResistanceBps": 1000,
+      "poisonResistanceBps": 1000,
+      "controlGaugeThreshold": 120,
+      "controlGaugeStep": 30,
+      "bossAbility": "Teleport",
+      "bossAbilityIntervalTicks": 240,
+      "bossEnragedAbilityIntervalTicks": 180,
+      "bossPhaseHealthBps": 5000,
+      "bossCastTicks": 45,
+      "bossTeleportDistanceBps": 600,
+      "bossEnragedTeleportDistanceBps": 800
     }
   ],
   "waves": [
@@ -438,23 +504,60 @@
     {
       "id": "wave_3",
       "spawns": [
-        {"enemyId": "runner", "count": 12, "firstSpawnTick": 0, "intervalTicks": 22},
-        {"enemyId": "raider", "count": 6, "firstSpawnTick": 30, "intervalTicks": 40}
+        {"enemyId": "raider", "count": 6, "firstSpawnTick": 0, "intervalTicks": 35},
+        {"enemyId": "runner", "count": 6, "firstSpawnTick": 25, "intervalTicks": 30},
+        {"enemyId": "boss_guardian", "count": 1, "firstSpawnTick": 240, "intervalTicks": 1}
       ]
     },
     {
       "id": "wave_4",
       "spawns": [
-        {"enemyId": "armored_knight", "count": 8, "firstSpawnTick": 0, "intervalTicks": 42},
-        {"enemyId": "raider", "count": 10, "firstSpawnTick": 20, "intervalTicks": 25}
+        {"enemyId": "armored_knight", "count": 6, "firstSpawnTick": 0, "intervalTicks": 42},
+        {"enemyId": "raider", "count": 8, "firstSpawnTick": 20, "intervalTicks": 28},
+        {"enemyId": "runner", "count": 4, "firstSpawnTick": 50, "intervalTicks": 32}
       ]
     },
     {
       "id": "wave_5",
       "spawns": [
-        {"enemyId": "runner", "count": 12, "firstSpawnTick": 0, "intervalTicks": 20},
-        {"enemyId": "armored_knight", "count": 6, "firstSpawnTick": 60, "intervalTicks": 45},
-        {"enemyId": "elite_golem", "count": 1, "firstSpawnTick": 180, "intervalTicks": 1}
+        {"enemyId": "runner", "count": 10, "firstSpawnTick": 0, "intervalTicks": 22},
+        {"enemyId": "armored_knight", "count": 5, "firstSpawnTick": 45, "intervalTicks": 45},
+        {"enemyId": "raider", "count": 4, "firstSpawnTick": 70, "intervalTicks": 35},
+        {"enemyId": "elite_golem", "count": 1, "firstSpawnTick": 240, "intervalTicks": 1}
+      ]
+    },
+    {
+      "id": "wave_6",
+      "spawns": [
+        {"enemyId": "armored_knight", "count": 8, "firstSpawnTick": 0, "intervalTicks": 40},
+        {"enemyId": "runner", "count": 8, "firstSpawnTick": 25, "intervalTicks": 25},
+        {"enemyId": "boss_summoner", "count": 1, "firstSpawnTick": 300, "intervalTicks": 1}
+      ]
+    },
+    {
+      "id": "wave_7",
+      "spawns": [
+        {"enemyId": "runner", "count": 10, "firstSpawnTick": 0, "intervalTicks": 20},
+        {"enemyId": "armored_knight", "count": 7, "firstSpawnTick": 35, "intervalTicks": 38},
+        {"enemyId": "raider", "count": 4, "firstSpawnTick": 60, "intervalTicks": 30},
+        {"enemyId": "elite_golem", "count": 1, "firstSpawnTick": 280, "intervalTicks": 1}
+      ]
+    },
+    {
+      "id": "wave_8",
+      "spawns": [
+        {"enemyId": "armored_knight", "count": 8, "firstSpawnTick": 0, "intervalTicks": 36},
+        {"enemyId": "runner", "count": 10, "firstSpawnTick": 20, "intervalTicks": 20},
+        {"enemyId": "raider", "count": 4, "firstSpawnTick": 55, "intervalTicks": 30},
+        {"enemyId": "elite_golem", "count": 2, "firstSpawnTick": 260, "intervalTicks": 70}
+      ]
+    },
+    {
+      "id": "wave_9",
+      "spawns": [
+        {"enemyId": "armored_knight", "count": 8, "firstSpawnTick": 0, "intervalTicks": 34},
+        {"enemyId": "runner", "count": 10, "firstSpawnTick": 20, "intervalTicks": 20},
+        {"enemyId": "boss_time_walker", "count": 1, "firstSpawnTick": 320, "intervalTicks": 1}
       ]
     }
   ],
@@ -484,10 +587,20 @@
     "startingCards": ["split", "burn", "explode"],
     "buildSpotXMilli": [3000, 7500, 10500, 14000, 17500, 20500, 22500, 12000],
     "buildSpotYMilli": [2000, -2000, 3500, 8500, 9500, 14500, 9500, 1000],
-    "buildSpotUnlockCosts": [0, 0, 0, 0, 0, 75, 75, 0],
+    "buildSpotUnlockCosts": [0, 0, 0, 0, 0, 0, 0, 0],
+    "towerConstructionCost": 100,
     "pathPointXMilli": [0, 8000, 8000, 16000, 16000, 24000],
     "pathPointYMilli": [0, 0, 6000, 6000, 12000, 12000],
     "draftOfferCount": 3,
+    "regularDraftWaveNumbers": [2, 5, 8],
+    "bossCardPackWaveNumbers": [3, 6],
+    "cardPackProgressThresholds": [150000, 500000, 1050000, 1800000],
+    "normalKillProgress": 10000,
+    "eliteKillProgress": 30000,
+    "splitCardPackProgressBps": 5100,
+    "shimmeringHealthBps": 15000,
+    "shimmeringSpeedBps": 12000,
+    "shimmeringSizeBps": 11000,
     "tierWeights": [48, 30, 15, 6, 1],
     "criticalDamageBps": 15000,
     "controlInterruptTicks": 24,

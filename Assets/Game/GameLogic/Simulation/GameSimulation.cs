@@ -71,6 +71,10 @@ namespace RuleforgeTD.GameLogic.Simulation
         // 매 틱 또는 특정 계산에서 잠시 쓰는 재사용 버퍼들이다.
         // 전투 중 GC 할당을 줄이는 것이 특히 WebGL에서 중요하다.
         private readonly List<CardId> draftOffers = new List<CardId>(3);
+        private readonly List<CardId> cardPackOffers =
+            new List<CardId>(3);
+        private readonly List<CardPackState> cardPacks =
+            new List<CardPackState>(4);
         private readonly List<EntityId> spatialScratch = new List<EntityId>(256);
         private readonly List<EntityId> sweepScratch = new List<EntityId>(256);
         private readonly HashSet<int> sweepIds = new HashSet<int>();
@@ -101,7 +105,19 @@ namespace RuleforgeTD.GameLogic.Simulation
         private int nextHazardId;
         private int nextChainId;
         private int nextActivationId;
+        private int nextCardPackId;
         private bool initialized;
+
+        // 카드팩 진행, 운반 몬스터, 웨이브 종료 보상 큐의 권위 상태다.
+        private int cardPackProgress;
+        private int nextCardPackThresholdIndex;
+        private int activeShimmeringLineageId;
+        private int activeCardPackId;
+        private int pendingCardInstanceId;
+        private RunPhase phaseAfterCardPack;
+        private bool waveRewardsPending;
+        private bool regularDraftPending;
+        private bool bossCardPackAwardedThisWave;
 
         // 같은 콘텐츠라도 런 설정이 다르면 상태 해시가 달라지도록 설정 지문도 포함한다.
         private ulong runDefinitionHash;
@@ -198,6 +214,8 @@ namespace RuleforgeTD.GameLogic.Simulation
             presentationEventHead = 0;
             presentationEventCount = 0;
             draftOffers.Clear();
+            cardPackOffers.Clear();
+            cardPacks.Clear();
             ownedTowerDefinitions.Clear();
             chainBudgets.Clear();
             lineages.Clear();
@@ -216,13 +234,23 @@ namespace RuleforgeTD.GameLogic.Simulation
             nextHazardId = 0;
             nextChainId = 0;
             nextActivationId = 0;
+            nextCardPackId = 0;
+            cardPackProgress = 0;
+            nextCardPackThresholdIndex = 0;
+            activeShimmeringLineageId = -1;
+            activeCardPackId = -1;
+            pendingCardInstanceId = -1;
+            phaseAfterCardPack = RunPhase.Planning;
+            waveRewardsPending = false;
+            regularDraftPending = false;
+            bossCardPackAwardedThisWave = false;
+            victoryPending = false;
             waveSpawns = new WaveSpawnRuntime[0];
             unlockedBuildSpots =
-                new bool[run.BuildSpotUnlockCostsInternal.Length];
+                new bool[run.BuildSpotsInternal.Length];
             for (int i = 0; i < unlockedBuildSpots.Length; i++)
             {
-                unlockedBuildSpots[i] =
-                    run.BuildSpotUnlockCostsInternal[i] == 0;
+                unlockedBuildSpots[i] = true;
             }
             phase = RunPhase.AwaitingStartingTower;
 
@@ -257,8 +285,6 @@ namespace RuleforgeTD.GameLogic.Simulation
                     return ChooseStartingTower(command.ContentId);
                 case GameCommandType.PlaceTower:
                     return PlaceTower(command.ContentId, command.PrimaryId);
-                case GameCommandType.UnlockBuildSpot:
-                    return UnlockBuildSpot(command.PrimaryId);
                 case GameCommandType.EquipCard:
                     return EquipCard(
                         command.PrimaryId,
@@ -280,6 +306,12 @@ namespace RuleforgeTD.GameLogic.Simulation
                     return SelectDraft(command.PrimaryId);
                 case GameCommandType.StartWave:
                     return StartWave();
+                case GameCommandType.OpenCardPack:
+                    return OpenCardPack(command.PrimaryId);
+                case GameCommandType.SelectCardPack:
+                    return SelectCardPack(command.PrimaryId);
+                case GameCommandType.ResumeCardPackCombat:
+                    return ResumeCardPackCombat();
                 default:
                     return CommandResult.Reject(
                         CommandError.InvalidTarget,
@@ -299,6 +331,13 @@ namespace RuleforgeTD.GameLogic.Simulation
         {
             EnsureInitialized();
 
+            // 카드팩 선택과 장착 편집은 전투를 포함한 논리 시간을 완전히 멈춘다.
+            if (phase == RunPhase.CardPackChoice ||
+                phase == RunPhase.CardPackLoadout)
+            {
+                return;
+            }
+
             // 틱 단위 안전 상한은 매 틱 새로 계산한다. RootChain 단위 예산은 별도로 유지된다.
             eventsProcessedThisTick = 0;
             eventsEnqueuedThisTick = 0;
@@ -307,8 +346,11 @@ namespace RuleforgeTD.GameLogic.Simulation
             {
                 // 1) 예약된 적을 생성하고, 이미 붙은 지속 효과를 먼저 처리한다.
                 ProcessWaveSpawns();
+                TrySpawnShimmeringCarrier(
+                    EnemyDefinitionId.Invalid);
                 ProcessStatuses();
                 DrainEventsThrough(EventPhase.Status);
+                ProcessBossAbilities();
 
                 // 2) 적을 경로 위에서 이동시킨 뒤 위치가 바뀐 결과로 공간 인덱스를 재구축한다.
                 MoveEnemies();
@@ -403,8 +445,11 @@ namespace RuleforgeTD.GameLogic.Simulation
                     enemy.ControlThreshold,
                     enemy.RewardBudget,
                     enemy.WaveProgressBudget,
+                    enemy.CardPackProgressBudget,
                     enemy.Generation,
                     enemy.Alive,
+                    enemy.IsShimmering,
+                    enemy.ShieldMilli,
                     statusTypes,
                     statusDetails,
                     enemy.DeathBindings.Count));
@@ -484,6 +529,10 @@ namespace RuleforgeTD.GameLogic.Simulation
                     lineage.ForfeitedReward,
                     lineage.ProgressBudget,
                     lineage.ConsumedProgress,
+                    lineage.BaseCardPackProgress,
+                    lineage.AwardedCardPackProgress,
+                    lineage.ForfeitedCardPackProgress,
+                    lineage.IsShimmering,
                     lineage.AppliedRewardAugments.Count);
             }
 
@@ -512,6 +561,59 @@ namespace RuleforgeTD.GameLogic.Simulation
                     unlockedBuildSpots[i]);
             }
 
+            var cardPackSnapshots =
+                new CardPackSnapshot[cardPacks.Count];
+            for (int i = 0; i < cardPacks.Count; i++)
+            {
+                CardPackState pack = cardPacks[i];
+                cardPackSnapshots[i] = new CardPackSnapshot(
+                    pack.Id,
+                    pack.Source,
+                    pack.Position,
+                    pack.WorldDrop);
+            }
+
+            int nextThreshold =
+                nextCardPackThresholdIndex <
+                run.CardPackProgressThresholdsInternal.Length
+                    ? run.CardPackProgressThresholdsInternal[
+                        nextCardPackThresholdIndex]
+                    : 0;
+            int previousThreshold =
+                nextCardPackThresholdIndex > 0
+                    ? run.CardPackProgressThresholdsInternal[
+                        nextCardPackThresholdIndex - 1]
+                    : 0;
+            int progressBps = nextThreshold <= previousThreshold
+                ? 10_000
+                : (int)Math.Min(
+                    10_000L,
+                    Math.Max(
+                        0L,
+                        (cardPackProgress - previousThreshold) *
+                        10_000L /
+                        (nextThreshold - previousThreshold)));
+            var rewardQueueIds = new List<int>();
+            if (waveRewardsPending)
+            {
+                for (int i = 0; i < cardPacks.Count; i++)
+                {
+                    if (cardPacks[i].Source ==
+                        CardPackSource.ShimmeringCarrier)
+                    {
+                        rewardQueueIds.Add(cardPacks[i].Id);
+                    }
+                }
+                for (int i = 0; i < cardPacks.Count; i++)
+                {
+                    if (cardPacks[i].Source ==
+                        CardPackSource.Boss)
+                    {
+                        rewardQueueIds.Add(cardPacks[i].Id);
+                    }
+                }
+            }
+
             return new SimulationSnapshot(
                 tick,
                 phase,
@@ -523,9 +625,17 @@ namespace RuleforgeTD.GameLogic.Simulation
                 towerSnapshots,
                 cardSnapshots,
                 draftOffers.ToArray(),
+                cardPackOffers.ToArray(),
                 lineageSnapshots,
                 unlockedTowerIds,
-                buildSpotSnapshots);
+                buildSpotSnapshots,
+                cardPackSnapshots,
+                cardPackProgress,
+                progressBps,
+                nextThreshold,
+                rewardQueueIds.ToArray(),
+                pendingCardInstanceId,
+                run.TowerConstructionCost);
         }
 
         /// <summary>
@@ -589,6 +699,17 @@ namespace RuleforgeTD.GameLogic.Simulation
             hash.Add(nextHazardId);
             hash.Add(nextChainId);
             hash.Add(nextActivationId);
+            hash.Add(nextCardPackId);
+            hash.Add(cardPackProgress);
+            hash.Add(nextCardPackThresholdIndex);
+            hash.Add(activeShimmeringLineageId);
+            hash.Add(activeCardPackId);
+            hash.Add(pendingCardInstanceId);
+            hash.Add((int)phaseAfterCardPack);
+            hash.Add(waveRewardsPending);
+            hash.Add(regularDraftPending);
+            hash.Add(bossCardPackAwardedThisWave);
+            hash.Add(victoryPending);
             hash.Add(combatRandom.State);
             hash.Add(combatRandom.StreamIncrement);
             hash.Add(draftRandom.State);
@@ -673,6 +794,8 @@ namespace RuleforgeTD.GameLogic.Simulation
                 hash.Add(enemy.DefinitionId.Value);
                 hash.Add(enemy.LineageId.Value);
                 hash.Add(enemy.Generation);
+                hash.Add((int)enemy.SpawnOrigin);
+                hash.Add(enemy.SummonerId);
                 hash.Add(enemy.PathProgressMilli);
                 hash.Add(enemy.Position);
                 hash.Add(enemy.HealthMilli);
@@ -685,12 +808,19 @@ namespace RuleforgeTD.GameLogic.Simulation
                 hash.Add(enemy.SingleDamageTakenBps);
                 hash.Add(enemy.RewardBudget);
                 hash.Add(enemy.WaveProgressBudget);
+                hash.Add(enemy.CardPackProgressBudget);
+                hash.Add(enemy.IsShimmering);
                 hash.Add(enemy.Alive);
                 hash.Add(enemy.RewardClaimed);
                 hash.Add(enemy.DeathQueued);
                 hash.Add(enemy.ControlGauge);
                 hash.Add(enemy.ControlThreshold);
                 hash.Add(enemy.ControlThresholdStep);
+                hash.Add(enemy.ShieldMilli);
+                hash.Add(enemy.BossAbilityCooldownTicks);
+                hash.Add(enemy.BossCastRemainingTicks);
+                hash.Add(enemy.BossEnraged);
+                hash.Add(enemy.BossPhaseAnnounced);
                 hash.Add(enemy.Statuses.Count);
                 for (int statusIndex = 0; statusIndex < enemy.Statuses.Count; statusIndex++)
                 {
@@ -850,6 +980,12 @@ namespace RuleforgeTD.GameLogic.Simulation
                 hash.Add(lineage.ForfeitedReward);
                 hash.Add(lineage.ProgressBudget);
                 hash.Add(lineage.ConsumedProgress);
+                hash.Add(lineage.BaseCardPackProgress);
+                hash.Add(lineage.AwardedCardPackProgress);
+                hash.Add(lineage.ForfeitedCardPackProgress);
+                hash.Add(lineage.IsShimmering);
+                hash.Add(lineage.ShimmeringFailed);
+                hash.Add(lineage.LastResolvedPosition);
                 AppendRewardAugmentKeys(
                     ref hash,
                     lineage.AppliedRewardAugments);
@@ -860,6 +996,22 @@ namespace RuleforgeTD.GameLogic.Simulation
             for (int i = 0; i < draftOffers.Count; i++)
             {
                 hash.Add(draftOffers[i]);
+            }
+
+            hash.Add(cardPackOffers.Count);
+            for (int i = 0; i < cardPackOffers.Count; i++)
+            {
+                hash.Add(cardPackOffers[i]);
+            }
+
+            hash.Add(cardPacks.Count);
+            for (int i = 0; i < cardPacks.Count; i++)
+            {
+                CardPackState pack = cardPacks[i];
+                hash.Add(pack.Id);
+                hash.Add((int)pack.Source);
+                hash.Add(pack.Position);
+                hash.Add(pack.WorldDrop);
             }
 
             return hash.Finish();
@@ -1052,6 +1204,7 @@ namespace RuleforgeTD.GameLogic.Simulation
             if (definition.TickRate != SafetyLimits.DefaultTicksPerSecond ||
                 definition.BaseHealth <= 0 ||
                 definition.StartingGold < 0 ||
+                definition.TowerConstructionCost <= 0 ||
                 definition.StartingTowerChoicesInternal.Length == 0 ||
                 definition.StartingCardsInternal.Length == 0 ||
                 definition.BuildSpotsInternal.Length == 0 ||
@@ -1059,6 +1212,15 @@ namespace RuleforgeTD.GameLogic.Simulation
                     definition.BuildSpotsInternal.Length ||
                 definition.PathPointsInternal.Length < 2 ||
                 definition.DraftOfferCount <= 0 ||
+                definition.CardPackProgressThresholdsInternal.Length == 0 ||
+                definition.NormalKillProgress <= 0 ||
+                definition.EliteKillProgress <
+                    definition.NormalKillProgress ||
+                definition.SplitCardPackProgressBps <= 5000 ||
+                definition.SplitCardPackProgressBps > 10000 ||
+                definition.ShimmeringHealthBps <= 0 ||
+                definition.ShimmeringSpeedBps <= 0 ||
+                definition.ShimmeringSizeBps <= 0 ||
                 definition.TierWeightsInternal.Length != 5 ||
                 definition.CriticalDamageBps < 10000 ||
                 definition.ControlInterruptTicks <= 0 ||

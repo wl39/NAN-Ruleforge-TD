@@ -310,6 +310,15 @@ namespace RuleforgeTD.GameLogic.Content
                 {
                     errors.Add("Enemy '" + dto.id + "' has invalid rank '" + dto.rank + "'.");
                 }
+                if (!TryParseEnum(
+                        dto.bossAbility,
+                        out BossAbilityType bossAbility))
+                {
+                    errors.Add(
+                        "Enemy '" + dto.id +
+                        "' has invalid boss ability '" +
+                        dto.bossAbility + "'.");
+                }
 
                 if (dto.maxHealthMilli <= 0 ||
                     dto.maxHealthMilli > MaxScalar ||
@@ -340,6 +349,69 @@ namespace RuleforgeTD.GameLogic.Content
                         "' has a negative or out-of-range combat value.");
                 }
 
+                EnemyDefinitionId summonEnemyId =
+                    EnemyDefinitionId.Invalid;
+                if (bossAbility == BossAbilityType.Summon &&
+                    !enemyIds.TryGetValue(
+                        dto.bossSummonEnemyId,
+                        out summonEnemyId))
+                {
+                    errors.Add(
+                        "Boss '" + dto.id +
+                        "' references unknown summon enemy '" +
+                        dto.bossSummonEnemyId + "'.");
+                }
+
+                if (rank != EnemyRank.Boss &&
+                    bossAbility != BossAbilityType.None)
+                {
+                    errors.Add(
+                        "Only boss-ranked enemies may define a boss ability.");
+                }
+                if (rank == EnemyRank.Boss &&
+                    (bossAbility == BossAbilityType.None ||
+                     dto.bossAbilityIntervalTicks <= 0 ||
+                     dto.bossEnragedAbilityIntervalTicks <= 0 ||
+                     dto.bossPhaseHealthBps <= 0 ||
+                     dto.bossPhaseHealthBps >= 10_000))
+                {
+                    errors.Add(
+                        "Boss '" + dto.id +
+                        "' needs an ability, positive intervals, and a valid phase threshold.");
+                }
+                if (bossAbility == BossAbilityType.Shield &&
+                    (dto.bossShieldBps <= 0 ||
+                     dto.bossShieldBps > 10_000))
+                {
+                    errors.Add(
+                        "Shield boss '" + dto.id +
+                        "' needs a valid shield ratio.");
+                }
+                if (bossAbility == BossAbilityType.Summon &&
+                    (dto.bossSummonCount <= 0 ||
+                     dto.bossEnragedSummonCount <= 0 ||
+                     dto.bossMaxActiveSummons <= 0 ||
+                     dto.bossSummonHealthBps <= 0 ||
+                     dto.bossSummonHealthBps > 10_000 ||
+                     dto.bossEnragedSummonCount >
+                        dto.bossMaxActiveSummons))
+                {
+                    errors.Add(
+                        "Summon boss '" + dto.id +
+                        "' has invalid summon counts.");
+                }
+                if (bossAbility == BossAbilityType.Teleport &&
+                    (dto.bossCastTicks <= 0 ||
+                     dto.bossTeleportDistanceBps <= 0 ||
+                     dto.bossEnragedTeleportDistanceBps <= 0 ||
+                     dto.bossTeleportDistanceBps > 10_000 ||
+                     dto.bossEnragedTeleportDistanceBps > 10_000))
+                {
+                    errors.Add(
+                        "Teleport boss '" + dto.id +
+                        "' has invalid cast or distance values.");
+                }
+
                 enemies[i] = new CompiledEnemyDefinition
                 {
                     Id = new EnemyDefinitionId(i),
@@ -355,7 +427,27 @@ namespace RuleforgeTD.GameLogic.Content
                     FireResistanceBps = dto.fireResistanceBps,
                     PoisonResistanceBps = dto.poisonResistanceBps,
                     ControlGaugeThreshold = dto.controlGaugeThreshold,
-                    ControlGaugeStep = dto.controlGaugeStep
+                    ControlGaugeStep = dto.controlGaugeStep,
+                    BossAbility = bossAbility,
+                    BossAbilityIntervalTicks =
+                        dto.bossAbilityIntervalTicks,
+                    BossEnragedAbilityIntervalTicks =
+                        dto.bossEnragedAbilityIntervalTicks,
+                    BossPhaseHealthBps = dto.bossPhaseHealthBps,
+                    BossShieldBps = dto.bossShieldBps,
+                    BossSummonEnemyId = summonEnemyId,
+                    BossSummonCount = dto.bossSummonCount,
+                    BossEnragedSummonCount =
+                        dto.bossEnragedSummonCount,
+                    BossMaxActiveSummons =
+                        dto.bossMaxActiveSummons,
+                    BossSummonHealthBps =
+                        dto.bossSummonHealthBps,
+                    BossCastTicks = dto.bossCastTicks,
+                    BossTeleportDistanceBps =
+                        dto.bossTeleportDistanceBps,
+                    BossEnragedTeleportDistanceBps =
+                        dto.bossEnragedTeleportDistanceBps
                 };
             }
 
@@ -437,7 +529,12 @@ namespace RuleforgeTD.GameLogic.Content
 
             // 카탈로그 항목이 모두 정수 ID로 준비된 다음, 그것들을 참조하는
             // 런 설정과 안전 예산을 컴파일한다.
-            CompiledRunDefinition run = CompileRun(source.run, cardIds, towerIds, errors);
+            CompiledRunDefinition run = CompileRun(
+                source.run,
+                cardIds,
+                towerIds,
+                waveDtos.Length,
+                errors);
             SafetyLimits safety = CompileSafety(source.safety, errors);
 
             // 각 개별 값이 int 범위여도 전체 웨이브 보상 합은 넘칠 수 있다.
@@ -562,6 +659,19 @@ namespace RuleforgeTD.GameLogic.Content
                 hash.Add(enemy.PoisonResistanceBps);
                 hash.Add(enemy.ControlGaugeThreshold);
                 hash.Add(enemy.ControlGaugeStep);
+                hash.Add((int)enemy.BossAbility);
+                hash.Add(enemy.BossAbilityIntervalTicks);
+                hash.Add(enemy.BossEnragedAbilityIntervalTicks);
+                hash.Add(enemy.BossPhaseHealthBps);
+                hash.Add(enemy.BossShieldBps);
+                hash.Add(enemy.BossSummonEnemyId.Value);
+                hash.Add(enemy.BossSummonCount);
+                hash.Add(enemy.BossEnragedSummonCount);
+                hash.Add(enemy.BossMaxActiveSummons);
+                hash.Add(enemy.BossSummonHealthBps);
+                hash.Add(enemy.BossCastTicks);
+                hash.Add(enemy.BossTeleportDistanceBps);
+                hash.Add(enemy.BossEnragedTeleportDistanceBps);
             }
 
             hash.Add(waves.Length);
@@ -606,6 +716,7 @@ namespace RuleforgeTD.GameLogic.Content
             hash.Add(run.TickRate);
             hash.Add(run.BaseHealth);
             hash.Add(run.StartingGold);
+            hash.Add(run.TowerConstructionCost);
             hash.Add(run.StartingTowerChoices.Length);
             for (int i = 0; i < run.StartingTowerChoices.Length; i++)
             {
@@ -633,6 +744,15 @@ namespace RuleforgeTD.GameLogic.Content
             }
             AppendPositions(ref hash, run.PathPoints);
             hash.Add(run.DraftOfferCount);
+            AppendIntegers(ref hash, run.RegularDraftWaveIndices);
+            AppendIntegers(ref hash, run.BossCardPackWaveIndices);
+            AppendIntegers(ref hash, run.CardPackProgressThresholds);
+            hash.Add(run.NormalKillProgress);
+            hash.Add(run.EliteKillProgress);
+            hash.Add(run.SplitCardPackProgressBps);
+            hash.Add(run.ShimmeringHealthBps);
+            hash.Add(run.ShimmeringSpeedBps);
+            hash.Add(run.ShimmeringSizeBps);
             hash.Add(run.TierWeights.Length);
             for (int i = 0; i < run.TierWeights.Length; i++)
             {
@@ -679,6 +799,17 @@ namespace RuleforgeTD.GameLogic.Content
             for (int i = 0; i < positions.Length; i++)
             {
                 hash.Add(positions[i]);
+            }
+        }
+
+        private static void AppendIntegers(
+            ref StableHashBuilder hash,
+            int[] values)
+        {
+            hash.Add(values.Length);
+            for (int i = 0; i < values.Length; i++)
+            {
+                hash.Add(values[i]);
             }
         }
 
@@ -797,12 +928,44 @@ namespace RuleforgeTD.GameLogic.Content
             RunDefinitionDto dto,
             Dictionary<string, CardId> cardIds,
             Dictionary<string, TowerDefinitionId> towerIds,
+            int waveCount,
             List<string> errors)
         {
             if (dto == null)
             {
                 errors.Add("Run definition is missing.");
                 return new CompiledRunDefinition();
+            }
+
+            int[] regularDraftWaveIndices = CompileWaveNumbers(
+                dto.regularDraftWaveNumbers,
+                waveCount,
+                "regular draft",
+                errors);
+            int[] bossCardPackWaveIndices = CompileWaveNumbers(
+                dto.bossCardPackWaveNumbers,
+                waveCount,
+                "boss card-pack",
+                errors);
+            int[] cardPackThresholds =
+                dto.cardPackProgressThresholds ??
+                Array.Empty<int>();
+            int previousThreshold = 0;
+            if (cardPackThresholds.Length == 0)
+            {
+                errors.Add(
+                    "Run needs at least one card-pack progress threshold.");
+            }
+            for (int i = 0; i < cardPackThresholds.Length; i++)
+            {
+                if (cardPackThresholds[i] <= previousThreshold ||
+                    cardPackThresholds[i] > MaxScalar)
+                {
+                    errors.Add(
+                        "Run card-pack thresholds must be positive and strictly increasing.");
+                    break;
+                }
+                previousThreshold = cardPackThresholds[i];
             }
             if (dto.tickRate != SafetyLimits.DefaultTicksPerSecond)
             {
@@ -827,6 +990,18 @@ namespace RuleforgeTD.GameLogic.Content
             {
                 errors.Add(
                     "Run health/draft values must be positive and gold non-negative.");
+            }
+            if (dto.towerConstructionCost <= 0 ||
+                dto.normalKillProgress <= 0 ||
+                dto.eliteKillProgress < dto.normalKillProgress ||
+                dto.splitCardPackProgressBps <= 5000 ||
+                dto.splitCardPackProgressBps > 10_000 ||
+                !IsBoundedMultiplier(dto.shimmeringHealthBps) ||
+                !IsBoundedMultiplier(dto.shimmeringSpeedBps) ||
+                !IsBoundedMultiplier(dto.shimmeringSizeBps))
+            {
+                errors.Add(
+                    "Run construction, card-pack progress, split, or shimmering values are invalid.");
             }
 
             // 시작 "선택지"는 플레이어가 이 중 하나를 골라 주력 타워로 해금하는 목록이다.
@@ -971,6 +1146,7 @@ namespace RuleforgeTD.GameLogic.Content
                 TickRate = dto.tickRate,
                 BaseHealth = dto.baseHealth,
                 StartingGold = dto.startingGold,
+                TowerConstructionCost = dto.towerConstructionCost,
                 StartingTowerChoices = compiledTowerChoices,
                 InitiallyUnlockedTowers = compiledInitiallyUnlocked,
                 StartingCards = compiledCards,
@@ -978,6 +1154,22 @@ namespace RuleforgeTD.GameLogic.Content
                 BuildSpotUnlockCosts = buildSpotUnlockCosts,
                 PathPoints = pathPoints,
                 DraftOfferCount = dto.draftOfferCount,
+                RegularDraftWaveIndices =
+                    regularDraftWaveIndices,
+                BossCardPackWaveIndices =
+                    bossCardPackWaveIndices,
+                CardPackProgressThresholds =
+                    cardPackThresholds,
+                NormalKillProgress = dto.normalKillProgress,
+                EliteKillProgress = dto.eliteKillProgress,
+                SplitCardPackProgressBps =
+                    dto.splitCardPackProgressBps,
+                ShimmeringHealthBps =
+                    dto.shimmeringHealthBps,
+                ShimmeringSpeedBps =
+                    dto.shimmeringSpeedBps,
+                ShimmeringSizeBps =
+                    dto.shimmeringSizeBps,
                 TierWeights = dto.tierWeights ?? new[] { 48, 30, 15, 6, 1 },
                 CriticalDamageBps = dto.criticalDamageBps,
                 ControlInterruptTicks = dto.controlInterruptTicks,
@@ -986,6 +1178,32 @@ namespace RuleforgeTD.GameLogic.Content
                 EnemyBaseHitRadiusMilli =
                     dto.enemyBaseHitRadiusMilli
             };
+        }
+
+        private static int[] CompileWaveNumbers(
+            int[] waveNumbers,
+            int waveCount,
+            string label,
+            List<string> errors)
+        {
+            int[] source = waveNumbers ?? Array.Empty<int>();
+            var result = new int[source.Length];
+            var unique = new HashSet<int>();
+            for (int i = 0; i < source.Length; i++)
+            {
+                int index = source[i] - 1;
+                result[i] = index;
+                if (index < 0 ||
+                    index >= waveCount ||
+                    !unique.Add(index))
+                {
+                    errors.Add(
+                        "Run " + label +
+                        " wave numbers must be unique and within the run.");
+                }
+            }
+            Array.Sort(result);
+            return result;
         }
 
         // 안전 예산 컴파일 ----------------------------------------------------

@@ -145,6 +145,15 @@ namespace RuleforgeTD.GameLogic.Simulation
                     }
             }
 
+            int constructionCost =
+                towers.Count == 0 ? 0 : run.TowerConstructionCost;
+            if (gold < constructionCost)
+            {
+                return CommandResult.Reject(
+                    CommandError.InsufficientGold,
+                    "Not enough gold to construct this tower.");
+            }
+
             // 정의에서 슬롯 수를 읽어 런 전용 타워 상태를 만든다.
             CompiledTowerDefinition definition = content.GetTower(definitionId);
             var tower = new TowerState
@@ -165,6 +174,7 @@ namespace RuleforgeTD.GameLogic.Simulation
                 tower.CardInstanceIds[slot] = -1;
             }
 
+            gold = checked(gold - constructionCost);
             towers.Add(tower);
 
             // 표현 계층은 내부 TowerState를 직접 관찰하지 않고 이 이벤트로 배치 연출을 만든다.
@@ -174,51 +184,6 @@ namespace RuleforgeTD.GameLogic.Simulation
                 buildPointIndex,
                 0,
                 definition.StableId);
-            return CommandResult.Success();
-        }
-
-        /// <summary>
-        /// 계획 단계에서 골드를 지불해 잠긴 건설 지점을 영구적으로 해금한다.
-        /// </summary>
-        /// <remarks>
-        /// 모든 검증을 먼저 끝낸 뒤 골드와 해금 상태를 함께 변경한다.
-        /// 따라서 실패한 명령은 부분적으로 비용만 차감하는 상태를 만들지 않는다.
-        /// </remarks>
-        private CommandResult UnlockBuildSpot(int buildPointIndex)
-        {
-            if (phase != RunPhase.Planning)
-            {
-                return CommandResult.Reject(
-                    CommandError.InvalidPhase,
-                    "Build points can only be unlocked during planning.");
-            }
-
-            if (buildPointIndex < 0 ||
-                buildPointIndex >= unlockedBuildSpots.Length)
-            {
-                return CommandResult.Reject(
-                    CommandError.InvalidTarget,
-                    "Build point is out of range.");
-            }
-
-            if (unlockedBuildSpots[buildPointIndex])
-            {
-                return CommandResult.Reject(
-                    CommandError.InvalidTarget,
-                    "Build point is already unlocked.");
-            }
-
-            int unlockCost =
-                run.BuildSpotUnlockCostsInternal[buildPointIndex];
-            if (gold < unlockCost)
-            {
-                return CommandResult.Reject(
-                    CommandError.InsufficientGold,
-                    "Not enough gold to unlock the build point.");
-            }
-
-            gold = checked(gold - unlockCost);
-            unlockedBuildSpots[buildPointIndex] = true;
             return CommandResult.Success();
         }
 
@@ -238,7 +203,7 @@ namespace RuleforgeTD.GameLogic.Simulation
             int slotIndex)
         {
             // 카드 배열은 전투 시작 후 프로그램처럼 고정되어야 하므로 계획 단계만 편집 가능하다.
-            if (phase != RunPhase.Planning)
+            if (!IsLoadoutEditablePhase())
             {
                 return CommandResult.Reject(
                     phase == RunPhase.Combat
@@ -321,6 +286,12 @@ namespace RuleforgeTD.GameLogic.Simulation
             return CommandResult.Success();
         }
 
+        private bool IsLoadoutEditablePhase()
+        {
+            return phase == RunPhase.Planning ||
+                   phase == RunPhase.CardPackLoadout;
+        }
+
         /// <summary>
         /// 현재 장착된 카드를 다른 타워 또는 다른 슬롯으로 옮긴다.
         /// </summary>
@@ -337,7 +308,8 @@ namespace RuleforgeTD.GameLogic.Simulation
             if (card == null || !card.Equipped)
             {
                 // 전투 중이라는 더 구체적인 실패 이유를 먼저 반환하면 UI가 잠금 안내를 할 수 있다.
-                if (phase == RunPhase.Combat)
+                if (phase == RunPhase.Combat ||
+                    phase == RunPhase.CardPackChoice)
                 {
                     return CommandResult.Reject(
                         CommandError.CombatLoadoutLocked,
@@ -357,7 +329,7 @@ namespace RuleforgeTD.GameLogic.Simulation
         /// </summary>
         private CommandResult UnequipCard(int cardInstanceId)
         {
-            if (phase != RunPhase.Planning)
+            if (!IsLoadoutEditablePhase())
             {
                 return CommandResult.Reject(
                     phase == RunPhase.Combat
@@ -407,7 +379,7 @@ namespace RuleforgeTD.GameLogic.Simulation
         /// </remarks>
         private CommandResult ReorderCard(int towerInstanceId, int fromSlot, int toSlot)
         {
-            if (phase != RunPhase.Planning)
+            if (!IsLoadoutEditablePhase())
             {
                 return CommandResult.Reject(
                     phase == RunPhase.Combat
@@ -576,6 +548,8 @@ namespace RuleforgeTD.GameLogic.Simulation
 
             // 이전 웨이브의 제안은 전투 화면에 남아 있으면 안 된다.
             draftOffers.Clear();
+            cardPackOffers.Clear();
+            bossCardPackAwardedThisWave = false;
             phase = RunPhase.Combat;
 
             // Unity 화면은 이 표현 이벤트를 읽어 웨이브 시작 문구나 효과음을 재생할 수 있다.
@@ -649,10 +623,23 @@ namespace RuleforgeTD.GameLogic.Simulation
         /// 이후 분열하거나 복제된 적은 같은 가계 원장을 공유하여,
         /// 개체 수가 늘어나도 원래 적보다 더 많은 골드와 웨이브 진행도를 만들지 못하게 한다.
         /// </remarks>
-        private EnemyState SpawnEnemy(EnemyDefinitionId definitionId)
+        private EnemyState SpawnEnemy(
+            EnemyDefinitionId definitionId,
+            EnemySpawnOrigin origin = EnemySpawnOrigin.Scheduled,
+            int summonerEntityId = -1,
+            int spawnHealthBps = 10_000)
         {
             CompiledEnemyDefinition definition = content.GetEnemy(definitionId);
             var id = new EntityId(nextEntityId++);
+            int cardPackBudget = 0;
+            if (origin == EnemySpawnOrigin.Scheduled)
+            {
+                cardPackBudget = definition.Rank == EnemyRank.Elite
+                    ? run.EliteKillProgress
+                    : definition.Rank == EnemyRank.Normal
+                        ? run.NormalKillProgress
+                        : 0;
+            }
 
             // 위치는 Transform 좌표가 아니라 경로 진행도 0에서 계산한다.
             var enemy = new EnemyState
@@ -661,6 +648,8 @@ namespace RuleforgeTD.GameLogic.Simulation
                 DefinitionId = definitionId,
                 LineageId = new LineageId(id.Value),
                 Generation = 0,
+                SpawnOrigin = origin,
+                SummonerId = new EntityId(summonerEntityId),
                 PathProgressMilli = 0,
                 Position = path.GetPosition(0),
                 HealthMilli = definition.MaxHealthMilli,
@@ -669,9 +658,40 @@ namespace RuleforgeTD.GameLogic.Simulation
                 BaseSpeedMilliPerTick = definition.SpeedMilliPerTick,
                 RewardBudget = definition.RewardBudget,
                 WaveProgressBudget = definition.WaveProgressBudget,
+                CardPackProgressBudget = cardPackBudget,
                 ControlThreshold = definition.ControlGaugeThreshold,
-                ControlThresholdStep = definition.ControlGaugeStep
+                ControlThresholdStep = definition.ControlGaugeStep,
+                BossAbilityCooldownTicks =
+                    definition.BossAbilityIntervalTicks
             };
+            if (origin == EnemySpawnOrigin.BossSummon)
+            {
+                enemy.RewardBudget = 0;
+                enemy.WaveProgressBudget = 0;
+                enemy.CardPackProgressBudget = 0;
+                enemy.HealthMilli = Math.Max(
+                    1,
+                    DeterministicMath.MultiplyBasisPoints(
+                        enemy.HealthMilli,
+                        spawnHealthBps));
+                enemy.MaxHealthMilli = enemy.HealthMilli;
+            }
+            else if (origin == EnemySpawnOrigin.ShimmeringCarrier)
+            {
+                enemy.RewardBudget = 0;
+                enemy.WaveProgressBudget = 0;
+                enemy.CardPackProgressBudget = 0;
+                enemy.IsShimmering = true;
+                enemy.HealthMilli =
+                    DeterministicMath.MultiplyBasisPoints(
+                        enemy.HealthMilli,
+                        run.ShimmeringHealthBps);
+                enemy.MaxHealthMilli = enemy.HealthMilli;
+                enemy.SpeedMultiplierBps =
+                    run.ShimmeringSpeedBps;
+                enemy.SizeMultiplierBps =
+                    run.ShimmeringSizeBps;
+            }
             enemies.Add(enemy);
 
             // 적 본체와 별도로 가계 전체의 최초/최대 예산을 기록한다.
@@ -682,9 +702,11 @@ namespace RuleforgeTD.GameLogic.Simulation
                 SplitCount = 0,
                 SpawnedEntityCount = 1,
                 LiveMembers = 1,
-                BaseRewardBudget = definition.RewardBudget,
-                MaxRewardBudget = definition.RewardBudget,
-                ProgressBudget = definition.WaveProgressBudget
+                BaseRewardBudget = enemy.RewardBudget,
+                MaxRewardBudget = enemy.RewardBudget,
+                ProgressBudget = enemy.WaveProgressBudget,
+                BaseCardPackProgress = cardPackBudget,
+                IsShimmering = enemy.IsShimmering
             });
 
             // 프런트엔드는 정의 stableId로 어떤 스프라이트를 붙일지 결정할 수 있다.
@@ -734,18 +756,9 @@ namespace RuleforgeTD.GameLogic.Simulation
                 gold,
                 content.GetWave(currentWaveIndex).StableId);
 
-            if (currentWaveIndex >= content.WaveCount - 1)
-            {
-                // 마지막 웨이브였다면 더 이상 드래프트하지 않고 런을 승리로 확정한다.
-                phase = RunPhase.Victory;
-                AddPresentation(PresentationEventType.RunWon, currentWaveIndex);
-            }
-            else
-            {
-                // 다음 웨이브가 남았다면 제안을 먼저 만든 뒤 선택 대기 단계로 이동한다.
-                GenerateDraft();
-                phase = RunPhase.Draft;
-            }
+            BeginWaveEndRewards(
+                currentWaveIndex >=
+                content.WaveCount - 1);
         }
 
         /// <summary>

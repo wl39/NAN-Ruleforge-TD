@@ -4,7 +4,7 @@
 
 이 문서는 Ruleforge TD의 전투 및 런 진행 로직이 따라야 하는 구조적 계약을 정의한다. `AGENTS.md`가 제품 설계의 최상위 원본이며, 이 문서는 그중 Phase 0~1 게임 로직을 구현 가능한 형태로 구체화한다.
 
-현재 실행 가능한 `phase1-content.json`은 카드 12장, 타워 3종, 적 4종, 5웨이브만 컴파일한다. `CARD_RULES.md`의 58장과 `TOWER_RULES.md`의 18종은 전체 게임을 위한 설계 계약이며, Phase 1 런타임에 모두 등록되어 있다는 뜻이 아니다.
+현재 실행 가능한 `phase1-content.json`은 카드 12장, 타워 3종, 적 7종, 9웨이브를 컴파일한다. `CARD_RULES.md`의 58장과 `TOWER_RULES.md`의 18종은 전체 게임을 위한 설계 계약이며, Phase 1 런타임에 모두 등록되어 있다는 뜻이 아니다.
 
 현재 범위에 포함되는 항목은 다음과 같다.
 
@@ -86,9 +86,12 @@ ulong GameSimulation.ComputeStateHash();
 | `UnequipCard` | Planning | 장착 중인 카드를 인벤토리로 되돌리는지 |
 | `ReorderCard` | Planning | 같은 타워의 유효한 두 슬롯인지 |
 | `SelectDraft` | Draft | 현재 제안의 0~2 인덱스인지 |
+| `OpenCardPack` | Combat | 월드에 존재하는 특수 몬스터팩인지 |
+| `SelectCardPack` | CardPackChoice | 현재 제안의 0~2 인덱스인지 |
+| `ResumeCardPackCombat` | CardPackLoadout | 전투 중 획득 카드가 합법적으로 장착됐는지 |
 | `StartWave` | Planning | 웨이브 준비 완료 및 최소 타워 배치 |
 
-카드 장착, 이동, 순서 변경은 `Combat`에서 항상 `CombatLoadoutLocked`로 거절한다. `Submit` 호출 순서가 명령 순서이며, 리플레이는 같은 순서의 명령과 `Step` 호출을 기록한다.
+카드 장착, 이동, 순서 변경은 일반 `Combat`과 `CardPackChoice`에서 잠기고 `Planning`과 `CardPackLoadout`에서만 허용한다. `Submit` 호출 순서가 명령 순서이며, 리플레이는 같은 순서의 명령과 `Step` 호출을 기록한다.
 
 ## 5. 런 상태 머신
 
@@ -97,18 +100,21 @@ Uninitialized
   → AwaitingStartingTower
   → Planning
   → Combat
-  → Draft ─┐
-      └──── Planning
+  → CardPackChoice → CardPackLoadout ─┐
+  → Draft ────────────────────────────┤
+      └──────────────────────── Planning
   → Victory 또는 Defeat
 ```
 
-- Phase 1은 5웨이브다.
+- Phase 1은 9웨이브다.
 - 시작 선택지는 `ballista`, `mutation_obelisk` 두 종이다. 하나를 선택하면 `death_engine`도 `initiallyUnlockedTowers`에 의해 소유 목록에 들어가 계획 단계에서 배치할 수 있다.
 - 전투 시작 시 모든 배치 타워의 장착 카드 ID와 카드 인스턴스 ID를 타워별 불변 프로그램 배열로 복사한다. 문서에서 이 웨이브 고정 복사본을 `ProgramSnapshot`이라 부른다.
 - 전투 중 인벤토리가 바뀌지 않으므로 실행 중인 카드 배열은 절대 재조회하지 않는다.
 - 웨이브의 모든 스폰 가계가 제거되거나 본진에 도달하고 예약 이벤트가 정리되면 웨이브가 종료된다.
-- 마지막 웨이브가 끝나면 드래프트 없이 `Victory`로 간다.
+- 웨이브 2·5·8은 일반 드래프트, 웨이브 3·6 보스는 보스 카드팩을 예약한다. 특수 몬스터팩, 보스팩, 일반 드래프트 순으로 모두 처리한 뒤 계획 단계로 간다.
+- 마지막 웨이브의 모든 적과 예약 이벤트가 정리되면 추가 카드 보상 없이 `Victory`로 간다.
 - 본진 체력이 0이 되면 아직 남은 이벤트와 관계없이 `Defeat`를 확정하고 전투 규칙 처리를 종료한다.
+- `CardPackChoice`와 `CardPackLoadout`에서는 `Step`이 틱을 증가시키지 않는다.
 
 ## 6. 결정적 데이터 표현
 
@@ -226,11 +232,12 @@ JSON 논리 데이터와 밸런스 데이터가 런타임 수치의 단일 원�
 - 탄환의 위치, 피해, 수명, 반경, 관통 사용량, 방향, 추적 여부와 바인딩 수
 - 상태 인스턴스의 출처, 중첩, 강도, 남은 틱, 틱 간격, 방어 무시
 - 소유 카드와 장착 상태, 현재 드래프트 제안, 해금된 타워 ID
+- 카드팩 제안, 월드 카드팩 ID/위치, 보상 큐, 카드팩 진행률/다음 임계값, 즉시 장착 대기 카드 ID
 - 가계별 최고 세대/전체 분열/생성/생존 수, 기본·최대·지급·몰수 보상, 진행도 정산량과 증액 키 수
 
 각 호출은 새 배열과 값 복사본을 반환하며, 이를 바꿔도 내부 시뮬레이션은 변하지 않는다. 진단 원형 버퍼는 `GameSimulation.Diagnostics`로 별도 공개한다.
 
-`PresentationEvent`는 `EnemySpawned`, `EnemyDied`, `ProjectileSpawned`, `EnemyDamaged`, `StatusApplied`, `CardExecuted`, `RewardGranted`, `WaveStarted`, `SafetyLimitReached` 같은 의미 사건만 전달한다. VFX 이름, 스프라이트 파일명, 애니메이션 프레임은 포함하지 않는다.
+`PresentationEvent`는 `EnemySpawned`, `EnemyDied`, `ProjectileSpawned`, `EnemyDamaged`, `StatusApplied`, `CardExecuted`, `RewardGranted`, `WaveStarted`, `SafetyLimitReached`와 특수 몬스터 생성, 카드팩 드롭·소멸·개봉, 보스 능력 예고·발동·단계 전환 같은 의미 사건만 전달한다. 보스 이벤트는 안정 콘텐츠 ID만 제공하고 VFX 이름, 스프라이트 파일명, 애니메이션 프레임은 포함하지 않는다.
 
 ## 11. 저장 계약
 
@@ -249,7 +256,7 @@ Phase 1은 설정, 메타 해금, 최근 완료 런 기록을 저장할 수 있�
 
 Phase 1 로직은 다음을 모두 만족해야 한다.
 
-- 에셋과 씬 없이 5웨이브를 끝까지 실행할 수 있다.
+- 에셋과 씬 없이 9웨이브를 끝까지 실행할 수 있다.
 - 12장 카드가 두 해석을 모두 가지며 3개 타워에서 실행된다.
 - 같은 시드와 명령 로그의 매 틱 상태 해시가 일치한다.
 - 카드 순서 차이가 상태 해시와 전투 결과를 바꾼다.

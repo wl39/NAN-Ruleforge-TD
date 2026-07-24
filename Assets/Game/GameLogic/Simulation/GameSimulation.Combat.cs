@@ -91,17 +91,30 @@ namespace RuleforgeTD.GameLogic.Simulation
                 lineage.ConsumedProgress = checked(
                     lineage.ConsumedProgress +
                     Math.Max(0, enemy.WaveProgressBudget));
+                lineage.ForfeitedCardPackProgress = checked(
+                    lineage.ForfeitedCardPackProgress +
+                    Math.Max(
+                        0,
+                        enemy.CardPackProgressBudget));
+                lineage.LastResolvedPosition = enemy.Position;
+                if (lineage.IsShimmering)
+                {
+                    lineage.ShimmeringFailed = true;
+                }
             }
             enemy.RewardBudget = 0;
             enemy.WaveProgressBudget = 0;
+            enemy.CardPackProgressBudget = 0;
             CompiledEnemyDefinition definition = content.GetEnemy(enemy.DefinitionId);
-            baseHealth = Math.Max(0, baseHealth - definition.LeakDamage);
+            int leakDamage =
+                enemy.IsShimmering ? 0 : definition.LeakDamage;
+            baseHealth = Math.Max(0, baseHealth - leakDamage);
             DecrementLineage(enemy);
             AddPresentation(
                 PresentationEventType.EnemyLeaked,
                 enemy.Id.Value,
                 -1,
-                definition.LeakDamage,
+                leakDamage,
                 definition.StableId);
 
             // 본진 체력이 정확히 0이 된 순간 런 상태를 패배로 바꾸고, 앞단용 알림만 별도로 남긴다.
