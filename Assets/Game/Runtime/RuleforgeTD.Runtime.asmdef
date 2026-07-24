@@ -1,0 +1,16 @@
+{
+  "name": "RuleforgeTD.Runtime",
+  "rootNamespace": "RuleforgeTD",
+  "references": [
+    "RuleforgeTD.GameLogic"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

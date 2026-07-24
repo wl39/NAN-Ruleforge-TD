@@ -1,0 +1,496 @@
+{
+  "version": 1,
+  "cards": [
+    {
+      "id": "split",
+      "displayNameKey": "card.split.name",
+      "tier": 1,
+      "computeCost": 1,
+      "slotCost": 1,
+      "tags": ["generation", "multiplication"],
+      "projectileEffects": [
+        {
+          "operation": "Split",
+          "amount": 2,
+          "amount2": 6500,
+          "limit": 64
+        }
+      ],
+      "enemyEffects": [
+        {
+          "operation": "Split",
+          "amount": 2,
+          "amount2": 4500,
+          "limit": 8
+        }
+      ]
+    },
+    {
+      "id": "pierce",
+      "displayNameKey": "card.pierce.name",
+      "tier": 1,
+      "computeCost": 1,
+      "slotCost": 1,
+      "tags": ["pierce", "armor_reduction"],
+      "projectileEffects": [
+        {
+          "operation": "AddPierce",
+          "amount": 2,
+          "amount2": 9000,
+          "limit": 12
+        }
+      ],
+      "enemyEffects": [
+        {
+          "operation": "AddPierce",
+          "amount": 2500,
+          "durationTicks": 120,
+          "maxStacks": 1
+        }
+      ]
+    },
+    {
+      "id": "burn",
+      "displayNameKey": "card.burn.name",
+      "tier": 1,
+      "computeCost": 1,
+      "slotCost": 1,
+      "tags": ["fire", "damage_over_time"],
+      "projectileEffects": [
+        {
+          "operation": "BindBurn",
+          "amount": 500,
+          "amount2": 1000,
+          "durationTicks": 90,
+          "intervalTicks": 15,
+          "maxStacks": 10,
+          "radiusMilli": 400
+        }
+      ],
+      "enemyEffects": [
+        {
+          "operation": "ApplyBurn",
+          "amount": 500,
+          "durationTicks": 90,
+          "intervalTicks": 15,
+          "maxStacks": 10,
+          "radiusMilli": 1500
+        }
+      ]
+    },
+    {
+      "id": "slow",
+      "displayNameKey": "card.slow.name",
+      "tier": 1,
+      "computeCost": 1,
+      "slotCost": 1,
+      "tags": ["control", "speed"],
+      "projectileEffects": [
+        {
+          "operation": "ModifyProjectileSlow",
+          "amount": 7000,
+          "amount2": 15000,
+          "amount3": 12500
+        }
+      ],
+      "enemyEffects": [
+        {
+          "operation": "ApplySlow",
+          "amount": 2500,
+          "durationTicks": 90,
+          "maxStacks": 3,
+          "limit": 6000
+        }
+      ]
+    },
+    {
+      "id": "explode",
+      "displayNameKey": "card.explode.name",
+      "tier": 2,
+      "computeCost": 2,
+      "slotCost": 1,
+      "tags": ["area", "death"],
+      "projectileEffects": [
+        {
+          "operation": "BindExplosion",
+          "amount": 7000,
+          "radiusMilli": 1250,
+          "limit": 1
+        }
+      ],
+      "enemyEffects": [
+        {
+          "operation": "BindExplosion",
+          "amount": 2500,
+          "amount2": 24000,
+          "radiusMilli": 1500,
+          "limit": 1
+        }
+      ]
+    },
+    {
+      "id": "knockback",
+      "displayNameKey": "card.knockback.name",
+      "tier": 1,
+      "computeCost": 1,
+      "slotCost": 1,
+      "tags": ["control", "movement"],
+      "projectileEffects": [
+        {
+          "operation": "BindKnockback",
+          "amount": 750,
+          "amount2": 3000,
+          "radiusMilli": 350
+        }
+      ],
+      "enemyEffects": [
+        {
+          "operation": "ApplyKnockback",
+          "amount": 1000,
+          "amount2": 3000,
+          "radiusMilli": 350
+        }
+      ]
+    },
+    {
+      "id": "mark",
+      "displayNameKey": "card.mark.name",
+      "tier": 1,
+      "computeCost": 1,
+      "slotCost": 1,
+      "tags": ["debuff", "targeting"],
+      "projectileEffects": [
+        {
+          "operation": "BindMark",
+          "amount": 2000,
+          "durationTicks": 150,
+          "maxStacks": 3,
+          "limit": 5000
+        }
+      ],
+      "enemyEffects": [
+        {
+          "operation": "ApplyMark",
+          "amount": 2000,
+          "durationTicks": 150,
+          "maxStacks": 3,
+          "limit": 5000
+        }
+      ]
+    },
+    {
+      "id": "gold_bounty",
+      "displayNameKey": "card.gold_bounty.name",
+      "tier": 2,
+      "computeCost": 2,
+      "slotCost": 1,
+      "tags": ["gold", "risk_reward"],
+      "projectileEffects": [
+        {
+          "operation": "BindGoldOnHit",
+          "amount": 1,
+          "amount2": 20,
+          "limit": 3
+        }
+      ],
+      "enemyEffects": [
+        {
+          "operation": "IncreaseReward",
+          "amount": 2500,
+          "limit": 10000
+        }
+      ]
+    },
+    {
+      "id": "poison",
+      "displayNameKey": "card.poison.name",
+      "tier": 1,
+      "computeCost": 1,
+      "slotCost": 1,
+      "tags": ["poison", "damage_over_time"],
+      "projectileEffects": [
+        {
+          "operation": "BindPoison",
+          "amount": 500,
+          "amount2": 60,
+          "durationTicks": 180,
+          "intervalTicks": 30,
+          "maxStacks": 20,
+          "radiusMilli": 750,
+          "chanceBps": 5000
+        }
+      ],
+      "enemyEffects": [
+        {
+          "operation": "ApplyPoison",
+          "amount": 500,
+          "durationTicks": 180,
+          "intervalTicks": 30,
+          "maxStacks": 20,
+          "chanceBps": 5000
+        }
+      ]
+    },
+    {
+      "id": "enlarge",
+      "displayNameKey": "card.enlarge.name",
+      "tier": 1,
+      "computeCost": 1,
+      "slotCost": 1,
+      "tags": ["size", "risk_reward"],
+      "projectileEffects": [
+        {
+          "operation": "EnlargeProjectile",
+          "amount": 13000,
+          "amount2": 14000,
+          "amount3": 8000
+        }
+      ],
+      "enemyEffects": [
+        {
+          "operation": "EnlargeEnemy",
+          "amount": 12500,
+          "amount2": 8000,
+          "amount3": 12000,
+          "chanceBps": 2000
+        }
+      ]
+    },
+    {
+      "id": "shrink",
+      "displayNameKey": "card.shrink.name",
+      "tier": 1,
+      "computeCost": 1,
+      "slotCost": 1,
+      "tags": ["size", "speed"],
+      "projectileEffects": [
+        {
+          "operation": "ShrinkProjectile",
+          "amount": 7500,
+          "amount2": 7500,
+          "amount3": 13000,
+          "chanceBps": 1500
+        }
+      ],
+      "enemyEffects": [
+        {
+          "operation": "ShrinkEnemy",
+          "amount": 8000,
+          "amount2": 8000,
+          "amount3": 12500,
+          "chanceBps": 2000
+        }
+      ]
+    },
+    {
+      "id": "stun",
+      "displayNameKey": "card.stun.name",
+      "tier": 2,
+      "computeCost": 2,
+      "slotCost": 1,
+      "tags": ["control", "stun"],
+      "projectileEffects": [
+        {
+          "operation": "BindStun",
+          "amount": 30,
+          "durationTicks": 18,
+          "limit": 1
+        }
+      ],
+      "enemyEffects": [
+        {
+          "operation": "ApplyStun",
+          "amount": 30,
+          "durationTicks": 23
+        }
+      ]
+    }
+  ],
+  "towers": [
+    {
+      "id": "ballista",
+      "displayNameKey": "tower.ballista.name",
+      "trigger": "Attack",
+      "subjectTypeMode": "Projectile",
+      "selector": "PrimaryProjectile",
+      "slotCount": 3,
+      "computeCapacity": 5,
+      "cooldownTicks": 30,
+      "rangeMilli": 6000,
+      "baseDamageMilli": 8000,
+      "projectileSpeedMilliPerTick": 350,
+      "projectileLifetimeTicks": 90,
+      "selectorRadiusMilli": 0,
+      "targetLimit": 1,
+      "perTargetCooldownTicks": 0
+    },
+    {
+      "id": "mutation_obelisk",
+      "displayNameKey": "tower.mutation_obelisk.name",
+      "trigger": "EnemyEnteredRange",
+      "subjectTypeMode": "Enemy",
+      "selector": "EnteringEnemy",
+      "slotCount": 3,
+      "computeCapacity": 5,
+      "cooldownTicks": 0,
+      "rangeMilli": 4500,
+      "baseDamageMilli": 0,
+      "projectileSpeedMilliPerTick": 0,
+      "projectileLifetimeTicks": 1,
+      "selectorRadiusMilli": 0,
+      "targetLimit": 1,
+      "perTargetCooldownTicks": 90
+    },
+    {
+      "id": "death_engine",
+      "displayNameKey": "tower.death_engine.name",
+      "trigger": "EnemyDied",
+      "subjectTypeMode": "Enemy",
+      "selector": "EnemiesNearEvent",
+      "slotCount": 3,
+      "computeCapacity": 6,
+      "cooldownTicks": 0,
+      "rangeMilli": 6000,
+      "baseDamageMilli": 0,
+      "projectileSpeedMilliPerTick": 0,
+      "projectileLifetimeTicks": 1,
+      "selectorRadiusMilli": 2500,
+      "targetLimit": 16,
+      "perTargetCooldownTicks": 0
+    }
+  ],
+  "enemies": [
+    {
+      "id": "raider",
+      "displayNameKey": "enemy.raider.name",
+      "rank": "Normal",
+      "maxHealthMilli": 30000,
+      "armor": 0,
+      "speedMilliPerTick": 33,
+      "rewardBudget": 5,
+      "waveProgressBudget": 1,
+      "leakDamage": 1,
+      "fireResistanceBps": 0,
+      "poisonResistanceBps": 0,
+      "controlGaugeThreshold": 100,
+      "controlGaugeStep": 0
+    },
+    {
+      "id": "runner",
+      "displayNameKey": "enemy.runner.name",
+      "rank": "Normal",
+      "maxHealthMilli": 18000,
+      "armor": 0,
+      "speedMilliPerTick": 53,
+      "rewardBudget": 4,
+      "waveProgressBudget": 1,
+      "leakDamage": 1,
+      "fireResistanceBps": 0,
+      "poisonResistanceBps": 0,
+      "controlGaugeThreshold": 100,
+      "controlGaugeStep": 0
+    },
+    {
+      "id": "armored_knight",
+      "displayNameKey": "enemy.armored_knight.name",
+      "rank": "Normal",
+      "maxHealthMilli": 70000,
+      "armor": 50,
+      "speedMilliPerTick": 22,
+      "rewardBudget": 8,
+      "waveProgressBudget": 1,
+      "leakDamage": 2,
+      "fireResistanceBps": 0,
+      "poisonResistanceBps": 0,
+      "controlGaugeThreshold": 100,
+      "controlGaugeStep": 0
+    },
+    {
+      "id": "elite_golem",
+      "displayNameKey": "enemy.elite_golem.name",
+      "rank": "Elite",
+      "maxHealthMilli": 260000,
+      "armor": 60,
+      "speedMilliPerTick": 18,
+      "rewardBudget": 30,
+      "waveProgressBudget": 5,
+      "leakDamage": 5,
+      "fireResistanceBps": 1500,
+      "poisonResistanceBps": 1000,
+      "controlGaugeThreshold": 100,
+      "controlGaugeStep": 25
+    }
+  ],
+  "waves": [
+    {
+      "id": "wave_1",
+      "spawns": [
+        {"enemyId": "raider", "count": 8, "firstSpawnTick": 0, "intervalTicks": 30}
+      ]
+    },
+    {
+      "id": "wave_2",
+      "spawns": [
+        {"enemyId": "raider", "count": 10, "firstSpawnTick": 0, "intervalTicks": 27},
+        {"enemyId": "runner", "count": 4, "firstSpawnTick": 45, "intervalTicks": 35}
+      ]
+    },
+    {
+      "id": "wave_3",
+      "spawns": [
+        {"enemyId": "runner", "count": 12, "firstSpawnTick": 0, "intervalTicks": 22},
+        {"enemyId": "raider", "count": 6, "firstSpawnTick": 30, "intervalTicks": 40}
+      ]
+    },
+    {
+      "id": "wave_4",
+      "spawns": [
+        {"enemyId": "armored_knight", "count": 8, "firstSpawnTick": 0, "intervalTicks": 42},
+        {"enemyId": "raider", "count": 10, "firstSpawnTick": 20, "intervalTicks": 25}
+      ]
+    },
+    {
+      "id": "wave_5",
+      "spawns": [
+        {"enemyId": "runner", "count": 12, "firstSpawnTick": 0, "intervalTicks": 20},
+        {"enemyId": "armored_knight", "count": 6, "firstSpawnTick": 60, "intervalTicks": 45},
+        {"enemyId": "elite_golem", "count": 1, "firstSpawnTick": 180, "intervalTicks": 1}
+      ]
+    }
+  ],
+  "safety": {
+    "maxChainDepth": 8,
+    "maxEventsPerChain": 256,
+    "maxProjectileSpawnsPerChain": 64,
+    "maxEnemySplitCount": 2,
+    "maxEnemyLineageMembers": 8,
+    "maxProjectileBounces": 8,
+    "maxProjectilePierces": 12,
+    "maxProjectileLifetimeTicks": 450,
+    "maxRecursiveTriggersPerChain": 1,
+    "maxEventsPerTick": 4096,
+    "maxQueuedEvents": 16384,
+    "maxCardTriggersPerChain": 32,
+    "maxMythicRepeatsPerChain": 3,
+    "maxActiveHazards": 2048,
+    "diagnosticCapacity": 256
+  },
+  "run": {
+    "tickRate": 30,
+    "baseHealth": 20,
+    "startingGold": 0,
+    "startingTowerChoices": ["ballista", "mutation_obelisk"],
+    "initiallyUnlockedTowers": ["death_engine"],
+    "startingCards": ["split", "burn", "explode"],
+    "buildSpotXMilli": [3000, 7500, 10500, 14000, 17500, 20500, 22500, 12000],
+    "buildSpotYMilli": [2000, -2000, 3500, 8500, 9500, 14500, 9500, 1000],
+    "pathPointXMilli": [0, 8000, 8000, 16000, 16000, 24000],
+    "pathPointYMilli": [0, 0, 6000, 6000, 12000, 12000],
+    "draftOfferCount": 3,
+    "tierWeights": [48, 30, 15, 6, 1],
+    "criticalDamageBps": 15000,
+    "controlInterruptTicks": 24,
+    "maxControlGaugeThreshold": 200,
+    "enemyBaseHitRadiusMilli": 250
+  }
+}
