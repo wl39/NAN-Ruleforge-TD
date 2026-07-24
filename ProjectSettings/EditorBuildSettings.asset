@@ -14,4 +14,7 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Game/Scenes/Test/ArcherTowerAnimationTest.unity
     guid: 4e8aafb5e7bd84bc5bd86351caa03104
+  - enabled: 1
+    path: Assets/Game/Scenes/Battle/Stage01.unity
+    guid: 756b2bba8ef4640dbab6b71104288a70
   m_configObjects: {}

@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fa608351d610944f4b2f2670acab468d, type: 3}
+  m_Name: Campfire_Lit
+  m_EditorClassIdentifier: 
+  frames:
+  - {fileID: 1039031751271885592, guid: 7b986d60dde7a4b98bc3ba3b32a82331, type: 3}
+  - {fileID: -6485238308655060654, guid: 7b986d60dde7a4b98bc3ba3b32a82331, type: 3}
+  - {fileID: -4715151035261517791, guid: 7b986d60dde7a4b98bc3ba3b32a82331, type: 3}
+  - {fileID: 1852856248464865330, guid: 7b986d60dde7a4b98bc3ba3b32a82331, type: 3}
+  - {fileID: -5858322952321519354, guid: 7b986d60dde7a4b98bc3ba3b32a82331, type: 3}
+  - {fileID: -6006571957060508258, guid: 7b986d60dde7a4b98bc3ba3b32a82331, type: 3}
+  flipX: 0
+  animationSpeed: 1

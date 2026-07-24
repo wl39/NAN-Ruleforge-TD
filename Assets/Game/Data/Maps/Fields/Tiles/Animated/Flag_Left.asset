@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fa608351d610944f4b2f2670acab468d, type: 3}
+  m_Name: Flag_Left
+  m_EditorClassIdentifier: 
+  frames:
+  - {fileID: -7772063048237402300, guid: 086063ac1abca46bda34a1a65d185ca3, type: 3}
+  - {fileID: 5742717520580372036, guid: 086063ac1abca46bda34a1a65d185ca3, type: 3}
+  - {fileID: -477286894780337282, guid: 086063ac1abca46bda34a1a65d185ca3, type: 3}
+  - {fileID: -6149741196753263599, guid: 086063ac1abca46bda34a1a65d185ca3, type: 3}
+  - {fileID: -5160224278078647083, guid: 086063ac1abca46bda34a1a65d185ca3, type: 3}
+  - {fileID: 4285521678105953696, guid: 086063ac1abca46bda34a1a65d185ca3, type: 3}
+  flipX: 0
+  animationSpeed: 1
