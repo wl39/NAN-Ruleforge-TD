@@ -25,7 +25,7 @@ namespace RuleforgeTD.Tests.EditMode.GameLogic
         [Test]
         public void PhaseOneContent_CompilesAllCardsTowersAndWaves()
         {
-            Assert.That(content.Cards, Has.Length.EqualTo(12));
+            Assert.That(content.Cards, Has.Length.EqualTo(32));
             Assert.That(content.Towers, Has.Length.EqualTo(3));
             Assert.That(content.Waves, Has.Length.EqualTo(9));
 
@@ -63,17 +63,20 @@ namespace RuleforgeTD.Tests.EditMode.GameLogic
                 "ballista",
                 TowerTrigger.Attack,
                 SubjectTypeMode.Projectile,
-                SubjectSelector.PrimaryProjectile);
+                SubjectSelector.PrimaryProjectile,
+                18);
             AssertTower(
                 "mutation_obelisk",
                 TowerTrigger.EnemyEnteredRange,
                 SubjectTypeMode.Enemy,
-                SubjectSelector.EnteringEnemy);
+                SubjectSelector.EnteringEnemy,
+                0);
             AssertTower(
                 "death_engine",
                 TowerTrigger.EnemyDied,
                 SubjectTypeMode.Enemy,
-                SubjectSelector.EnemiesNearEvent);
+                SubjectSelector.EnemiesNearEvent,
+                0);
 
             for (int waveIndex = 0; waveIndex < content.Waves.Length; waveIndex++)
             {
@@ -109,6 +112,322 @@ namespace RuleforgeTD.Tests.EditMode.GameLogic
                 content.Run.CardPackProgressThresholds);
             Assert.That(content.Safety.MaxEventsPerTick, Is.EqualTo(4096));
             Assert.That(content.Safety.MaxActiveHazards, Is.EqualTo(2048));
+            Assert.That(
+                content.Safety.MaxEnemiesPerLineage,
+                Is.EqualTo(256));
+        }
+
+        [Test]
+        public void DebugGoldCommand_GrantsGoldAndRejectsUnsafeAmounts()
+        {
+            var simulation = new GameSimulation();
+            simulation.Initialize(content, 0xC0DEUL);
+            int initialGold =
+                simulation.GetSnapshot().Gold;
+            ulong initialHash =
+                simulation.ComputeStateHash();
+
+            AssertAccepted(
+                simulation.Submit(
+                    GameCommand.GrantDebugGold(1000)),
+                "grant Konami gold");
+            Assert.That(
+                simulation.GetSnapshot().Gold,
+                Is.EqualTo(initialGold + 1000));
+            Assert.That(
+                simulation.ComputeStateHash(),
+                Is.Not.EqualTo(initialHash));
+
+            int goldAfterGrant =
+                simulation.GetSnapshot().Gold;
+            CommandResult invalid = simulation.Submit(
+                GameCommand.GrantDebugGold(-1));
+            Assert.That(invalid.Accepted, Is.False);
+            Assert.That(
+                invalid.Error,
+                Is.EqualTo(CommandError.InvalidTarget));
+            Assert.That(
+                simulation.GetSnapshot().Gold,
+                Is.EqualTo(goldAfterGrant));
+        }
+
+        [Test]
+        public void BallistaWindup_StartsThenReleasesAfterEighteenTicks()
+        {
+            CompiledContent windupContent =
+                CompileCustomized(source =>
+                {
+                    ConfigureSingleWave(source, "raider", 1, 1);
+                    source.run.startingTowerChoices =
+                        new[] { "ballista" };
+                    source.run.initiallyUnlockedTowers =
+                        Array.Empty<string>();
+                    source.run.pathPointXMilli =
+                        new[] { 0, 100000 };
+                    source.run.pathPointYMilli =
+                        new[] { 0, 0 };
+                    source.run.buildSpotXMilli[0] = -5000;
+                    source.run.buildSpotYMilli[0] = 0;
+
+                    TowerDefinitionDto ballista =
+                        FindTowerDto(source, "ballista");
+                    ballista.rangeMilli = 30000;
+                    ballista.cooldownTicks = 30;
+                    ballista.attackWindupTicks = 18;
+                    ballista.baseDamageMilli = 1;
+                    ballista.projectileSpeedMilliPerTick = 10;
+                    ballista.projectileLifetimeTicks = 1000;
+
+                    EnemyDefinitionDto raider =
+                        FindEnemyDto(source, "raider");
+                    raider.maxHealthMilli = 1000000;
+                    raider.speedMilliPerTick = 1;
+                });
+            GameSimulation simulation =
+                CreateCombatSimulation(
+                    windupContent,
+                    "ballista",
+                    Array.Empty<string>(),
+                    0xA771CUL);
+            simulation.ReadPresentationEvents();
+
+            var startedTicks = new List<long>();
+            var projectileTicks = new List<long>();
+            for (int step = 0; step < 55; step++)
+            {
+                simulation.Step();
+                SimulationEventBuffer events =
+                    simulation.ReadPresentationEvents();
+                for (int eventIndex = 0;
+                     eventIndex < events.Count;
+                     eventIndex++)
+                {
+                    SimulationPresentationEvent item =
+                        events[eventIndex];
+                    if (item.Type ==
+                        PresentationEventType.TowerAttackStarted)
+                    {
+                        startedTicks.Add(item.Tick);
+                        Assert.That(item.SourceId, Is.Zero);
+                        Assert.That(item.SubjectId, Is.GreaterThanOrEqualTo(0));
+                        Assert.That(item.Value, Is.EqualTo(18));
+                        Assert.That(item.ContentId, Is.EqualTo("ballista"));
+                    }
+                    else if (
+                        item.Type ==
+                        PresentationEventType.ProjectileSpawned)
+                    {
+                        projectileTicks.Add(item.Tick);
+                    }
+                }
+            }
+
+            CollectionAssert.AreEqual(
+                new long[] { 0, 31 },
+                startedTicks);
+            CollectionAssert.AreEqual(
+                new long[] { 18, 49 },
+                projectileTicks);
+            Assert.That(
+                projectileTicks[0] - startedTicks[0],
+                Is.EqualTo(18));
+            Assert.That(
+                projectileTicks[1] - projectileTicks[0],
+                Is.EqualTo(31),
+                "The windup must not lengthen the authored cooldown cadence.");
+        }
+
+        [Test]
+        public void ZeroWindup_FiresOnTheStartEventTick()
+        {
+            CompiledContent immediateContent =
+                CompileCustomized(source =>
+                {
+                    ConfigureSingleWave(source, "raider", 1, 1);
+                    source.run.startingTowerChoices =
+                        new[] { "ballista" };
+                    source.run.initiallyUnlockedTowers =
+                        Array.Empty<string>();
+                    FindTowerDto(source, "ballista")
+                        .attackWindupTicks = 0;
+                });
+            GameSimulation simulation =
+                CreateCombatSimulation(
+                    immediateContent,
+                    "ballista",
+                    Array.Empty<string>(),
+                    0xA771DUL);
+            simulation.ReadPresentationEvents();
+
+            simulation.Step();
+            SimulationEventBuffer events =
+                simulation.ReadPresentationEvents();
+            int startIndex = -1;
+            int projectileIndex = -1;
+            long startTick = -1;
+            long projectileTick = -1;
+            for (int eventIndex = 0;
+                 eventIndex < events.Count;
+                 eventIndex++)
+            {
+                if (events[eventIndex].Type ==
+                    PresentationEventType.TowerAttackStarted)
+                {
+                    startIndex = eventIndex;
+                    startTick = events[eventIndex].Tick;
+                    Assert.That(events[eventIndex].Value, Is.Zero);
+                }
+                else if (
+                    events[eventIndex].Type ==
+                    PresentationEventType.ProjectileSpawned)
+                {
+                    projectileIndex = eventIndex;
+                    projectileTick = events[eventIndex].Tick;
+                }
+            }
+
+            Assert.That(startIndex, Is.GreaterThanOrEqualTo(0));
+            Assert.That(projectileIndex, Is.GreaterThan(startIndex));
+            Assert.That(projectileTick, Is.EqualTo(startTick));
+        }
+
+        [Test]
+        public void LevelSixArchers_FireTogetherAtThreeDistinctEnemies()
+        {
+            CompiledContent volleyContent =
+                CompileCustomized(source =>
+                {
+                    ConfigureSingleWave(
+                        source,
+                        "raider",
+                        3,
+                        1);
+                    source.run.startingTowerChoices =
+                        new[] { "ballista" };
+                    source.run.initiallyUnlockedTowers =
+                        Array.Empty<string>();
+                    source.run.pathPointXMilli =
+                        new[] { 0, 100000 };
+                    source.run.pathPointYMilli =
+                        new[] { 0, 0 };
+                    source.run.buildSpotXMilli[0] = -5000;
+                    source.run.buildSpotYMilli[0] = 0;
+
+                    TowerDefinitionDto ballista =
+                        FindTowerDto(source, "ballista");
+                    ballista.rangeMilli = 30000;
+                    ballista.cooldownTicks = 100;
+                    ballista.attackWindupTicks = 18;
+                    ballista.baseDamageMilli = 1;
+                    ballista.projectileSpeedMilliPerTick = 10;
+                    ballista.projectileLifetimeTicks = 1000;
+
+                    EnemyDefinitionDto raider =
+                        FindEnemyDto(source, "raider");
+                    raider.maxHealthMilli = 1000000;
+                    raider.speedMilliPerTick = 1;
+                });
+
+            var simulation = new GameSimulation();
+            simulation.Initialize(volleyContent, 0xA771FUL);
+            AssertAccepted(
+                simulation.Submit(
+                    GameCommand.ChooseStartingTower("ballista")),
+                "choose starting tower");
+            AssertAccepted(
+                simulation.Submit(
+                    GameCommand.PlaceTower("ballista", 0)),
+                "place starting tower");
+
+            int towerId =
+                simulation.GetSnapshot().Towers[0].Id;
+            for (int level = 2; level <= 6; level++)
+            {
+                AssertAccepted(
+                    simulation.Submit(
+                        GameCommand.UpgradeTower(towerId)),
+                    "upgrade tower to level " + level);
+            }
+
+            AssertAccepted(
+                simulation.Submit(GameCommand.StartWave()),
+                "start multi-archer wave");
+
+            ProjectileSnapshot[] projectiles =
+                Array.Empty<ProjectileSnapshot>();
+            for (int step = 0;
+                 step < 30 &&
+                 projectiles.Length == 0;
+                 step++)
+            {
+                simulation.Step();
+                projectiles =
+                    simulation.GetSnapshot().Projectiles;
+            }
+
+            Assert.That(
+                projectiles,
+                Has.Length.EqualTo(3),
+                "All three archers should release in the same volley.");
+            var distinctTargetIds = new HashSet<int>();
+            for (int projectileIndex = 0;
+                 projectileIndex < projectiles.Length;
+                 projectileIndex++)
+            {
+                distinctTargetIds.Add(
+                    projectiles[projectileIndex].TargetId);
+            }
+
+            Assert.That(
+                distinctTargetIds.Count,
+                Is.EqualTo(3),
+                "Archers must not duplicate a target while three enemies are available.");
+        }
+
+        [Test]
+        public void AttackWindup_IsValidatedHashedAndStoredInState()
+        {
+            ContentCatalogDto negativeSource =
+                LoadPhaseOneDto();
+            FindTowerDto(negativeSource, "ballista")
+                .attackWindupTicks = -1;
+            Assert.Throws<ContentValidationException>(
+                () => Compile(negativeSource));
+
+            ContentCatalogDto changedSource =
+                LoadPhaseOneDto();
+            FindTowerDto(changedSource, "ballista")
+                .attackWindupTicks = 17;
+            CompiledContent changed =
+                Compile(changedSource);
+            Assert.That(
+                changed.ContentHash,
+                Is.Not.EqualTo(content.ContentHash));
+
+            GameSimulation simulation =
+                CreateCombatSimulation(
+                    "ballista",
+                    Array.Empty<string>(),
+                    0xA771EUL);
+            simulation.Step();
+            TowerState tower =
+                FindTowerState(simulation, 0);
+            Assert.That(tower.AttackWindupRemaining, Is.EqualTo(18));
+            Assert.That(tower.PendingAttackTargetId.IsValid, Is.True);
+
+            ulong baselineHash =
+                simulation.ComputeStateHash();
+            tower.AttackWindupRemaining--;
+            Assert.That(
+                simulation.ComputeStateHash(),
+                Is.Not.EqualTo(baselineHash));
+
+            tower.AttackWindupRemaining++;
+            tower.PendingAttackTargetId =
+                EntityId.Invalid;
+            Assert.That(
+                simulation.ComputeStateHash(),
+                Is.Not.EqualTo(baselineHash));
         }
 
         [Test]
@@ -544,6 +863,136 @@ namespace RuleforgeTD.Tests.EditMode.GameLogic
         }
 
         [Test]
+        public void TowerLevels_UnlockOneTwoAndThreeCardSlots()
+        {
+            var simulation = new GameSimulation();
+            simulation.Initialize(content, 53UL);
+            AssertAccepted(
+                simulation.Submit(
+                    GameCommand.ChooseStartingTower("ballista")),
+                "choose starting tower");
+            AssertAccepted(
+                simulation.Submit(
+                    GameCommand.PlaceTower("ballista", 0)),
+                "place starting tower");
+
+            TowerSnapshot tower =
+                simulation.GetSnapshot().Towers[0];
+            Assert.That(tower.Level, Is.EqualTo(1));
+            Assert.That(
+                GameSimulation.GetTowerCardCapacityForLevel(
+                    tower.Level),
+                Is.EqualTo(1));
+
+            int split = FindCardInstanceId(simulation, "split");
+            int burn = FindCardInstanceId(simulation, "burn");
+            int poison = FindCardInstanceId(simulation, "poison");
+            AssertAccepted(
+                simulation.Submit(
+                    GameCommand.EquipCard(
+                        split,
+                        tower.Id,
+                        0)),
+                "equip the level-one slot");
+            CommandResult lockedSecondSlot = simulation.Submit(
+                GameCommand.EquipCard(
+                    burn,
+                    tower.Id,
+                    1));
+            Assert.That(lockedSecondSlot.Accepted, Is.False);
+            Assert.That(
+                lockedSecondSlot.Error,
+                Is.EqualTo(CommandError.SlotOutOfRange));
+
+            for (int level = 2; level <= 4; level++)
+            {
+                AssertAccepted(
+                    simulation.Submit(
+                        GameCommand.UpgradeTower(tower.Id)),
+                    "upgrade to level " + level);
+            }
+
+            tower = simulation.GetSnapshot().Towers[0];
+            Assert.That(tower.Level, Is.EqualTo(4));
+            Assert.That(
+                GameSimulation.GetTowerCardCapacityForLevel(
+                    tower.Level),
+                Is.EqualTo(2));
+            AssertAccepted(
+                simulation.Submit(
+                    GameCommand.EquipCard(
+                        burn,
+                        tower.Id,
+                        1)),
+                "equip the level-four slot");
+            CommandResult lockedThirdSlot = simulation.Submit(
+                GameCommand.EquipCard(
+                    poison,
+                    tower.Id,
+                    2));
+            Assert.That(lockedThirdSlot.Accepted, Is.False);
+            Assert.That(
+                lockedThirdSlot.Error,
+                Is.EqualTo(CommandError.SlotOutOfRange));
+
+            AssertAccepted(
+                simulation.Submit(
+                    GameCommand.UpgradeTower(tower.Id)),
+                "upgrade to level five");
+            AssertAccepted(
+                simulation.Submit(
+                    GameCommand.UpgradeTower(tower.Id)),
+                "upgrade to level six");
+            tower = simulation.GetSnapshot().Towers[0];
+            Assert.That(tower.Level, Is.EqualTo(6));
+            Assert.That(
+                GameSimulation.GetTowerCardCapacityForLevel(
+                    tower.Level),
+                Is.EqualTo(3));
+            AssertAccepted(
+                simulation.Submit(
+                    GameCommand.EquipCard(
+                        poison,
+                        tower.Id,
+                        2)),
+                "equip the level-six slot");
+        }
+
+        [Test]
+        public void Combat_AllowsAffordableTowerConstruction()
+        {
+            CompiledContent fundedContent = CompileCustomized(
+                source => source.run.startingGold = 100);
+            var simulation = new GameSimulation();
+            simulation.Initialize(fundedContent, 54UL);
+            AssertAccepted(
+                simulation.Submit(
+                    GameCommand.ChooseStartingTower("ballista")),
+                "choose starting tower");
+            AssertAccepted(
+                simulation.Submit(
+                    GameCommand.PlaceTower("ballista", 0)),
+                "place starting tower");
+            AssertAccepted(
+                simulation.Submit(GameCommand.StartWave()),
+                "start wave");
+            Assert.That(simulation.Phase, Is.EqualTo(RunPhase.Combat));
+
+            AssertAccepted(
+                simulation.Submit(
+                    GameCommand.PlaceTower("ballista", 1)),
+                "place tower during combat");
+            SimulationSnapshot snapshot =
+                simulation.GetSnapshot();
+            Assert.That(snapshot.Towers, Has.Length.EqualTo(2));
+            Assert.That(snapshot.Towers[1].Level, Is.EqualTo(1));
+            CollectionAssert.AreEqual(
+                new[] { -1, -1, -1 },
+                snapshot.Towers[1].CardInstanceIds);
+            Assert.That(snapshot.Gold, Is.Zero);
+        }
+
+        [Test]
         public void WorldCardPack_PausesUntilTheNewCardIsEquipped()
         {
             CompiledContent testContent = CompileCustomized(source =>
@@ -636,6 +1085,16 @@ namespace RuleforgeTD.Tests.EditMode.GameLogic
                 prematureResume.Error,
                 Is.EqualTo(
                     CommandError.CardPackRequiresEquippedCard));
+
+            for (int level = 2; level <= 4; level++)
+            {
+                AssertAccepted(
+                    simulation.Submit(
+                        GameCommand.UpgradeTower(
+                            loadout.Towers[0].Id)),
+                    "unlock the second card slot at level " +
+                    level);
+            }
 
             AssertAccepted(
                 simulation.Submit(
@@ -757,6 +1216,209 @@ namespace RuleforgeTD.Tests.EditMode.GameLogic
         }
 
         [Test]
+        public void EnemySubjectMode_AppliesCardProgramOnProjectileHit()
+        {
+            CompiledContent testContent = CompileCustomized(source =>
+            {
+                ConfigureSingleWave(source, "raider", 1, 1);
+                source.run.startingTowerChoices =
+                    new[] { "ballista" };
+                source.run.initiallyUnlockedTowers =
+                    Array.Empty<string>();
+                source.run.startingCards =
+                    new[] { "burn" };
+                source.run.pathPointXMilli =
+                    new[] { 0, 20000 };
+                source.run.pathPointYMilli =
+                    new[] { 0, 0 };
+                source.run.buildSpotXMilli[0] = -5000;
+                source.run.buildSpotYMilli[0] = 0;
+
+                TowerDefinitionDto ballista =
+                    FindTowerDto(source, "ballista");
+                ballista.rangeMilli = 30000;
+                ballista.cooldownTicks = 100;
+                ballista.baseDamageMilli = 1000;
+                ballista.projectileSpeedMilliPerTick = 1000;
+                ballista.projectileLifetimeTicks = 100;
+
+                EnemyDefinitionDto raider =
+                    FindEnemyDto(source, "raider");
+                raider.maxHealthMilli = 100000;
+                raider.speedMilliPerTick = 1;
+            });
+
+            var simulation = new GameSimulation();
+            simulation.Initialize(testContent, 55UL);
+            AssertAccepted(
+                simulation.Submit(
+                    GameCommand.ChooseStartingTower("ballista")),
+                "choose ballista");
+            AssertAccepted(
+                simulation.Submit(
+                    GameCommand.PlaceTower("ballista", 0)),
+                "place ballista");
+            TowerSnapshot tower =
+                simulation.GetSnapshot().Towers[0];
+            EquipProgram(
+                simulation,
+                testContent,
+                tower.Id,
+                new[] { "burn" });
+            AssertAccepted(
+                simulation.Submit(
+                    GameCommand.SetTowerSubjectType(
+                        tower.Id,
+                        SubjectType.Enemy)),
+                "choose enemy interpretation");
+            AssertAccepted(
+                simulation.Submit(GameCommand.StartWave()),
+                "start enemy-interpretation wave");
+
+            bool sawProjectileBeforeStatus = false;
+            bool sawBurnAfterHit = false;
+            for (int step = 0; step < 30; step++)
+            {
+                simulation.Step();
+                SimulationSnapshot snapshot =
+                    simulation.GetSnapshot();
+                if (snapshot.Enemies.Length == 0)
+                {
+                    continue;
+                }
+
+                bool burning = Array.IndexOf(
+                    snapshot.Enemies[0].Statuses,
+                    StatusType.Burn) >= 0;
+                if (snapshot.Projectiles.Length > 0 &&
+                    !burning)
+                {
+                    sawProjectileBeforeStatus = true;
+                    Assert.That(
+                        snapshot.Projectiles[0]
+                            .ApplyEnemyProgramOnHit,
+                        Is.True);
+                }
+
+                if (burning)
+                {
+                    sawBurnAfterHit = true;
+                    break;
+                }
+            }
+
+            Assert.That(sawProjectileBeforeStatus, Is.True);
+            Assert.That(sawBurnAfterHit, Is.True);
+        }
+
+        [Test]
+        public void SlotSubjectModes_AreIndependentAndExecuteAtTheirSubjects()
+        {
+            CompiledContent testContent = CompileCustomized(source =>
+            {
+                ConfigureSingleWave(source, "raider", 1, 1);
+                source.run.startingTowerChoices =
+                    new[] { "ballista" };
+                source.run.initiallyUnlockedTowers =
+                    Array.Empty<string>();
+                source.run.startingCards =
+                    new[] { "split", "burn" };
+                source.run.pathPointXMilli =
+                    new[] { 0, 20000 };
+                source.run.pathPointYMilli =
+                    new[] { 0, 0 };
+                source.run.buildSpotXMilli[0] = -5000;
+                source.run.buildSpotYMilli[0] = 0;
+
+                TowerDefinitionDto ballista =
+                    FindTowerDto(source, "ballista");
+                ballista.rangeMilli = 30000;
+                ballista.cooldownTicks = 100;
+                ballista.baseDamageMilli = 1000;
+                ballista.projectileSpeedMilliPerTick = 1000;
+                ballista.projectileLifetimeTicks = 100;
+
+                EnemyDefinitionDto raider =
+                    FindEnemyDto(source, "raider");
+                raider.maxHealthMilli = 100000;
+                raider.speedMilliPerTick = 1;
+            });
+
+            var simulation = new GameSimulation();
+            simulation.Initialize(testContent, 56UL);
+            AssertAccepted(
+                simulation.Submit(
+                    GameCommand.ChooseStartingTower("ballista")),
+                "choose ballista");
+            AssertAccepted(
+                simulation.Submit(
+                    GameCommand.PlaceTower("ballista", 0)),
+                "place ballista");
+            TowerSnapshot tower =
+                simulation.GetSnapshot().Towers[0];
+            EquipProgram(
+                simulation,
+                testContent,
+                tower.Id,
+                new[] { "split", "burn" });
+            AssertAccepted(
+                simulation.Submit(
+                    GameCommand.SetTowerSlotSubjectType(
+                        tower.Id,
+                        1,
+                        SubjectType.Enemy)),
+                "set the second slot to enemy");
+
+            tower = simulation.GetSnapshot().Towers[0];
+            Assert.That(
+                tower.CardSubjectTypes[0],
+                Is.EqualTo(SubjectType.Projectile));
+            Assert.That(
+                tower.CardSubjectTypes[1],
+                Is.EqualTo(SubjectType.Enemy));
+
+            AssertAccepted(
+                simulation.Submit(GameCommand.StartWave()),
+                "start mixed-interpretation wave");
+
+            bool sawSplitProjectiles = false;
+            bool sawBurnAfterHit = false;
+            for (int step = 0; step < 30; step++)
+            {
+                simulation.Step();
+                SimulationSnapshot current =
+                    simulation.GetSnapshot();
+                if (current.Projectiles.Length >= 2)
+                {
+                    sawSplitProjectiles = true;
+                    for (int projectileIndex = 0;
+                         projectileIndex < current.Projectiles.Length;
+                         projectileIndex++)
+                    {
+                        Assert.That(
+                            current.Projectiles[projectileIndex]
+                                .ApplyEnemyProgramOnHit,
+                            Is.True,
+                            "Split projectile {0} lost the enemy-on-hit program.",
+                            current.Projectiles[projectileIndex].Id);
+                    }
+                }
+
+                if (current.Enemies.Length > 0 &&
+                    Array.IndexOf(
+                        current.Enemies[0].Statuses,
+                        StatusType.Burn) >= 0)
+                {
+                    sawBurnAfterHit = true;
+                    break;
+                }
+            }
+
+            Assert.That(sawSplitProjectiles, Is.True);
+            Assert.That(sawBurnAfterHit, Is.True);
+        }
+
+        [Test]
         public void SameSeedAndCommands_ProduceTheSameHashOnEveryTick()
         {
             const ulong seed = 0x0123456789ABCDEFUL;
@@ -818,6 +1480,23 @@ namespace RuleforgeTD.Tests.EditMode.GameLogic
 
             Assert.That(continuationEnemies, Has.Length.EqualTo(2));
             AssertSplitRewardIsPreserved(continuationEnemies, "raider");
+            Assert.That(
+                continuationEnemies[0].Position.X.MilliUnits,
+                Is.EqualTo(
+                    continuationEnemies[1].Position.X.MilliUnits)
+                    .Within(2),
+                "A horizontal path split must keep both branches at the same progress.");
+            Assert.That(
+                Math.Abs(
+                    continuationEnemies[0].Position.Y.MilliUnits -
+                    continuationEnemies[1].Position.Y.MilliUnits),
+                Is.GreaterThanOrEqualTo(650),
+                "The two split branches must visibly separate to the path's left and right.");
+            Assert.That(
+                continuationEnemies[0].Position.Y.MilliUnits *
+                continuationEnemies[1].Position.Y.MilliUnits,
+                Is.LessThan(0),
+                "The original and child must occupy opposite sides of the route.");
             EnemySnapshot continuedChild = FindNewestEnemy(continuationEnemies);
             CollectionAssert.Contains(continuedChild.Statuses, StatusType.Burn);
             Assert.That(continuedChild.DeathBindingCount, Is.EqualTo(1),
@@ -868,7 +1547,7 @@ namespace RuleforgeTD.Tests.EditMode.GameLogic
         }
 
         [Test]
-        public void EnemySplit_UsesPointFiveOneBudgetAndStopsAtLineageCap()
+        public void EnemySplit_UsesPointFiveOneBudgetAndStopsAtEmergencyMemberCap()
         {
             CompiledContent splitContent = CompileCustomized(source =>
             {
@@ -889,8 +1568,8 @@ namespace RuleforgeTD.Tests.EditMode.GameLogic
                 EnemyDefinitionDto raider = FindEnemyDto(source, "raider");
                 raider.maxHealthMilli = 1_000_000;
                 raider.speedMilliPerTick = 1000;
-                source.safety.maxEnemySplitCount = 2;
-                source.safety.maxEnemyLineageMembers = 8;
+                source.safety.maxEnemySplitCount = 1;
+                source.safety.maxEnemyLineageMembers = 3;
             });
 
             var simulation = new GameSimulation();
@@ -988,6 +1667,73 @@ namespace RuleforgeTD.Tests.EditMode.GameLogic
                     DiagnosticCode.EnemyLineageLimitReached));
         }
 
+        [Test]
+        public void EnemySplit_ThreeCardsReachEightMembersDespiteLegacySplitHint()
+        {
+            CompiledContent splitContent = CompileCustomized(source =>
+            {
+                ConfigureSingleWave(source, "raider", 1, 1);
+                source.run.startingTowerChoices =
+                    new[] { "mutation_obelisk" };
+                source.run.initiallyUnlockedTowers =
+                    Array.Empty<string>();
+                source.run.startingCards =
+                    new[] { "split", "split", "split" };
+                EnemyDefinitionDto raider =
+                    FindEnemyDto(source, "raider");
+                raider.maxHealthMilli = 1_000_000;
+                raider.speedMilliPerTick = 1;
+                source.safety.maxEnemySplitCount = 1;
+                source.safety.maxEnemyLineageMembers = 8;
+            });
+            GameSimulation simulation =
+                CreateCombatSimulation(
+                    splitContent,
+                    "mutation_obelisk",
+                    new[] { "split", "split", "split" },
+                    0x5A18UL);
+
+            simulation.Step();
+
+            SimulationSnapshot snapshot =
+                simulation.GetSnapshot();
+            Assert.That(snapshot.Enemies, Has.Length.EqualTo(8));
+            Assert.That(snapshot.Lineages, Has.Length.EqualTo(1));
+            LineageSnapshot lineage = snapshot.Lineages[0];
+            Assert.That(lineage.HighestGeneration, Is.EqualTo(3));
+            Assert.That(lineage.SplitCount, Is.EqualTo(7));
+            Assert.That(lineage.SpawnedEntityCount, Is.EqualTo(8));
+            Assert.That(lineage.LiveMembers, Is.EqualTo(8));
+            Assert.That(lineage.BaseRewardBudget, Is.EqualTo(5));
+            Assert.That(lineage.ProgressBudget, Is.EqualTo(1));
+            Assert.That(
+                lineage.BaseCardPackProgress,
+                Is.EqualTo(10000));
+
+            int rewardTotal = 0;
+            int waveProgressTotal = 0;
+            int cardPackProgressTotal = 0;
+            for (int enemyIndex = 0;
+                 enemyIndex < snapshot.Enemies.Length;
+                 enemyIndex++)
+            {
+                EnemySnapshot enemy = snapshot.Enemies[enemyIndex];
+                Assert.That(enemy.Generation, Is.EqualTo(3));
+                Assert.That(enemy.MaxHealthMilli, Is.EqualTo(91125));
+                Assert.That(enemy.HealthMilli, Is.EqualTo(91125));
+                Assert.That(enemy.SizeMultiplierBps, Is.EqualTo(7290));
+                rewardTotal += enemy.RewardBudget;
+                waveProgressTotal += enemy.WaveProgressBudget;
+                cardPackProgressTotal +=
+                    enemy.CardPackProgressBudget;
+            }
+
+            Assert.That(rewardTotal, Is.EqualTo(5));
+            Assert.That(waveProgressTotal, Is.EqualTo(1));
+            Assert.That(cardPackProgressTotal, Is.EqualTo(10608));
+            Assert.That(simulation.Diagnostics.Count, Is.Zero);
+        }
+
         [TestCase(2222, false)]
         [TestCase(2223, true)]
         public void EnemySplit_RequiresAtLeastOneHealthForBothResults(
@@ -1048,11 +1794,17 @@ namespace RuleforgeTD.Tests.EditMode.GameLogic
         }
 
         [Test]
-        public void LineageBudget_CountsSiblingSplitsAcrossTheWholeLineage()
+        public void LineageBudget_IgnoresLegacySplitHintAndStopsAtMemberCap()
         {
+            CompiledContent memberLimitedContent =
+                CompileCustomized(source =>
+                {
+                    source.safety.maxEnemySplitCount = 2;
+                    source.safety.maxEnemyLineageMembers = 4;
+                });
             var budget = new LineageBudget(
                 new LineageId(1),
-                content.Safety);
+                memberLimitedContent.Safety);
 
             Assert.That(
                 budget.TryReserveSplit(
@@ -1073,11 +1825,20 @@ namespace RuleforgeTD.Tests.EditMode.GameLogic
                     1,
                     1,
                     out BudgetFailure thirdFailure),
+                Is.True);
+            Assert.That(thirdFailure, Is.EqualTo(BudgetFailure.None));
+            Assert.That(
+                budget.TryReserveSplit(
+                    1,
+                    1,
+                    out BudgetFailure fourthFailure),
                 Is.False);
             Assert.That(
-                thirdFailure,
-                Is.EqualTo(BudgetFailure.EnemySplitLimit));
-            Assert.That(budget.SplitsUsed, Is.EqualTo(2));
+                fourthFailure,
+                Is.EqualTo(
+                    BudgetFailure.EnemyLineageEntityLimit));
+            Assert.That(budget.SplitsUsed, Is.EqualTo(3));
+            Assert.That(budget.EntitiesCreated, Is.EqualTo(4));
         }
 
         [Test]
@@ -1104,6 +1865,7 @@ namespace RuleforgeTD.Tests.EditMode.GameLogic
                         FindTowerDto(source, "ballista");
                     ballista.rangeMilli = 30000;
                     ballista.cooldownTicks = 100;
+                    ballista.attackWindupTicks = 0;
                     ballista.baseDamageMilli = 1000;
                     ballista.projectileSpeedMilliPerTick = 1000;
                     ballista.projectileLifetimeTicks = 100;
@@ -1836,17 +2598,28 @@ namespace RuleforgeTD.Tests.EditMode.GameLogic
             {
                 if (simulation.Phase == RunPhase.Draft)
                 {
+                    SimulationSnapshot offerSnapshot =
+                        simulation.GetSnapshot();
                     AssertAccepted(
-                        simulation.Submit(GameCommand.SelectDraft(0)),
-                        "select the first draft offer");
+                        simulation.Submit(
+                            GameCommand.SelectDraft(
+                                SelectHeadlessOffer(
+                                    content,
+                                    offerSnapshot.DraftOffers))),
+                        "select a damaging draft offer");
                 }
 
                 if (simulation.Phase == RunPhase.CardPackChoice)
                 {
+                    SimulationSnapshot offerSnapshot =
+                        simulation.GetSnapshot();
                     AssertAccepted(
                         simulation.Submit(
-                            GameCommand.SelectCardPack(0)),
-                        "select the first card-pack offer");
+                            GameCommand.SelectCardPack(
+                                SelectHeadlessOffer(
+                                    content,
+                                    offerSnapshot.CardPackOffers))),
+                        "select a damaging card-pack offer");
                 }
 
                 if (simulation.Phase == RunPhase.CardPackLoadout)
@@ -1888,18 +2661,19 @@ namespace RuleforgeTD.Tests.EditMode.GameLogic
             Assert.That(
                 simulation.Phase,
                 Is.EqualTo(RunPhase.Victory),
-                "The headless run failed within {0} steps at wave {1} with base health {2}, gold {3}, and {4} towers.",
+                "The headless run failed within {0} steps at wave {1} with base health {2}, gold {3}, {4} towers, and cards [{5}].",
                 maximumSteps,
                 simulation.GetSnapshot().WaveIndex + 1,
                 simulation.GetSnapshot().BaseHealth,
                 simulation.GetSnapshot().Gold,
-                simulation.GetSnapshot().Towers.Length);
+                simulation.GetSnapshot().Towers.Length,
+                DescribeHeadlessCards(simulation, content));
             SimulationSnapshot finalSnapshot =
                 simulation.GetSnapshot();
             Assert.That(
                 finalSnapshot.Cards,
-                Has.Length.EqualTo(11),
-                "3 starting + 3 drafts + 2 boss packs + 3 carrier packs are expected.");
+                Has.Length.EqualTo(12),
+                "4 starting + 3 drafts + 2 boss packs + 3 carrier packs are expected.");
             Assert.That(
                 finalSnapshot.NextCardPackThreshold,
                 Is.EqualTo(1800000),
@@ -1946,7 +2720,8 @@ namespace RuleforgeTD.Tests.EditMode.GameLogic
             string stableId,
             TowerTrigger expectedTrigger,
             SubjectTypeMode expectedSubjectType,
-            SubjectSelector expectedSelector)
+            SubjectSelector expectedSelector,
+            int expectedAttackWindupTicks)
         {
             Assert.That(
                 content.TryGetTowerId(stableId, out TowerDefinitionId towerId),
@@ -1957,6 +2732,9 @@ namespace RuleforgeTD.Tests.EditMode.GameLogic
             Assert.That(tower.Trigger, Is.EqualTo(expectedTrigger));
             Assert.That(tower.SubjectTypeMode, Is.EqualTo(expectedSubjectType));
             Assert.That(tower.Selector, Is.EqualTo(expectedSelector));
+            Assert.That(
+                tower.AttackWindupTicks,
+                Is.EqualTo(expectedAttackWindupTicks));
             Assert.That(tower.SlotCount, Is.GreaterThan(0));
             Assert.That(tower.ComputeCapacity, Is.GreaterThan(0));
         }
@@ -2175,6 +2953,81 @@ namespace RuleforgeTD.Tests.EditMode.GameLogic
             }
         }
 
+        private static string DescribeHeadlessCards(
+            GameSimulation simulation,
+            CompiledContent content)
+        {
+            SimulationSnapshot snapshot =
+                simulation.GetSnapshot();
+            var descriptions =
+                new string[snapshot.Cards.Length];
+            for (int i = 0; i < snapshot.Cards.Length; i++)
+            {
+                CardInstanceSnapshot card = snapshot.Cards[i];
+                descriptions[i] =
+                    content.GetCard(card.DefinitionId).StableId +
+                    (card.Equipped
+                        ? "@" + card.TowerId +
+                          ":" + card.Slot
+                        : "@inventory");
+            }
+            return string.Join(", ", descriptions);
+        }
+
+        private static int SelectHeadlessOffer(
+            CompiledContent content,
+            CardId[] offers)
+        {
+            int selectedIndex = 0;
+            int selectedScore = int.MinValue;
+            for (int i = 0; i < offers.Length; i++)
+            {
+                string stableId =
+                    content.GetCard(offers[i]).StableId;
+                int score;
+                switch (stableId)
+                {
+                    case "split":
+                        score = 120;
+                        break;
+                    case "burn":
+                    case "poison":
+                        score = 110;
+                        break;
+                    case "explode":
+                    case "pulse":
+                    case "shock":
+                        score = 100;
+                        break;
+                    case "ricochet":
+                    case "afterimage":
+                    case "orbit":
+                        score = 90;
+                        break;
+                    case "bleed":
+                    case "accelerate":
+                    case "corrosion":
+                        score = 80;
+                        break;
+                    case "pierce":
+                    case "enlarge":
+                    case "shrink":
+                        score = 70;
+                        break;
+                    default:
+                        score = 0;
+                        break;
+                }
+
+                if (score > selectedScore)
+                {
+                    selectedScore = score;
+                    selectedIndex = i;
+                }
+            }
+            return selectedIndex;
+        }
+
         private int FindCardInstanceId(
             GameSimulation simulation,
             string stableId)
@@ -2224,6 +3077,28 @@ namespace RuleforgeTD.Tests.EditMode.GameLogic
             int towerInstanceId,
             string[] orderedCardStableIds)
         {
+            while (true)
+            {
+                TowerSnapshot tower = FindTowerSnapshot(
+                    simulation.GetSnapshot(),
+                    towerInstanceId);
+                int capacity =
+                    GameSimulation
+                        .GetTowerCardCapacityForLevel(
+                            tower.Level);
+                if (capacity >=
+                    orderedCardStableIds.Length)
+                {
+                    break;
+                }
+
+                AssertAccepted(
+                    simulation.Submit(
+                        GameCommand.UpgradeTower(
+                            towerInstanceId)),
+                    "upgrade tower for requested program");
+            }
+
             for (int slot = 0;
                  slot < orderedCardStableIds.Length;
                  slot++)
@@ -2248,9 +3123,18 @@ namespace RuleforgeTD.Tests.EditMode.GameLogic
         {
             GameSimulation simulation =
                 CreateCombatSimulation("ballista", program, 23UL);
-            simulation.Step();
             ProjectileSnapshot[] projectiles =
-                simulation.GetSnapshot().Projectiles;
+                Array.Empty<ProjectileSnapshot>();
+            for (int step = 0;
+                 step <= 18 &&
+                 projectiles.Length == 0;
+                 step++)
+            {
+                simulation.Step();
+                projectiles =
+                    simulation.GetSnapshot().Projectiles;
+            }
+
             Assert.That(projectiles, Has.Length.EqualTo(2));
 
             var result = new int[projectiles.Length];
@@ -2320,6 +3204,33 @@ namespace RuleforgeTD.Tests.EditMode.GameLogic
             }
 
             Assert.Fail("Missing internal enemy state {0}.", enemyId);
+            return null;
+        }
+
+        private static TowerState FindTowerState(
+            GameSimulation simulation,
+            int towerId)
+        {
+            var field = typeof(GameSimulation).GetField(
+                "towers",
+                System.Reflection.BindingFlags.Instance |
+                System.Reflection.BindingFlags.NonPublic);
+            Assert.That(field, Is.Not.Null);
+            var states =
+                (List<TowerState>)field.GetValue(simulation);
+            for (int index = 0;
+                 index < states.Count;
+                 index++)
+            {
+                if (states[index].Id.Value == towerId)
+                {
+                    return states[index];
+                }
+            }
+
+            Assert.Fail(
+                "Missing internal tower state {0}.",
+                towerId);
             return null;
         }
 
@@ -2529,6 +3440,24 @@ namespace RuleforgeTD.Tests.EditMode.GameLogic
             }
 
             Assert.Fail("Missing placed tower '{0}'.", stableId);
+            return default(TowerSnapshot);
+        }
+
+        private static TowerSnapshot FindTowerSnapshot(
+            SimulationSnapshot snapshot,
+            int towerInstanceId)
+        {
+            for (int i = 0; i < snapshot.Towers.Length; i++)
+            {
+                if (snapshot.Towers[i].Id == towerInstanceId)
+                {
+                    return snapshot.Towers[i];
+                }
+            }
+
+            Assert.Fail(
+                "Missing placed tower instance {0}.",
+                towerInstanceId);
             return default(TowerSnapshot);
         }
 

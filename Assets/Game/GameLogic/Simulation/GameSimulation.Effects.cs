@@ -67,9 +67,12 @@ namespace RuleforgeTD.GameLogic.Simulation
                 Generation = original.Generation,
                 Position = original.Position,
                 TargetId = original.TargetId,
+                ApplyEnemyProgramOnHit =
+                    original.ApplyEnemyProgramOnHit,
                 DirectionXBps = original.DirectionXBps,
                 DirectionYBps = original.DirectionYBps,
                 Homing = original.Homing,
+                VisualFlags = original.VisualFlags,
                 DamageMilli = original.DamageMilli,
                 SpeedMilliPerTick = original.SpeedMilliPerTick,
                 RadiusMilli = original.RadiusMilli,
@@ -86,6 +89,7 @@ namespace RuleforgeTD.GameLogic.Simulation
             // 따라서 분열보다 왼쪽에서 얻은 화상·폭발 바인딩은 원본에만 남고,
             // 새 가지는 현재 위치·피해·속도 같은 물리 수치만 이어받는다.
             projectiles.Add(child);
+            InheritCommonProjectileRuntime(original, child);
             EnemyState alternate = SelectProjectileTarget(child);
             if (alternate != null && alternate.Id != original.TargetId)
             {
@@ -137,6 +141,8 @@ namespace RuleforgeTD.GameLogic.Simulation
             int splitSizeMultiplierBps = MultiplyBps(
                 original.SizeMultiplierBps,
                 9000);
+            SimVector branchOriginOffset =
+                original.PathLateralOffset;
 
             GameEvent diagnosticEvent = WithDiagnosticDepth(
                 CreateDiagnosticEvent(
@@ -147,20 +153,16 @@ namespace RuleforgeTD.GameLogic.Simulation
                     context.SubjectId,
                     SubjectType.Enemy),
                 context.Depth);
-            if (lineage.SplitCount >=
-                    content.Safety.MaxEnemySplitsPerLineage ||
-                lineage.SpawnedEntityCount >=
+            // 고정 횟수로 분열을 끊지 않는다. 매 분열마다 최대/현재 체력이 45%로
+            // 줄어 1 미만에서 자연 종료하며, 이 개체 수 상한은 비정상 콘텐츠가
+            // WebGL 메모리를 고갈시키는 것만 막는 최후의 보호선이다.
+            if (lineage.SpawnedEntityCount >=
                     content.Safety.MaxEnemiesPerLineage)
             {
-                BudgetFailure failure =
-                    lineage.SplitCount >=
-                        content.Safety.MaxEnemySplitsPerLineage
-                        ? BudgetFailure.EnemySplitLimit
-                        : BudgetFailure.EnemyLineageEntityLimit;
                 AddDiagnostic(
                     DiagnosticCode.EnemyLineageLimitReached,
                     diagnosticEvent,
-                    (int)failure);
+                    (int)BudgetFailure.EnemyLineageEntityLimit);
                 return EntityId.Invalid;
             }
 
@@ -200,6 +202,29 @@ namespace RuleforgeTD.GameLogic.Simulation
             original.Generation++;
             original.SizeMultiplierBps = splitSizeMultiplierBps;
 
+            // 현재 경로 진행 방향의 왼쪽 법선으로 원본을, 오른쪽 법선으로
+            // 자식을 같은 거리만큼 옮긴다. 결과 적의 피격 반지름과 여백을
+            // 함께 사용해 커진 몬스터도 분열 직후 서로 겹치지 않게 한다.
+            path.GetDirectionBasisPoints(
+                original.PathProgressMilli,
+                out int pathDirectionX,
+                out int pathDirectionY);
+            int branchHalfSeparation = checked(
+                GetEnemyHitRadiusMilli(original) +
+                Math.Max(100, run.EnemyBaseHitRadiusMilli / 2));
+            var leftBranchOffset = SimVector.FromMilliUnits(
+                DeterministicMath.MultiplyDivide(
+                    -pathDirectionY,
+                    branchHalfSeparation,
+                    DeterministicMath.BasisPointScale),
+                DeterministicMath.MultiplyDivide(
+                    pathDirectionX,
+                    branchHalfSeparation,
+                    DeterministicMath.BasisPointScale));
+            original.PathLateralOffset =
+                branchOriginOffset + leftBranchOffset;
+            RefreshEnemyPosition(original);
+
             var child = new EnemyState
             {
                 Id = new EntityId(nextEntityId++),
@@ -209,7 +234,11 @@ namespace RuleforgeTD.GameLogic.Simulation
                 SpawnOrigin = EnemySpawnOrigin.Split,
                 SummonerId = original.SummonerId,
                 PathProgressMilli = original.PathProgressMilli,
-                Position = original.Position,
+                PathLateralOffset =
+                    branchOriginOffset - leftBranchOffset,
+                Position =
+                    path.GetPosition(original.PathProgressMilli) +
+                    (branchOriginOffset - leftBranchOffset),
                 HealthMilli = original.HealthMilli,
                 MaxHealthMilli = original.MaxHealthMilli,
                 Armor = original.Armor,
@@ -330,7 +359,8 @@ namespace RuleforgeTD.GameLogic.Simulation
                 Kind = kind,
                 CardId = context.CardId,
                 CardInstanceId = context.CardInstanceId,
-                Node = node
+                Node = node,
+                TrailStartPosition = projectile.Position
             });
         }
 
@@ -579,6 +609,11 @@ namespace RuleforgeTD.GameLogic.Simulation
             StatusType statusType,
             in CompiledEffectNode node)
         {
+            CompiledEffectNode effectiveNode =
+                AdjustStatusNodeForCurse(
+                    enemy,
+                    statusType,
+                    node);
             StatusInstance existing = null;
             for (int i = 0; i < enemy.Statuses.Count; i++)
             {
@@ -592,7 +627,9 @@ namespace RuleforgeTD.GameLogic.Simulation
                 }
             }
 
-            int maxStacks = Math.Max(1, node.MaxStacks);
+            int maxStacks = Math.Max(
+                1,
+                effectiveNode.MaxStacks);
             if (existing == null)
             {
                 // +1틱은 같은 시뮬레이션 틱 후반의 상태 처리에서 즉시 1이 감소하는 것을 보정한다.
@@ -606,18 +643,29 @@ namespace RuleforgeTD.GameLogic.Simulation
                     SourceCardId = context.CardId,
                     SourceCardInstanceId = context.CardInstanceId,
                     Stacks = 1,
-                    Intensity = Math.Max(0, node.Amount),
+                    Intensity = Math.Max(
+                        0,
+                        effectiveNode.Amount),
                     RemainingTicks = checked(
-                        Math.Max(1, node.DurationTicks) + 1),
+                        Math.Max(
+                            1,
+                            effectiveNode.DurationTicks) + 1),
                     MaxStacks = maxStacks,
-                    TickInterval = Math.Max(0, node.IntervalTicks),
-                    NextTick = tick + Math.Max(1, node.IntervalTicks),
+                    TickInterval = Math.Max(
+                        0,
+                        effectiveNode.IntervalTicks),
+                    NextTick = tick + Math.Max(
+                        1,
+                        effectiveNode.IntervalTicks),
                     Dispellable = true,
-                    Limit = node.Limit,
-                    RadiusMilli = node.RadiusMilli,
+                    Limit = effectiveNode.Limit,
+                    RadiusMilli =
+                        effectiveNode.RadiusMilli,
                     ArmorIgnoreBps = statusType == StatusType.Poison
-                        ? node.ChanceBps
-                        : statusType == StatusType.Pierced ? node.Amount : 0
+                        ? effectiveNode.ChanceBps
+                        : statusType == StatusType.Pierced
+                            ? effectiveNode.Amount
+                            : 0
                 };
                 enemy.Statuses.Add(existing);
             }
@@ -626,22 +674,27 @@ namespace RuleforgeTD.GameLogic.Simulation
                 // 중첩 수는 상한까지 증가하고, 세기는 더 강한 값, 지속시간은 더 긴 값을 유지한다.
                 // 약한 재적용이 강한 기존 상태를 덮어써서 약화시키지 않는다.
                 existing.Stacks = Math.Min(existing.MaxStacks, existing.Stacks + 1);
-                existing.Intensity = Math.Max(existing.Intensity, node.Amount);
+                existing.Intensity = Math.Max(
+                    existing.Intensity,
+                    effectiveNode.Amount);
                 existing.SourceEntityId = context.SourceEntityId;
                 existing.RemainingTicks = Math.Max(
                     existing.RemainingTicks,
-                    checked(Math.Max(1, node.DurationTicks) + 1));
+                    checked(
+                        Math.Max(
+                            1,
+                            effectiveNode.DurationTicks) + 1));
                 if (statusType == StatusType.Poison)
                 {
                     existing.ArmorIgnoreBps = Math.Max(
                         existing.ArmorIgnoreBps,
-                        node.ChanceBps);
+                        effectiveNode.ChanceBps);
                 }
                 else if (statusType == StatusType.Pierced)
                 {
                     existing.ArmorIgnoreBps = Math.Max(
                         existing.ArmorIgnoreBps,
-                        node.Amount);
+                        effectiveNode.Amount);
                 }
             }
 
@@ -701,10 +754,19 @@ namespace RuleforgeTD.GameLogic.Simulation
                                 EventTags.DamageOverTime);
 
                         }
+                        else
+                        {
+                            ProcessUncommonStatusTick(
+                                enemy,
+                                status);
+                        }
                     }
 
                     if (status.RemainingTicks <= 0)
                     {
+                        HandleUncommonStatusExpired(
+                            enemy,
+                            status);
                         // 목록을 순회하면서 제거하므로 이 경우에는 인덱스를 증가시키지 않는다.
                         AddPresentation(
                             PresentationEventType.StatusRemoved,
@@ -754,7 +816,12 @@ namespace RuleforgeTD.GameLogic.Simulation
                     break;
                 case BindingKind.Poison:
                     ApplyStatus(context, StatusType.Poison, binding.Node);
-                    SpawnHazard(projectile, binding, target.Position, BindingKind.Poison);
+                    SpawnHazard(
+                        projectile,
+                        binding,
+                        target.Position,
+                        target.Position,
+                        BindingKind.Poison);
                     break;
                 case BindingKind.Explosion:
                     ExecuteExplosion(
@@ -783,6 +850,9 @@ namespace RuleforgeTD.GameLogic.Simulation
                     break;
                 case BindingKind.Stun:
                     ApplyStatus(context, StatusType.Stun, binding.Node);
+                    break;
+                case BindingKind.Bleed:
+                    ApplyBleed(context, binding.Node);
                     break;
             }
 
@@ -839,12 +909,16 @@ namespace RuleforgeTD.GameLogic.Simulation
         }
 
         /// <summary>
-        /// 화상 바인딩이 있는 투사체가 일정 거리마다 지나온 위치에 불길 위험 지대를 남긴다.
-        /// 틱마다 무조건 생성하지 않고 마지막 생성 위치와의 거리로 밀도를 제한한다.
+        /// 화상 바인딩이 있는 투사체가 지나온 경로를 연속 선분 불길로 남긴다.
+        /// 현재 작성 중인 선분은 매 이동 틱 끝점까지 늘리고, 설정 간격에 도달하면
+        /// 선분을 확정한 뒤 다음 선분을 시작한다. 따라서 발사 직후부터 화면과 판정에
+        /// 불길이 나타나면서도 이동 틱마다 새 장판을 만들지는 않는다.
         /// </summary>
         private void SpawnBurnTrailIfNeeded(
             ProjectileState projectile,
-            SimPosition previousPosition)
+            SimPosition trailEndPosition,
+            bool finalize,
+            EntityId alreadyAffectedEnemyId)
         {
             for (int i = 0; i < projectile.Bindings.Count; i++)
             {
@@ -854,16 +928,61 @@ namespace RuleforgeTD.GameLogic.Simulation
                     continue;
                 }
 
-                int interval = Math.Max(1, binding.Node.Amount2);
-                if (PathModel.DistanceMilli(
-                        projectile.LastTrailPosition,
-                        projectile.Position) < interval)
+                long segmentLength = PathModel.DistanceMilli(
+                    binding.TrailStartPosition,
+                    trailEndPosition);
+                if (segmentLength <= 0)
                 {
                     continue;
                 }
 
-                SpawnHazard(projectile, binding, previousPosition, BindingKind.Burn);
-                projectile.LastTrailPosition = projectile.Position;
+                HazardState activeHazard =
+                    FindHazard(binding.ActiveTrailHazardId);
+                if (activeHazard == null)
+                {
+                    int hazardId = SpawnHazard(
+                        projectile,
+                        binding,
+                        binding.TrailStartPosition,
+                        trailEndPosition,
+                        BindingKind.Burn);
+                    if (hazardId < 0)
+                    {
+                        continue;
+                    }
+
+                    binding.ActiveTrailHazardId = hazardId;
+                    binding.TrailStarted = true;
+                    activeHazard = FindHazard(hazardId);
+                }
+                else
+                {
+                    // 아직 날아가는 탄환 바로 뒤까지 불길이 이어져 보이도록
+                    // 작성 중 선분의 끝과 수명을 현재 이동 결과로 갱신한다.
+                    activeHazard.EndPosition = trailEndPosition;
+                    activeHazard.RemainingTicks =
+                        activeHazard.DurationTicks;
+                }
+
+                // 직격 대상은 같은 카드의 OnHit 화상을 이미 받는다.
+                // 적중점 불길이 다음 틱 즉시 같은 화상을 한 번 더 주지 않도록
+                // 해당 선분의 접촉 원장에 선등록한다.
+                if (alreadyAffectedEnemyId.IsValid)
+                {
+                    MarkDirectHitOnIntersectingBurnHazards(
+                        projectile,
+                        binding,
+                        alreadyAffectedEnemyId,
+                        trailEndPosition);
+                }
+
+                int interval = Math.Max(1, binding.Node.Amount2);
+                if (finalize || segmentLength >= interval)
+                {
+                    binding.TrailStartPosition =
+                        trailEndPosition;
+                    binding.ActiveTrailHazardId = -1;
+                }
             }
         }
 
@@ -871,10 +990,11 @@ namespace RuleforgeTD.GameLogic.Simulation
         /// 화염 길 또는 독안개 같은 짧은 수명의 논리 위험 지대를 생성한다.
         /// 활성 위험 지대 수와 체인 작업량을 먼저 검사해 화면을 채우는 조합도 브라우저를 멈추지 않게 한다.
         /// </summary>
-        private void SpawnHazard(
+        private int SpawnHazard(
             ProjectileState projectile,
             EffectBinding binding,
-            SimPosition position,
+            SimPosition startPosition,
+            SimPosition endPosition,
             BindingKind kind)
         {
             GameEvent diagnosticEvent = WithDiagnosticDepth(
@@ -892,7 +1012,7 @@ namespace RuleforgeTD.GameLogic.Simulation
                     DiagnosticCode.ActiveHazardLimitReached,
                     diagnosticEvent,
                     hazards.Count);
-                return;
+                return -1;
             }
 
             // 위험 지대 자체는 실행 이벤트가 아니지만 이후 상태 적용 작업을 만들기 때문에 체인 예산을 소비한다.
@@ -903,18 +1023,26 @@ namespace RuleforgeTD.GameLogic.Simulation
                     projectileSpawnCount: 0,
                     cardTriggerCount: 0))
             {
-                return;
+                return -1;
             }
 
+            int durationTicks = kind == BindingKind.Poison
+                ? Math.Max(1, binding.Node.Amount2)
+                : Math.Max(
+                    1,
+                    binding.Node.Amount3 > 0
+                        ? binding.Node.Amount3
+                        : binding.Node.DurationTicks / 2);
+            int hazardId = nextHazardId++;
             hazards.Add(new HazardState
             {
-                Id = nextHazardId++,
+                Id = hazardId,
                 Kind = kind,
-                Position = position,
+                StartPosition = startPosition,
+                EndPosition = endPosition,
                 RadiusMilli = Math.Max(1, binding.Node.RadiusMilli),
-                RemainingTicks = kind == BindingKind.Poison
-                    ? Math.Max(1, binding.Node.Amount2)
-                    : Math.Max(1, binding.Node.DurationTicks / 2),
+                DurationTicks = durationTicks,
+                RemainingTicks = durationTicks,
                 SourceTowerId = projectile.SourceTowerId,
                 SourceCardId = binding.CardId,
                 SourceCardInstanceId = binding.CardInstanceId,
@@ -922,6 +1050,7 @@ namespace RuleforgeTD.GameLogic.Simulation
                 RootChainId = projectile.RootChainId,
                 Node = binding.Node
             });
+            return hazardId;
         }
 
         /// <summary>
@@ -930,6 +1059,7 @@ namespace RuleforgeTD.GameLogic.Simulation
         /// </summary>
         private void ProcessHazards()
         {
+            hazardContactsThisTick.Clear();
             for (int hazardIndex = 0; hazardIndex < hazards.Count; hazardIndex++)
             {
                 HazardState hazard = hazards[hazardIndex];
@@ -939,17 +1069,46 @@ namespace RuleforgeTD.GameLogic.Simulation
                     continue;
                 }
 
-                spatialIndex.Query(hazard.Position, hazard.RadiusMilli, spatialScratch);
+                SimPosition queryCenter =
+                    GetSegmentMidpoint(
+                        hazard.StartPosition,
+                        hazard.EndPosition);
+                int halfLength = (int)Math.Min(
+                    int.MaxValue,
+                    (PathModel.DistanceMilli(
+                        hazard.StartPosition,
+                        hazard.EndPosition) + 1L) / 2L);
+                int queryRadius = checked(
+                    hazard.RadiusMilli + halfLength);
+                spatialIndex.Query(
+                    queryCenter,
+                    queryRadius,
+                    spatialScratch);
                 for (int enemyIndex = 0; enemyIndex < spatialScratch.Count; enemyIndex++)
                 {
                     EnemyState enemy = FindEnemy(spatialScratch[enemyIndex]);
                     if (!enemy.Alive ||
                         hazard.AppliedEnemies.Contains(enemy.Id.Value) ||
-                        !PathModel.IsWithin(
-                            hazard.Position,
+                        !SegmentIntersectsCircle(
+                            hazard.StartPosition,
+                            hazard.EndPosition,
                             enemy.Position,
-                            hazard.RadiusMilli))
+                            hazard.RadiusMilli,
+                            out _))
                     {
+                        continue;
+                    }
+
+                    var contactKey = new HazardContactKey(
+                        hazard.SourceEntityId.Value,
+                        hazard.SourceCardInstanceId,
+                        enemy.Id.Value);
+                    // 맞닿은 두 불길 조각의 경계에 선 적은 같은 틱에 화상을
+                    // 여러 번 받지 않는다. 먼저 성공한 조각과 같은 출처의
+                    // 나머지 조각도 적용 원장에는 기록해 다음 틱 중복을 막는다.
+                    if (hazardContactsThisTick.Contains(contactKey))
+                    {
+                        hazard.AppliedEnemies.Add(enemy.Id.Value);
                         continue;
                     }
 
@@ -974,6 +1133,7 @@ namespace RuleforgeTD.GameLogic.Simulation
                         continue;
                     }
 
+                    hazardContactsThisTick.Add(contactKey);
                     hazard.AppliedEnemies.Add(enemy.Id.Value);
                     var context = new EffectExecutionContext(
                         SubjectType.Enemy,
@@ -996,6 +1156,64 @@ namespace RuleforgeTD.GameLogic.Simulation
                         hazard.Node);
                 }
             }
+        }
+
+        private HazardState FindHazard(int hazardId)
+        {
+            if (hazardId < 0)
+            {
+                return null;
+            }
+
+            for (int i = 0; i < hazards.Count; i++)
+            {
+                if (hazards[i].Id == hazardId)
+                {
+                    return hazards[i];
+                }
+            }
+
+            return null;
+        }
+
+        private void MarkDirectHitOnIntersectingBurnHazards(
+            ProjectileState projectile,
+            EffectBinding binding,
+            EntityId enemyId,
+            SimPosition enemyPosition)
+        {
+            for (int i = 0; i < hazards.Count; i++)
+            {
+                HazardState hazard = hazards[i];
+                if (hazard.Kind != BindingKind.Burn ||
+                    hazard.SourceEntityId != projectile.Id ||
+                    hazard.SourceCardInstanceId !=
+                    binding.CardInstanceId ||
+                    !SegmentIntersectsCircle(
+                        hazard.StartPosition,
+                        hazard.EndPosition,
+                        enemyPosition,
+                        hazard.RadiusMilli,
+                        out _))
+                {
+                    continue;
+                }
+
+                hazard.AppliedEnemies.Add(enemyId.Value);
+            }
+        }
+
+        private static SimPosition GetSegmentMidpoint(
+            SimPosition start,
+            SimPosition end)
+        {
+            return SimPosition.FromMilliUnits(
+                start.X.MilliUnits +
+                (end.X.MilliUnits -
+                 start.X.MilliUnits) / 2L,
+                start.Y.MilliUnits +
+                (end.Y.MilliUnits -
+                 start.Y.MilliUnits) / 2L);
         }
 
         /// <summary>
@@ -1075,6 +1293,12 @@ namespace RuleforgeTD.GameLogic.Simulation
             }
 
             TryEnqueueBatch(damageEvents);
+            AddPresentation(
+                PresentationEventType.EffectTriggered,
+                sourceEntityId.Value,
+                sourceEntityId.Value,
+                node.RadiusMilli,
+                "explode");
         }
 
         /// <summary>
@@ -1134,7 +1358,8 @@ namespace RuleforgeTD.GameLogic.Simulation
                 return;
             }
             SimPosition proposedPosition =
-                path.GetPosition(proposedProgress);
+                path.GetPosition(proposedProgress) +
+                enemy.PathLateralOffset;
 
             // 출발점과 도착점만 검사하면 굽은 경로나 큰 밀치기에서 중간 적을 건너뛸 수 있으므로,
             // 전체 이동 구간을 샘플링해 넓은 후보를 모은 뒤 경로 모델의 정밀 접촉 거리로 첫 충돌을 고른다.
@@ -1229,10 +1454,26 @@ namespace RuleforgeTD.GameLogic.Simulation
             }
 
             // 모든 필요한 피해 이벤트 예약에 성공한 뒤 마지막으로 위치를 확정한다.
+            long previousProgress = enemy.PathProgressMilli;
             enemy.PathProgressMilli = proposedProgress;
             enemy.Position = proposedPosition;
+            long movedDistance = Math.Abs(
+                proposedProgress - previousProgress);
+            TriggerBleedFromMovement(
+                enemy,
+                movedDistance,
+                context);
+            TryEnemyRicochetAfterForcedMovement(
+                enemy,
+                context);
             // 밀치기는 같은 틱 안의 후속 폭발·타워 효과가 새 위치를 봐야 하므로 공간 인덱스도 즉시 갱신한다.
             spatialIndex.Rebuild(enemies);
+            AddPresentation(
+                PresentationEventType.EffectTriggered,
+                enemy.Id.Value,
+                enemy.Id.Value,
+                (int)Math.Min(int.MaxValue, movedDistance),
+                "knockback");
         }
 
         /// <summary>
@@ -1355,12 +1596,22 @@ namespace RuleforgeTD.GameLogic.Simulation
                 enemy.ShieldMilli -= absorbed;
                 amount -= absorbed;
             }
-            enemy.HealthMilli = Math.Max(0, enemy.HealthMilli - amount);
+            long healthBefore = enemy.HealthMilli;
+            enemy.HealthMilli = Math.Max(
+                0,
+                healthBefore - amount);
+            long appliedAmount = Math.Min(
+                healthBefore,
+                amount);
+            HandleUncommonDamageApplied(
+                enemy,
+                gameEvent,
+                appliedAmount);
             AddPresentation(
                 PresentationEventType.EnemyDamaged,
                 enemy.Id.Value,
                 gameEvent.SourceEntityId.Value,
-                (int)Math.Min(int.MaxValue, amount));
+                (int)Math.Min(int.MaxValue, appliedAmount));
 
             if (enemy.HealthMilli == 0 && !enemy.DeathQueued)
             {
@@ -1402,6 +1653,9 @@ namespace RuleforgeTD.GameLogic.Simulation
                 return;
             }
 
+            HandleUncommonEnemyDeath(
+                enemy,
+                gameEvent);
             enemy.Alive = false;
             AwardCardPackProgress(enemy);
             DecrementLineage(enemy);

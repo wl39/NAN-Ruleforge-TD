@@ -336,6 +336,44 @@ namespace RuleforgeTD.GameLogic.Simulation
             return true;
         }
 
+        private static int FindFirstProgramIndex(
+            TowerState tower,
+            SubjectType subjectType)
+        {
+            return FindNextProgramIndex(
+                tower,
+                -1,
+                subjectType);
+        }
+
+        private static int FindNextProgramIndex(
+            TowerState tower,
+            int currentIndex,
+            SubjectType subjectType)
+        {
+            if (tower == null)
+            {
+                return -1;
+            }
+
+            int start = Math.Max(-1, currentIndex) + 1;
+            for (int index = start;
+                 index < tower.Program.Length;
+                 index++)
+            {
+                SubjectType configured =
+                    index < tower.ProgramSubjectTypes.Length
+                        ? tower.ProgramSubjectTypes[index]
+                        : tower.SubjectType;
+                if (configured == subjectType)
+                {
+                    return index;
+                }
+            }
+
+            return -1;
+        }
+
         /// <summary>
         /// 분열 효과가 미리 확보해 둔 continuation 예산을 사용해 다음 카드 실행을 등록한다.
         /// 여기서는 예산을 다시 소비하지 않으며 남은 예약 수를 ProgramFrame에 전달한다.
@@ -488,6 +526,16 @@ namespace RuleforgeTD.GameLogic.Simulation
                 tower.Program.Length - frame.CardIndex - 1,
                 frame.ReservedContinuationEvents);
 
+            if (frame.SubjectType == SubjectType.Projectile)
+            {
+                // 물리 수치만 변경하는 카드도 고유한 색상·궤적을 유지하도록
+                // 효과 노드 실행 전에 표시 플래그를 기록한다. 분열 카드는 이
+                // 시점의 플래그를 새 탄환에도 상속한다.
+                MarkProjectileCardVisual(
+                    frame.SubjectId,
+                    card.StableId);
+            }
+
             EffectExecutionOutcome outcome = EffectExecutionOutcome.Continue();
             // 한 카드 안의 효과 노드는 데이터에 컴파일된 순서대로 실행된다.
             for (int nodeIndex = 0; nodeIndex < nodes.Length; nodeIndex++)
@@ -509,8 +557,12 @@ namespace RuleforgeTD.GameLogic.Simulation
                 frame.CardIndex,
                 card.StableId);
 
-            int nextCardIndex = frame.CardIndex + 1;
-            if (nextCardIndex >= tower.Program.Length)
+            int nextCardIndex =
+                FindNextProgramIndex(
+                    tower,
+                    frame.CardIndex,
+                    frame.SubjectType);
+            if (nextCardIndex < 0)
             {
                 return;
             }
@@ -726,6 +778,11 @@ namespace RuleforgeTD.GameLogic.Simulation
                     amount,
                     enemy.SingleDamageTakenBps);
             }
+
+            amount = ModifyDamageForUncommonStatuses(
+                enemy,
+                amount,
+                tags);
 
             CompiledEnemyDefinition definition =
                 content.GetEnemy(enemy.DefinitionId);

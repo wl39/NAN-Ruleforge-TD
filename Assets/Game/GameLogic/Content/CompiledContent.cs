@@ -186,6 +186,9 @@ namespace RuleforgeTD.GameLogic.Content
         /// <summary>재발동 대기시간의 정수 틱 수다.</summary>
         public int CooldownTicks { get; internal set; }
 
+        /// <summary>공격 준비 시작부터 실제 탄환 생성까지의 정수 틱 수다.</summary>
+        public int AttackWindupTicks { get; internal set; }
+
         /// <summary>공격/감지 범위의 milli 정수 반지름이다.</summary>
         public int RangeMilli { get; internal set; }
 

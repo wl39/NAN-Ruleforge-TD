@@ -61,6 +61,7 @@
           "operation": "BindBurn",
           "amount": 500,
           "amount2": 1000,
+          "amount3": 60,
           "durationTicks": 90,
           "intervalTicks": 15,
           "maxStacks": 10,
@@ -304,6 +305,539 @@
           "durationTicks": 23
         }
       ]
+    },
+    {
+      "id": "ricochet",
+      "displayNameKey": "card.ricochet.name",
+      "tier": 1,
+      "computeCost": 1,
+      "slotCost": 1,
+      "tags": ["chain", "movement"],
+      "projectileEffects": [
+        {
+          "operation": "ConfigureProjectileRicochet",
+          "amount": 1,
+          "amount2": 8500,
+          "radiusMilli": 3000
+        }
+      ],
+      "enemyEffects": [
+        {
+          "operation": "ApplyEnemyRicochet",
+          "amount": 1,
+          "amount2": 3000,
+          "durationTicks": 120,
+          "maxStacks": 1,
+          "radiusMilli": 1400
+        }
+      ]
+    },
+    {
+      "id": "bleed",
+      "displayNameKey": "card.bleed.name",
+      "tier": 1,
+      "computeCost": 1,
+      "slotCost": 1,
+      "tags": ["physical", "damage_over_time", "movement"],
+      "projectileEffects": [
+        {
+          "operation": "BindBleed",
+          "amount": 500,
+          "durationTicks": 150,
+          "maxStacks": 8
+        }
+      ],
+      "enemyEffects": [
+        {
+          "operation": "ApplyBleed",
+          "amount": 500,
+          "durationTicks": 150,
+          "maxStacks": 8
+        }
+      ]
+    },
+    {
+      "id": "accelerate",
+      "displayNameKey": "card.accelerate.name",
+      "tier": 1,
+      "computeCost": 1,
+      "slotCost": 1,
+      "tags": ["speed", "risk_reward"],
+      "projectileEffects": [
+        {
+          "operation": "AccelerateProjectile",
+          "amount": 13000,
+          "amount2": 250,
+          "limit": 5000
+        }
+      ],
+      "enemyEffects": [
+        {
+          "operation": "AccelerateEnemy",
+          "amount": 12500,
+          "amount2": 2000,
+          "limit": 5000
+        }
+      ]
+    },
+    {
+      "id": "homing",
+      "displayNameKey": "card.homing.name",
+      "tier": 1,
+      "computeCost": 1,
+      "slotCost": 1,
+      "tags": ["guidance", "targeting"],
+      "projectileEffects": [
+        {
+          "operation": "EnableProjectileHoming"
+        }
+      ],
+      "enemyEffects": [
+        {
+          "operation": "ApplyHomingPriority",
+          "amount": 1,
+          "durationTicks": 150,
+          "maxStacks": 1
+        }
+      ]
+    },
+    {
+      "id": "delay",
+      "displayNameKey": "card.delay.name",
+      "tier": 1,
+      "computeCost": 1,
+      "slotCost": 1,
+      "tags": ["time", "control"],
+      "projectileEffects": [
+        {
+          "operation": "DelayProjectile",
+          "amount": 14000,
+          "durationTicks": 15
+        }
+      ],
+      "enemyEffects": [
+        {
+          "operation": "ApplyDelay",
+          "amount": 1,
+          "durationTicks": 30,
+          "maxStacks": 1
+        }
+      ]
+    },
+    {
+      "id": "curse",
+      "displayNameKey": "card.curse.name",
+      "tier": 2,
+      "computeCost": 2,
+      "slotCost": 1,
+      "tags": ["curse", "debuff", "damage_over_time"],
+      "projectileEffects": [
+        {
+          "operation": "BindCurse",
+          "amount": 1500,
+          "durationTicks": 120,
+          "maxStacks": 3,
+          "radiusMilli": 1800,
+          "limit": 5000
+        }
+      ],
+      "enemyEffects": [
+        {
+          "operation": "ApplyCurse",
+          "amount": 1500,
+          "durationTicks": 120,
+          "maxStacks": 3,
+          "radiusMilli": 1800,
+          "limit": 5000
+        }
+      ]
+    },
+    {
+      "id": "bind",
+      "displayNameKey": "card.bind.name",
+      "tier": 2,
+      "computeCost": 2,
+      "slotCost": 1,
+      "tags": ["control", "area"],
+      "projectileEffects": [
+        {
+          "operation": "CreateBindTrap",
+          "amount": 30,
+          "durationTicks": 60,
+          "intervalTicks": 15,
+          "maxStacks": 1,
+          "radiusMilli": 1400,
+          "limit": 6
+        }
+      ],
+      "enemyEffects": [
+        {
+          "operation": "ApplyBind",
+          "amount": 30,
+          "durationTicks": 60,
+          "maxStacks": 1,
+          "radiusMilli": 1400
+        }
+      ]
+    },
+    {
+      "id": "airborne",
+      "displayNameKey": "card.airborne.name",
+      "tier": 2,
+      "computeCost": 2,
+      "slotCost": 1,
+      "tags": ["control", "area", "movement"],
+      "projectileEffects": [
+        {
+          "operation": "MakeAirborneProjectile",
+          "amount": 30,
+          "amount2": 5000,
+          "durationTicks": 30,
+          "radiusMilli": 1500,
+          "limit": 8
+        }
+      ],
+      "enemyEffects": [
+        {
+          "operation": "ApplyAirborne",
+          "amount": 30,
+          "amount2": 3000,
+          "durationTicks": 30,
+          "maxStacks": 1,
+          "radiusMilli": 1500,
+          "limit": 8
+        }
+      ]
+    },
+    {
+      "id": "shock",
+      "displayNameKey": "card.shock.name",
+      "tier": 2,
+      "computeCost": 2,
+      "slotCost": 1,
+      "tags": ["lightning", "chain"],
+      "projectileEffects": [
+        {
+          "operation": "BindShock",
+          "amount": 750,
+          "amount2": 4000,
+          "durationTicks": 90,
+          "maxStacks": 3,
+          "radiusMilli": 1800,
+          "limit": 3
+        }
+      ],
+      "enemyEffects": [
+        {
+          "operation": "ApplyShock",
+          "amount": 3000,
+          "durationTicks": 90,
+          "maxStacks": 3,
+          "radiusMilli": 1800,
+          "limit": 3
+        }
+      ]
+    },
+    {
+      "id": "freeze",
+      "displayNameKey": "card.freeze.name",
+      "tier": 2,
+      "computeCost": 2,
+      "slotCost": 1,
+      "tags": ["ice", "control"],
+      "projectileEffects": [
+        {
+          "operation": "BindFreeze",
+          "amount": 1,
+          "amount2": 3500,
+          "amount3": 30,
+          "durationTicks": 120,
+          "intervalTicks": 30,
+          "maxStacks": 3,
+          "radiusMilli": 1300,
+          "limit": 6
+        }
+      ],
+      "enemyEffects": [
+        {
+          "operation": "ApplyFreeze",
+          "amount": 1,
+          "amount3": 30,
+          "durationTicks": 120,
+          "intervalTicks": 30,
+          "maxStacks": 3,
+          "radiusMilli": 1300,
+          "limit": 6
+        }
+      ]
+    },
+    {
+      "id": "afterimage",
+      "displayNameKey": "card.afterimage.name",
+      "tier": 2,
+      "computeCost": 2,
+      "slotCost": 1,
+      "tags": ["time", "echo"],
+      "projectileEffects": [
+        {
+          "operation": "CreateAfterimageProjectile",
+          "amount": 5000,
+          "durationTicks": 6
+        }
+      ],
+      "enemyEffects": [
+        {
+          "operation": "ApplyAfterimage",
+          "amount": 5000,
+          "durationTicks": 90,
+          "maxStacks": 1,
+          "radiusMilli": 750
+        }
+      ]
+    },
+    {
+      "id": "pulse",
+      "displayNameKey": "card.pulse.name",
+      "tier": 2,
+      "computeCost": 2,
+      "slotCost": 1,
+      "tags": ["area", "status"],
+      "projectileEffects": [
+        {
+          "operation": "EnableProjectilePulse",
+          "amount": 2500,
+          "durationTicks": 90,
+          "intervalTicks": 15,
+          "radiusMilli": 1600,
+          "limit": 8
+        }
+      ],
+      "enemyEffects": [
+        {
+          "operation": "ApplyEnemyPulse",
+          "amount": 1,
+          "durationTicks": 120,
+          "intervalTicks": 30,
+          "maxStacks": 1,
+          "radiusMilli": 1800,
+          "limit": 1
+        }
+      ]
+    },
+    {
+      "id": "magnet",
+      "displayNameKey": "card.magnet.name",
+      "tier": 2,
+      "computeCost": 2,
+      "slotCost": 1,
+      "tags": ["projectile", "control", "merge"],
+      "projectileEffects": [
+        {
+          "operation": "EnableProjectileMagnet",
+          "amount": 4000,
+          "amount2": 5000,
+          "durationTicks": 90,
+          "intervalTicks": 3,
+          "radiusMilli": 1400
+        }
+      ],
+      "enemyEffects": [
+        {
+          "operation": "ApplyEnemyMagnet",
+          "amount": 1,
+          "durationTicks": 120,
+          "intervalTicks": 5,
+          "maxStacks": 1,
+          "radiusMilli": 2000
+        }
+      ]
+    },
+    {
+      "id": "reflect",
+      "displayNameKey": "card.reflect.name",
+      "tier": 2,
+      "computeCost": 2,
+      "slotCost": 1,
+      "tags": ["chain", "movement", "return"],
+      "projectileEffects": [
+        {
+          "operation": "EnableProjectileReflect",
+          "amount": 1,
+          "durationTicks": 90,
+          "limit": 1
+        }
+      ],
+      "enemyEffects": [
+        {
+          "operation": "ApplyEnemyReflect",
+          "amount": 1,
+          "durationTicks": 90,
+          "maxStacks": 1
+        }
+      ]
+    },
+    {
+      "id": "contagion",
+      "displayNameKey": "card.contagion.name",
+      "tier": 2,
+      "computeCost": 2,
+      "slotCost": 1,
+      "tags": ["status", "spread"],
+      "projectileEffects": [
+        {
+          "operation": "EnableProjectileContagion",
+          "amount": 1,
+          "durationTicks": 90,
+          "intervalTicks": 3,
+          "radiusMilli": 1000,
+          "limit": 1
+        }
+      ],
+      "enemyEffects": [
+        {
+          "operation": "ApplyEnemyContagion",
+          "amount": 1,
+          "durationTicks": 120,
+          "intervalTicks": 30,
+          "maxStacks": 1,
+          "radiusMilli": 1800,
+          "limit": 1
+        }
+      ]
+    },
+    {
+      "id": "seal",
+      "displayNameKey": "card.seal.name",
+      "tier": 2,
+      "computeCost": 2,
+      "slotCost": 1,
+      "tags": ["control", "boss", "disable"],
+      "projectileEffects": [
+        {
+          "operation": "BindSeal",
+          "amount": 1,
+          "durationTicks": 90,
+          "maxStacks": 1
+        }
+      ],
+      "enemyEffects": [
+        {
+          "operation": "ApplySeal",
+          "amount": 1,
+          "durationTicks": 90,
+          "maxStacks": 1
+        }
+      ]
+    },
+    {
+      "id": "corrosion",
+      "displayNameKey": "card.corrosion.name",
+      "tier": 2,
+      "computeCost": 2,
+      "slotCost": 1,
+      "tags": ["armor_reduction", "debuff"],
+      "projectileEffects": [
+        {
+          "operation": "BindCorrosion",
+          "amount": 1,
+          "durationTicks": 120,
+          "intervalTicks": 15,
+          "maxStacks": 10,
+          "limit": 3000,
+          "chanceBps": 250
+        }
+      ],
+      "enemyEffects": [
+        {
+          "operation": "ApplyCorrosion",
+          "amount": 1,
+          "durationTicks": 120,
+          "intervalTicks": 15,
+          "maxStacks": 10,
+          "limit": 3000,
+          "chanceBps": 250
+        }
+      ]
+    },
+    {
+      "id": "orbit",
+      "displayNameKey": "card.orbit.name",
+      "tier": 2,
+      "computeCost": 2,
+      "slotCost": 1,
+      "tags": ["repeated", "movement"],
+      "projectileEffects": [
+        {
+          "operation": "EnableProjectileOrbit",
+          "amount": 3500,
+          "durationTicks": 90,
+          "intervalTicks": 10,
+          "radiusMilli": 650
+        }
+      ],
+      "enemyEffects": [
+        {
+          "operation": "ApplyEnemyOrbit",
+          "amount": 2500,
+          "durationTicks": 90,
+          "intervalTicks": 10,
+          "maxStacks": 1,
+          "radiusMilli": 650,
+          "limit": 2500
+        }
+      ]
+    },
+    {
+      "id": "lifesteal",
+      "displayNameKey": "card.lifesteal.name",
+      "tier": 2,
+      "computeCost": 2,
+      "slotCost": 1,
+      "tags": ["healing", "sustain"],
+      "projectileEffects": [
+        {
+          "operation": "BindLifesteal",
+          "amount": 1000,
+          "durationTicks": 120,
+          "maxStacks": 1
+        }
+      ],
+      "enemyEffects": [
+        {
+          "operation": "ApplyLifesteal",
+          "amount": 1000,
+          "durationTicks": 120,
+          "maxStacks": 1
+        }
+      ]
+    },
+    {
+      "id": "fear",
+      "displayNameKey": "card.fear.name",
+      "tier": 2,
+      "computeCost": 2,
+      "slotCost": 1,
+      "tags": ["control", "movement"],
+      "projectileEffects": [
+        {
+          "operation": "BindFear",
+          "amount": 10000,
+          "durationTicks": 45,
+          "intervalTicks": 15,
+          "maxStacks": 1,
+          "limit": 12500
+        }
+      ],
+      "enemyEffects": [
+        {
+          "operation": "ApplyFear",
+          "amount": 10000,
+          "durationTicks": 45,
+          "intervalTicks": 15,
+          "maxStacks": 1,
+          "limit": 12500
+        }
+      ]
     }
   ],
   "towers": [
@@ -316,6 +850,7 @@
       "slotCount": 3,
       "computeCapacity": 5,
       "cooldownTicks": 30,
+      "attackWindupTicks": 18,
       "rangeMilli": 6000,
       "baseDamageMilli": 8000,
       "projectileSpeedMilliPerTick": 350,
@@ -333,6 +868,7 @@
       "slotCount": 3,
       "computeCapacity": 5,
       "cooldownTicks": 0,
+      "attackWindupTicks": 0,
       "rangeMilli": 4500,
       "baseDamageMilli": 0,
       "projectileSpeedMilliPerTick": 0,
@@ -350,6 +886,7 @@
       "slotCount": 3,
       "computeCapacity": 6,
       "cooldownTicks": 0,
+      "attackWindupTicks": 0,
       "rangeMilli": 6000,
       "baseDamageMilli": 0,
       "projectileSpeedMilliPerTick": 0,
@@ -565,8 +1102,8 @@
     "maxChainDepth": 8,
     "maxEventsPerChain": 256,
     "maxProjectileSpawnsPerChain": 64,
-    "maxEnemySplitCount": 2,
-    "maxEnemyLineageMembers": 8,
+    "maxEnemySplitCount": 255,
+    "maxEnemyLineageMembers": 256,
     "maxProjectileBounces": 8,
     "maxProjectilePierces": 12,
     "maxProjectileLifetimeTicks": 450,
@@ -584,7 +1121,7 @@
     "startingGold": 0,
     "startingTowerChoices": ["ballista", "mutation_obelisk"],
     "initiallyUnlockedTowers": ["death_engine"],
-    "startingCards": ["split", "burn", "explode"],
+    "startingCards": ["split", "burn", "explode", "poison"],
     "buildSpotXMilli": [3000, 7500, 10500, 14000, 17500, 20500, 22500, 12000],
     "buildSpotYMilli": [2000, -2000, 3500, 8500, 9500, 14500, 9500, 1000],
     "buildSpotUnlockCosts": [0, 0, 0, 0, 0, 0, 0, 0],

@@ -197,7 +197,11 @@ namespace RuleforgeTD.GameLogic.Simulation
         UnequipCard = 7,
         OpenCardPack = 9,
         SelectCardPack = 10,
-        ResumeCardPackCombat = 11
+        ResumeCardPackCombat = 11,
+        UpgradeTower = 12,
+        SetTowerSubjectType = 13,
+        SetTowerSlotSubjectType = 14,
+        GrantDebugGold = 15
     }
 
     /// <summary>
@@ -413,6 +417,69 @@ namespace RuleforgeTD.GameLogic.Simulation
                 cardInstanceId,
                 -1,
                 -1);
+        }
+
+        /// <summary>
+        /// 선택한 타워의 레벨을 한 단계 올린다. Stage 01 프로토타입에서는
+        /// 레벨이 카드 슬롯 개방과 타워 외형을 결정한다.
+        /// </summary>
+        public static GameCommand UpgradeTower(int towerInstanceId)
+        {
+            return new GameCommand(
+                GameCommandType.UpgradeTower,
+                string.Empty,
+                towerInstanceId,
+                -1,
+                -1);
+        }
+
+        /// <summary>
+        /// 리플레이와 상태 해시에 남는 개발용 골드 지급 명령이다.
+        /// 화면 입력은 코나미 커맨드가 완성됐을 때만 이 명령을 제출한다.
+        /// </summary>
+        public static GameCommand GrantDebugGold(int amount)
+        {
+            return new GameCommand(
+                GameCommandType.GrantDebugGold,
+                string.Empty,
+                amount,
+                -1,
+                -1);
+        }
+
+        /// <summary>
+        /// 타워에 장착된 모든 카드를 탄환 또는 적 해석으로 실행하도록 설정한다.
+        /// 타워가 실행 문맥을 결정한다는 규칙을 유지하기 위해 카드별이 아니라
+        /// 타워 인스턴스 단위로 저장한다.
+        /// </summary>
+        public static GameCommand SetTowerSubjectType(
+            int towerInstanceId,
+            SubjectType subjectType)
+        {
+            return new GameCommand(
+                GameCommandType.SetTowerSubjectType,
+                string.Empty,
+                towerInstanceId,
+                (int)subjectType,
+                -1);
+        }
+
+        /// <summary>
+        /// 특정 타워 슬롯의 카드 해석을 탄환 또는 적으로 설정한다.
+        /// 카드가 비어 있는 슬롯도 미리 설정할 수 있으며, 설정은 카드가 아니라
+        /// 슬롯에 남아 이후 장착되는 카드에 적용된다.
+        /// </summary>
+        public static GameCommand SetTowerSlotSubjectType(
+            int towerInstanceId,
+            int slotIndex,
+            SubjectType subjectType)
+        {
+            return new GameCommand(
+                GameCommandType.SetTowerSlotSubjectType,
+                string.Empty,
+                towerInstanceId,
+                slotIndex,
+                (int)subjectType);
         }
 
         /// <summary>현재 제시된 드래프트 카드의 0 기반 인덱스를 선택한다.</summary>

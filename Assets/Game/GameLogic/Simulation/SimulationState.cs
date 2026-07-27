@@ -57,7 +57,8 @@ namespace RuleforgeTD.GameLogic.Simulation
         Knockback = 3,
         Mark = 4,
         Gold = 5,
-        Stun = 6
+        Stun = 6,
+        Bleed = 7
     }
 
     /// <summary>
@@ -66,7 +67,8 @@ namespace RuleforgeTD.GameLogic.Simulation
     internal enum RewardAugmentKind
     {
         GoldBounty = 0,
-        Enlarge = 1
+        Enlarge = 1,
+        Accelerate = 2
     }
 
     /// <summary>
@@ -136,6 +138,13 @@ namespace RuleforgeTD.GameLogic.Simulation
         public bool Used;
         public int TriggerCount;
 
+        // 화상 탄환은 현재 만들고 있는 불길 선분을 매 이동 틱 끝점까지 늘린다.
+        // 카드 인스턴스별로 보존해야 같은 탄환에 화상 카드가 여러 장 있어도
+        // 각 카드의 출처와 중첩 규칙이 서로 섞이지 않는다.
+        public bool TrailStarted;
+        public SimPosition TrailStartPosition;
+        public int ActiveTrailHazardId = -1;
+
         /// <summary>
         /// 수치는 그대로 공유하고 사용 여부 같은 실행 상태는 독립된 얕은 복사본을 만든다.
         /// </summary>
@@ -201,16 +210,24 @@ namespace RuleforgeTD.GameLogic.Simulation
         public TowerDefinitionId DefinitionId;
         public int BuildPointIndex;
         public SimPosition Position;
+        public int Level = 1;
+        public SubjectType SubjectType = SubjectType.Projectile;
 
         // 기본 공격 또는 주기 발동까지 남은 고정 틱.
         public int CooldownRemaining;
 
+        // 공격 준비 연출과 실제 탄환 생성 사이의 결정론적 대기 상태.
+        public int AttackWindupRemaining;
+        public EntityId PendingAttackTargetId = EntityId.Invalid;
+
         // 계획 단계에서 편집하는 슬롯 상태.
         public int[] CardInstanceIds;
+        public SubjectType[] CardSubjectTypes;
 
         // 웨이브 시작 시 위 슬롯을 복사한 불변 실행 프로그램과 카드 인스턴스 배열.
         public CardId[] Program;
         public int[] ProgramInstances;
+        public SubjectType[] ProgramSubjectTypes;
 
         // 범위 진입 타워가 같은 적을 매 틱 재발동하지 않도록 기록하는 대상별 상태.
         public readonly Dictionary<int, long> LastTargetTriggerTick =
@@ -237,6 +254,9 @@ namespace RuleforgeTD.GameLogic.Simulation
 
         // 이동의 원본은 경로 진행 거리다. Position은 공간 검색용 환산 좌표다.
         public long PathProgressMilli;
+        // 분열 시 진행 방향 기준 좌우로 갈라진 가지의 경로 수직 오프셋이다.
+        // 경로 진행도와 별도로 보존해 다음 틱에도 분열체가 다시 겹치지 않게 한다.
+        public SimVector PathLateralOffset = SimVector.Zero;
         public SimPosition Position;
 
         // 체력·방어와 기본 이동 능력.
@@ -343,6 +363,8 @@ namespace RuleforgeTD.GameLogic.Simulation
         public int DirectionXBps;
         public int DirectionYBps;
         public bool Homing;
+        public bool ApplyEnemyProgramOnHit;
+        public ProjectileEffectVisualFlags VisualFlags;
 
         // 전투 수치와 수명.
         public long DamageMilli;
@@ -376,11 +398,13 @@ namespace RuleforgeTD.GameLogic.Simulation
     /// </summary>
     internal sealed class HazardState
     {
-        // 영역 정체성, 종류, 공간과 남은 수명.
+        // 영역 정체성, 종류, 연속 선분 공간과 남은 수명.
         public int Id;
         public BindingKind Kind;
-        public SimPosition Position;
+        public SimPosition StartPosition;
+        public SimPosition EndPosition;
         public int RadiusMilli;
+        public int DurationTicks;
         public int RemainingTicks;
 
         // 상태 피해와 보상을 원래 타워·카드·탄환에 귀속하기 위한 출처.
@@ -395,6 +419,47 @@ namespace RuleforgeTD.GameLogic.Simulation
 
         // 같은 영역이 같은 적에게 매 틱 무한 재적용되지 않도록 하는 원장.
         public readonly HashSet<int> AppliedEnemies = new HashSet<int>();
+    }
+
+    /// <summary>
+    /// 같은 탄환·카드가 만든 서로 맞닿은 불길 조각들이 한 틱에 같은 적에게
+    /// 화상을 여러 번 중첩하지 않도록 묶는 결정적 접촉 키다.
+    /// </summary>
+    internal readonly struct HazardContactKey
+    {
+        public HazardContactKey(
+            int sourceEntityId,
+            int sourceCardInstanceId,
+            int enemyId)
+        {
+            SourceEntityId = sourceEntityId;
+            SourceCardInstanceId = sourceCardInstanceId;
+            EnemyId = enemyId;
+        }
+
+        public int SourceEntityId { get; }
+        public int SourceCardInstanceId { get; }
+        public int EnemyId { get; }
+
+        public override bool Equals(object obj)
+        {
+            return obj is HazardContactKey other &&
+                   SourceEntityId == other.SourceEntityId &&
+                   SourceCardInstanceId ==
+                   other.SourceCardInstanceId &&
+                   EnemyId == other.EnemyId;
+        }
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                int hash = SourceEntityId;
+                hash = (hash * 397) ^ SourceCardInstanceId;
+                hash = (hash * 397) ^ EnemyId;
+                return hash;
+            }
+        }
     }
 
     /// <summary>

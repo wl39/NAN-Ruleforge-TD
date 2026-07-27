@@ -704,6 +704,15 @@ namespace RuleforgeTD.GameLogic.Simulation
                     continue;
                 }
 
+                // 지연은 캐스트와 쿨다운 진행을 잠시 멈추고, 봉인은 특수 능력
+                // 전체를 차단한다. 기절과 달리 진행 값을 취소하지 않아 상태가
+                // 끝난 뒤 남은 시간부터 결정적으로 재개한다.
+                if (IsEnemyDelayed(boss) ||
+                    IsEnemySpecialAbilitySealed(boss))
+                {
+                    continue;
+                }
+
                 if (boss.BossCastRemainingTicks > 0)
                 {
                     boss.BossCastRemainingTicks--;
@@ -821,8 +830,7 @@ namespace RuleforgeTD.GameLogic.Simulation
             boss.PathProgressMilli = Math.Min(
                 path.TotalLengthMilli,
                 boss.PathProgressMilli + distance);
-            boss.Position =
-                path.GetPosition(boss.PathProgressMilli);
+            RefreshEnemyPosition(boss);
             AnnounceBossAbility(
                 boss,
                 definition,

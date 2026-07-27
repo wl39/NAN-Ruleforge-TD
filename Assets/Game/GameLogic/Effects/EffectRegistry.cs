@@ -269,6 +269,92 @@ namespace RuleforgeTD.GameLogic.Effects
                     BindingKind.Stun,
                     BindingTrigger.OnFirstHit));
             registry.Register(EffectOperation.ApplyStun, new ApplyStatusEffectExecutor(StatusType.Stun));
+
+            // Common 확장 카드들은 같은 executor가 operation을 기준으로 실제 이중 해석을
+            // 분기한다. 도탄·가속·지연처럼 별도 런타임 상태가 필요한 동작도 registry에서
+            // 명시적으로 등록해 데이터에만 존재하는 무효 카드를 허용하지 않는다.
+            registry.Register(
+                EffectOperation.ConfigureProjectileRicochet,
+                new CommonCardEffectExecutor(
+                    EffectOperation.ConfigureProjectileRicochet));
+            registry.Register(
+                EffectOperation.ApplyEnemyRicochet,
+                new CommonCardEffectExecutor(
+                    EffectOperation.ApplyEnemyRicochet));
+            registry.Register(
+                EffectOperation.BindBleed,
+                new CommonCardEffectExecutor(
+                    EffectOperation.BindBleed));
+            registry.Register(
+                EffectOperation.ApplyBleed,
+                new CommonCardEffectExecutor(
+                    EffectOperation.ApplyBleed));
+            registry.Register(
+                EffectOperation.AccelerateProjectile,
+                new CommonCardEffectExecutor(
+                    EffectOperation.AccelerateProjectile));
+            registry.Register(
+                EffectOperation.AccelerateEnemy,
+                new CommonCardEffectExecutor(
+                    EffectOperation.AccelerateEnemy));
+            registry.Register(
+                EffectOperation.EnableProjectileHoming,
+                new CommonCardEffectExecutor(
+                    EffectOperation.EnableProjectileHoming));
+            registry.Register(
+                EffectOperation.ApplyHomingPriority,
+                new CommonCardEffectExecutor(
+                    EffectOperation.ApplyHomingPriority));
+            registry.Register(
+                EffectOperation.DelayProjectile,
+                new CommonCardEffectExecutor(
+                    EffectOperation.DelayProjectile));
+            registry.Register(
+                EffectOperation.ApplyDelay,
+                new CommonCardEffectExecutor(
+                    EffectOperation.ApplyDelay));
+
+            EffectOperation[] uncommonOperations =
+            {
+                EffectOperation.BindCurse,
+                EffectOperation.ApplyCurse,
+                EffectOperation.CreateBindTrap,
+                EffectOperation.ApplyBind,
+                EffectOperation.MakeAirborneProjectile,
+                EffectOperation.ApplyAirborne,
+                EffectOperation.BindShock,
+                EffectOperation.ApplyShock,
+                EffectOperation.BindFreeze,
+                EffectOperation.ApplyFreeze,
+                EffectOperation.CreateAfterimageProjectile,
+                EffectOperation.ApplyAfterimage,
+                EffectOperation.EnableProjectilePulse,
+                EffectOperation.ApplyEnemyPulse,
+                EffectOperation.EnableProjectileMagnet,
+                EffectOperation.ApplyEnemyMagnet,
+                EffectOperation.EnableProjectileReflect,
+                EffectOperation.ApplyEnemyReflect,
+                EffectOperation.EnableProjectileContagion,
+                EffectOperation.ApplyEnemyContagion,
+                EffectOperation.BindSeal,
+                EffectOperation.ApplySeal,
+                EffectOperation.BindCorrosion,
+                EffectOperation.ApplyCorrosion,
+                EffectOperation.EnableProjectileOrbit,
+                EffectOperation.ApplyEnemyOrbit,
+                EffectOperation.BindLifesteal,
+                EffectOperation.ApplyLifesteal,
+                EffectOperation.BindFear,
+                EffectOperation.ApplyFear
+            };
+            for (int i = 0; i < uncommonOperations.Length; i++)
+            {
+                EffectOperation operation =
+                    uncommonOperations[i];
+                registry.Register(
+                    operation,
+                    new UncommonEffectExecutor(operation));
+            }
             return registry;
         }
 

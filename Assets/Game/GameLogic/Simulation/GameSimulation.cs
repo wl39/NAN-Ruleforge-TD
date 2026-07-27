@@ -78,6 +78,11 @@ namespace RuleforgeTD.GameLogic.Simulation
         private readonly List<EntityId> spatialScratch = new List<EntityId>(256);
         private readonly List<EntityId> sweepScratch = new List<EntityId>(256);
         private readonly HashSet<int> sweepIds = new HashSet<int>();
+        private readonly HashSet<HazardContactKey>
+            hazardContactsThisTick =
+                new HashSet<HazardContactKey>();
+        private readonly List<EnemyState> towerVolleyTargetScratch =
+            new List<EnemyState>(3);
 
         // 해금된 타워, RootChain별 안전 예산, 적 가계별 보상 원장을 보관한다.
         private readonly HashSet<int> ownedTowerDefinitions = new HashSet<int>();
@@ -207,6 +212,7 @@ namespace RuleforgeTD.GameLogic.Simulation
             towers.Clear();
             cards.Clear();
             hazards.Clear();
+            hazardContactsThisTick.Clear();
             programFrames.Clear();
             freeProgramFrames.Clear();
             presentationEvents = new SimulationPresentationEvent[
@@ -219,6 +225,8 @@ namespace RuleforgeTD.GameLogic.Simulation
             ownedTowerDefinitions.Clear();
             chainBudgets.Clear();
             lineages.Clear();
+            ResetCommonCardRuntime();
+            ResetUncommonCardState();
 
             tick = 0;
             currentWaveIndex = -1;
@@ -312,6 +320,20 @@ namespace RuleforgeTD.GameLogic.Simulation
                     return SelectCardPack(command.PrimaryId);
                 case GameCommandType.ResumeCardPackCombat:
                     return ResumeCardPackCombat();
+                case GameCommandType.UpgradeTower:
+                    return UpgradeTower(command.PrimaryId);
+                case GameCommandType.SetTowerSubjectType:
+                    return SetTowerSubjectType(
+                        command.PrimaryId,
+                        command.SecondaryId);
+                case GameCommandType.SetTowerSlotSubjectType:
+                    return SetTowerSlotSubjectType(
+                        command.PrimaryId,
+                        command.SecondaryId,
+                        command.TertiaryId);
+                case GameCommandType.GrantDebugGold:
+                    return GrantDebugGold(
+                        command.PrimaryId);
                 default:
                     return CommandResult.Reject(
                         CommandError.InvalidTarget,
@@ -465,6 +487,10 @@ namespace RuleforgeTD.GameLogic.Simulation
                     continue;
                 }
 
+                ProjectileEffectVisualFlags visualFlags =
+                    projectile.VisualFlags |
+                    GetCommonProjectileVisualFlags(projectile) |
+                    GetProjectileUncommonEffectFlags(projectile.Id);
                 projectileSnapshots.Add(new ProjectileSnapshot(
                     projectile.Id.Value,
                     projectile.SourceTowerId.Value,
@@ -477,7 +503,43 @@ namespace RuleforgeTD.GameLogic.Simulation
                     projectile.DirectionXBps,
                     projectile.DirectionYBps,
                     projectile.Homing,
-                    projectile.Bindings.Count));
+                    projectile.ApplyEnemyProgramOnHit,
+                    projectile.Bindings.Count,
+                    projectile.TargetId.Value,
+                    visualFlags,
+                    GetProjectileRicochetsUsed(projectile.Id),
+                    GetProjectileRicochetsRemaining(projectile.Id),
+                    GetProjectileTravelDistanceMilli(projectile.Id),
+                    GetProjectileDelayRemainingTicks(projectile.Id)));
+            }
+
+            // 지속형 장판도 규칙 상태의 방어적 복사본으로 노출한다.
+            // 화면 계층은 이 배열을 배치 렌더링할 뿐, 물리 충돌을 다시 계산하지 않는다.
+            var hazardSnapshots =
+                new List<HazardSnapshot>(hazards.Count);
+            for (int i = 0; i < hazards.Count; i++)
+            {
+                HazardState hazard = hazards[i];
+                if (hazard == null ||
+                    hazard.RemainingTicks <= 0)
+                {
+                    continue;
+                }
+
+                hazardSnapshots.Add(new HazardSnapshot(
+                    hazard.Id,
+                    hazard.Kind == BindingKind.Burn
+                        ? StatusType.Burn
+                        : StatusType.Poison,
+                    hazard.StartPosition,
+                    hazard.EndPosition,
+                    hazard.RadiusMilli,
+                    hazard.DurationTicks,
+                    hazard.RemainingTicks,
+                    hazard.SourceTowerId.Value,
+                    hazard.SourceCardId,
+                    hazard.SourceCardInstanceId,
+                    hazard.SourceEntityId.Value));
             }
 
             // 슬롯 배열은 내부 참조를 노출하지 않도록 타워마다 새 배열에 복사한다.
@@ -487,12 +549,21 @@ namespace RuleforgeTD.GameLogic.Simulation
                 TowerState tower = towers[i];
                 int[] slots = new int[tower.CardInstanceIds.Length];
                 Array.Copy(tower.CardInstanceIds, slots, slots.Length);
+                var slotSubjectTypes =
+                    new SubjectType[tower.CardSubjectTypes.Length];
+                Array.Copy(
+                    tower.CardSubjectTypes,
+                    slotSubjectTypes,
+                    slotSubjectTypes.Length);
                 towerSnapshots[i] = new TowerSnapshot(
                     tower.Id.Value,
                     content.GetTower(tower.DefinitionId).StableId,
                     tower.BuildPointIndex,
                     tower.Position,
-                    slots);
+                    slots,
+                    tower.Level,
+                    tower.SubjectType,
+                    slotSubjectTypes);
             }
 
             // 카드 인벤토리는 장착되지 않은 카드까지 모두 노출해 계획 UI가 구성될 수 있게 한다.
@@ -622,6 +693,7 @@ namespace RuleforgeTD.GameLogic.Simulation
                 gold,
                 enemySnapshots.ToArray(),
                 projectileSnapshots.ToArray(),
+                hazardSnapshots.ToArray(),
                 towerSnapshots,
                 cardSnapshots,
                 draftOffers.ToArray(),
@@ -749,12 +821,17 @@ namespace RuleforgeTD.GameLogic.Simulation
                 hash.Add(tower.DefinitionId.Value);
                 hash.Add(tower.BuildPointIndex);
                 hash.Add(tower.Position);
+                hash.Add(tower.Level);
+                hash.Add((int)tower.SubjectType);
                 hash.Add(tower.CooldownRemaining);
+                hash.Add(tower.AttackWindupRemaining);
+                hash.Add(tower.PendingAttackTargetId);
                 hash.Add(tower.GoldGeneratedThisWave);
                 hash.Add(tower.CardInstanceIds.Length);
                 for (int slot = 0; slot < tower.CardInstanceIds.Length; slot++)
                 {
                     hash.Add(tower.CardInstanceIds[slot]);
+                    hash.Add((int)tower.CardSubjectTypes[slot]);
                 }
 
                 hash.Add(tower.Program.Length);
@@ -764,6 +841,7 @@ namespace RuleforgeTD.GameLogic.Simulation
                 {
                     hash.Add(tower.Program[cardIndex]);
                     hash.Add(tower.ProgramInstances[cardIndex]);
+                    hash.Add((int)tower.ProgramSubjectTypes[cardIndex]);
                 }
 
                 AddSortedIntSet(ref hash, tower.TargetsInside);
@@ -797,6 +875,7 @@ namespace RuleforgeTD.GameLogic.Simulation
                 hash.Add((int)enemy.SpawnOrigin);
                 hash.Add(enemy.SummonerId);
                 hash.Add(enemy.PathProgressMilli);
+                hash.Add(enemy.PathLateralOffset);
                 hash.Add(enemy.Position);
                 hash.Add(enemy.HealthMilli);
                 hash.Add(enemy.MaxHealthMilli);
@@ -870,6 +949,7 @@ namespace RuleforgeTD.GameLogic.Simulation
                 hash.Add(projectile.DirectionXBps);
                 hash.Add(projectile.DirectionYBps);
                 hash.Add(projectile.Homing);
+                hash.Add((uint)projectile.VisualFlags);
                 hash.Add(projectile.DamageMilli);
                 hash.Add(projectile.SpeedMilliPerTick);
                 hash.Add(projectile.RadiusMilli);
@@ -878,6 +958,7 @@ namespace RuleforgeTD.GameLogic.Simulation
                 hash.Add(projectile.PiercesUsed);
                 hash.Add(projectile.PierceDamageMultiplierBps);
                 hash.Add(projectile.CriticalChanceBps);
+                hash.Add(projectile.ApplyEnemyProgramOnHit);
                 hash.Add(projectile.Alive);
                 hash.Add(projectile.ExpirationQueued);
                 hash.Add(projectile.RootChainId);
@@ -904,8 +985,10 @@ namespace RuleforgeTD.GameLogic.Simulation
                 HazardState hazard = hazards[i];
                 hash.Add(hazard.Id);
                 hash.Add((int)hazard.Kind);
-                hash.Add(hazard.Position);
+                hash.Add(hazard.StartPosition);
+                hash.Add(hazard.EndPosition);
                 hash.Add(hazard.RadiusMilli);
+                hash.Add(hazard.DurationTicks);
                 hash.Add(hazard.RemainingTicks);
                 hash.Add(hazard.SourceTowerId);
                 hash.Add(hazard.SourceCardId);
@@ -1014,6 +1097,8 @@ namespace RuleforgeTD.GameLogic.Simulation
                 hash.Add(pack.WorldDrop);
             }
 
+            AppendCommonCardStateHash(ref hash);
+            AppendUncommonStateHash(ref hash);
             return hash.Finish();
         }
 
@@ -1029,6 +1114,9 @@ namespace RuleforgeTD.GameLogic.Simulation
             AppendEffectNodeHash(ref hash, binding.Node);
             hash.Add(binding.Used);
             hash.Add(binding.TriggerCount);
+            hash.Add(binding.TrailStarted);
+            hash.Add(binding.TrailStartPosition);
+            hash.Add(binding.ActiveTrailHazardId);
         }
 
         /// <summary>컴파일된 효과 노드의 모든 수치 인자를 정해진 순서로 해시에 추가한다.</summary>

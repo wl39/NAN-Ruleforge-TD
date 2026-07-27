@@ -99,7 +99,89 @@ namespace RuleforgeTD.GameLogic.Content
         BindStun = 19,
 
         /// <summary>현재 적에게 기절 또는 정예·보스 제어 게이지를 적용한다.</summary>
-        ApplyStun = 20
+        ApplyStun = 20,
+
+        /// <summary>탄환이 적중 후 다른 적에게 튕길 수 있도록 도탄 규칙을 설정한다.</summary>
+        ConfigureProjectileRicochet = 21,
+        /// <summary>적이 밀치기·에어본될 때 주변 적에게 튕기는 도탄 상태를 적용한다.</summary>
+        ApplyEnemyRicochet = 22,
+        /// <summary>탄환 적중 시 출혈을 적용하는 규칙을 부착한다.</summary>
+        BindBleed = 23,
+        /// <summary>적이 이동할 때 피해를 받는 출혈 상태를 적용한다.</summary>
+        ApplyBleed = 24,
+        /// <summary>탄환 속도와 비행 거리에 따른 피해 증가를 설정한다.</summary>
+        AccelerateProjectile = 25,
+        /// <summary>적의 이동 속도와 가계 보상 예산을 함께 증가시킨다.</summary>
+        AccelerateEnemy = 26,
+        /// <summary>탄환이 표식 또는 가까운 적을 계속 추적하게 한다.</summary>
+        EnableProjectileHoming = 27,
+        /// <summary>적을 유도 탄환의 우선 추적 대상으로 지정한다.</summary>
+        ApplyHomingPriority = 28,
+        /// <summary>탄환을 잠시 정지시킨 뒤 강화하여 다시 움직이게 한다.</summary>
+        DelayProjectile = 29,
+        /// <summary>적의 다음 이동 또는 특수 능력 실행을 지연한다.</summary>
+        ApplyDelay = 30,
+
+        /// <summary>탄환 적중 시 저주를 적용하는 규칙을 부착한다.</summary>
+        BindCurse = 31,
+        /// <summary>적에게 상태 피해와 지속시간을 증폭하는 저주를 적용한다.</summary>
+        ApplyCurse = 32,
+        /// <summary>탄환을 적중 위치에 고정해 주기적인 속박 파동을 만들게 한다.</summary>
+        CreateBindTrap = 33,
+        /// <summary>적을 일정 시간 이동하지 못하게 속박한다.</summary>
+        ApplyBind = 34,
+        /// <summary>탄환을 포물선 비행 후 범위 착탄하도록 설정한다.</summary>
+        MakeAirborneProjectile = 35,
+        /// <summary>적을 공중에 띄운 뒤 착지 충돌 피해를 발생시킨다.</summary>
+        ApplyAirborne = 36,
+        /// <summary>탄환 적중 시 연쇄 감전을 발생시키는 규칙을 부착한다.</summary>
+        BindShock = 37,
+        /// <summary>적에게 충전 중첩을 적용하고 최대 중첩에서 방전시킨다.</summary>
+        ApplyShock = 38,
+        /// <summary>탄환 적중 시 냉기 중첩과 소멸 파편을 만드는 규칙을 부착한다.</summary>
+        BindFreeze = 39,
+        /// <summary>적에게 냉기를 적용하고 최대 중첩에서 빙결시킨다.</summary>
+        ApplyFreeze = 40,
+        /// <summary>탄환이 지나간 경로를 약한 유령 탄환이 다시 따라가게 한다.</summary>
+        CreateAfterimageProjectile = 41,
+        /// <summary>적의 이동 경로에 피해 전달 잔상을 남긴다.</summary>
+        ApplyAfterimage = 42,
+        /// <summary>탄환이 비행 중 주기적으로 범위 파동을 방출하게 한다.</summary>
+        EnableProjectilePulse = 43,
+        /// <summary>적이 주기적으로 주변에 상태이상을 퍼뜨리게 한다.</summary>
+        ApplyEnemyPulse = 44,
+        /// <summary>탄환이 가까운 아군 탄환을 끌어당겨 합체하게 한다.</summary>
+        EnableProjectileMagnet = 45,
+        /// <summary>적이 주변 아군 탄환을 자신에게 끌어당기게 한다.</summary>
+        ApplyEnemyMagnet = 46,
+        /// <summary>탄환이 타워로 되돌아왔다가 다시 적을 추적하게 한다.</summary>
+        EnableProjectileReflect = 47,
+        /// <summary>적중한 탄환을 가까운 다른 적에게 반사시키는 상태를 적용한다.</summary>
+        ApplyEnemyReflect = 48,
+        /// <summary>탄환이 접촉한 아군 탄환에 상태 카드 하나를 전달하게 한다.</summary>
+        EnableProjectileContagion = 49,
+        /// <summary>적이 보유한 디버프를 주기적으로 가까운 적에게 옮기게 한다.</summary>
+        ApplyEnemyContagion = 50,
+        /// <summary>탄환 첫 적중 시 특수 능력을 봉인하는 규칙을 부착한다.</summary>
+        BindSeal = 51,
+        /// <summary>적의 보호막·치유·순간이동·소환 능력을 봉인한다.</summary>
+        ApplySeal = 52,
+        /// <summary>탄환 적중 시 방어력을 감소시키는 부식 규칙을 부착한다.</summary>
+        BindCorrosion = 53,
+        /// <summary>적의 방어력과 최대 체력을 서서히 감소시키는 부식을 적용한다.</summary>
+        ApplyCorrosion = 54,
+        /// <summary>탄환이 처음 적중한 적 주위를 공전하며 반복 피해를 주게 한다.</summary>
+        EnableProjectileOrbit = 55,
+        /// <summary>적이 현재 위치 주변을 회전하며 다른 적과 충돌하게 한다.</summary>
+        ApplyEnemyOrbit = 56,
+        /// <summary>탄환 피해 일부로 본진 체력을 회복하는 규칙을 부착한다.</summary>
+        BindLifesteal = 57,
+        /// <summary>해당 적에게 가한 피해 일부로 본진 체력을 회복하게 한다.</summary>
+        ApplyLifesteal = 58,
+        /// <summary>탄환 적중 시 적을 경로 반대 방향으로 도망치게 하는 규칙을 부착한다.</summary>
+        BindFear = 59,
+        /// <summary>적에게 공포와 종료 후의 일시적 가속을 적용한다.</summary>
+        ApplyFear = 60
     }
 
     /// <summary>
@@ -175,7 +257,51 @@ namespace RuleforgeTD.GameLogic.Content
         Pierced = 4,
 
         /// <summary>일반 적을 멈추고 정예·보스에는 제어 게이지로 변환되는 상태다.</summary>
-        Stun = 5
+        Stun = 5,
+        /// <summary>밀치기·에어본 시 주변 적에게 튕기는 충돌 상태다.</summary>
+        Ricochet = 6,
+        /// <summary>이동하거나 강제 이동할 때 추가 물리 피해를 받는 상태다.</summary>
+        Bleed = 7,
+        /// <summary>유도 탄환의 표적 선택에서 우선되는 상태다.</summary>
+        HomingPriority = 8,
+        /// <summary>다음 이동 또는 특수 능력 실행을 늦추는 상태다.</summary>
+        Delay = 9,
+        /// <summary>상태이상 피해와 지속시간을 증폭하는 상태다.</summary>
+        Curse = 10,
+        /// <summary>적의 이동만 멈추는 속박 상태다.</summary>
+        Bind = 11,
+        /// <summary>적이 공중에 떠 있어 이동하지 못하는 상태다.</summary>
+        Airborne = 12,
+        /// <summary>최대 중첩에서 주변으로 방전되는 충전 상태다.</summary>
+        Shock = 13,
+        /// <summary>최대 중첩에서 빙결로 전환되는 냉기 상태다.</summary>
+        Chill = 14,
+        /// <summary>적의 이동과 행동을 잠시 멈추는 빙결 상태다.</summary>
+        Frozen = 15,
+        /// <summary>빙결 직후 반복 빙결을 막는 짧은 면역 상태다.</summary>
+        FreezeImmunity = 16,
+        /// <summary>적의 이동 경로에 피해 전달 잔상을 남기는 상태다.</summary>
+        Afterimage = 17,
+        /// <summary>주기적으로 주변에 효과를 퍼뜨리는 파동 상태다.</summary>
+        Pulse = 18,
+        /// <summary>주변 탄환을 적 쪽으로 끌어당기는 자석 상태다.</summary>
+        Magnet = 19,
+        /// <summary>적중 탄환을 다른 적에게 반사시키는 상태다.</summary>
+        Reflect = 20,
+        /// <summary>주기적으로 디버프 하나를 가까운 적에게 옮기는 상태다.</summary>
+        Contagion = 21,
+        /// <summary>적의 특수 능력 실행을 막는 봉인 상태다.</summary>
+        Seal = 22,
+        /// <summary>방어력과 최대 체력을 점진적으로 낮추는 부식 상태다.</summary>
+        Corrosion = 23,
+        /// <summary>적이 현재 위치 주변을 회전하게 하는 상태다.</summary>
+        Orbit = 24,
+        /// <summary>해당 적에게 가한 피해 일부를 본진 회복으로 전환하는 상태다.</summary>
+        Lifesteal = 25,
+        /// <summary>적을 경로 반대 방향으로 이동시키는 공포 상태다.</summary>
+        Fear = 26,
+        /// <summary>공포가 끝난 뒤 잠시 적용되는 이동 속도 증가 상태다.</summary>
+        FearHaste = 27
     }
 
     /// <summary>
@@ -310,6 +436,12 @@ namespace RuleforgeTD.GameLogic.Content
 
         /// <summary>타워가 다시 발동하기까지 기다리는 정수 틱 수다.</summary>
         public int cooldownTicks;
+
+        /// <summary>
+        /// 공격 준비 연출을 시작한 뒤 실제 탄환을 생성하기까지 기다리는 정수 틱 수다.
+        /// 0이면 이전 콘텐츠처럼 준비 이벤트와 탄환 생성이 같은 틱에 일어난다.
+        /// </summary>
+        public int attackWindupTicks;
 
         /// <summary>탐지 및 공격 범위의 milli 단위 반지름이다.</summary>
         public int rangeMilli;
@@ -453,11 +585,14 @@ namespace RuleforgeTD.GameLogic.Content
         /// <summary>하나의 체인에서 새로 만들 수 있는 탄환 수다.</summary>
         public int maxProjectileSpawnsPerChain = 64;
 
-        /// <summary>하나의 적 가계에서 허용하는 분열 횟수다.</summary>
-        public int maxEnemySplitCount = 2;
+        /// <summary>
+        /// 이전 콘텐츠와 리플레이의 호환성을 위해 남겨 둔 분열 횟수 힌트다.
+        /// 실제 분열은 체력이 1 미만이 되면 자연 종료하고, 가계 개체 수 상한이 비상 보호선으로 작동한다.
+        /// </summary>
+        public int maxEnemySplitCount = 255;
 
         /// <summary>분열과 파생을 포함한 하나의 적 가계 최대 구성원 수다.</summary>
-        public int maxEnemyLineageMembers = 8;
+        public int maxEnemyLineageMembers = 256;
 
         /// <summary>탄환 하나가 허용하는 최대 도탄 횟수다.</summary>
         public int maxProjectileBounces = 8;

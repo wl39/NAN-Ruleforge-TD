@@ -4,6 +4,48 @@ using RuleforgeTD.GameLogic.Core;
 namespace RuleforgeTD.GameLogic.Simulation
 {
     /// <summary>
+    /// 판정 상태를 다시 추론하지 않고 카드별 투사체 색상·궤적을 표현하기 위한 비트 집합이다.
+    /// 복수 카드가 한 탄환에 함께 적용될 수 있으므로 단일 종류가 아니라 플래그로 노출한다.
+    /// </summary>
+    [System.Flags]
+    public enum ProjectileEffectVisualFlags : uint
+    {
+        None = 0,
+        Ricochet = 1u << 0,
+        Bleed = 1u << 1,
+        Accelerate = 1u << 2,
+        Homing = 1u << 3,
+        Delay = 1u << 4,
+        Curse = 1u << 5,
+        Bind = 1u << 6,
+        Airborne = 1u << 7,
+        Shock = 1u << 8,
+        Freeze = 1u << 9,
+        Afterimage = 1u << 10,
+        Pulse = 1u << 11,
+        Magnet = 1u << 12,
+        Reflect = 1u << 13,
+        Contagion = 1u << 14,
+        Seal = 1u << 15,
+        Corrosion = 1u << 16,
+        Orbit = 1u << 17,
+        Lifesteal = 1u << 18,
+        Fear = 1u << 19,
+        Split = 1u << 20,
+        Pierce = 1u << 21,
+        Burn = 1u << 22,
+        Slow = 1u << 23,
+        Explode = 1u << 24,
+        Knockback = 1u << 25,
+        Mark = 1u << 26,
+        GoldBounty = 1u << 27,
+        Poison = 1u << 28,
+        Enlarge = 1u << 29,
+        Shrink = 1u << 30,
+        Stun = 1u << 31
+    }
+
+    /// <summary>
     /// 게임 규칙이 확정한 사실 중 화면·사운드가 표현할 만한 사건의 종류다.
     /// </summary>
     /// <remarks>
@@ -58,7 +100,20 @@ namespace RuleforgeTD.GameLogic.Simulation
         CardPackOpened = 23,
         BossAbilityTelegraphed = 24,
         BossAbilityActivated = 25,
-        BossPhaseChanged = 26
+        BossPhaseChanged = 26,
+        TowerUpgraded = 27,
+        TowerSubjectTypeChanged = 28,
+        /// <summary>
+        /// 공격 타워가 대상을 확정하고 결정론적 준비 시간을 시작했다.
+        /// SubjectId는 잠근 적, SourceId는 타워, Value는 준비 틱 수다.
+        /// </summary>
+        TowerAttackStarted = 29,
+        /// <summary>도탄 탄환이 다음 적을 향해 실제 진행 방향을 바꾸었다.</summary>
+        ProjectileRicochet = 30,
+        /// <summary>도탄 상태의 적이 강제 이동 중 주변 적과 충돌했다.</summary>
+        EnemyRicochet = 31,
+        /// <summary>카드 전용 연출을 재생할 수 있는 논리 효과가 확정되었다.</summary>
+        EffectTriggered = 32
     }
 
     /// <summary>
@@ -301,7 +356,15 @@ namespace RuleforgeTD.GameLogic.Simulation
             int directionXBps,
             int directionYBps,
             bool homing,
-            int bindingCount)
+            bool applyEnemyProgramOnHit,
+            int bindingCount,
+            int targetId = -1,
+            ProjectileEffectVisualFlags visualFlags =
+                ProjectileEffectVisualFlags.None,
+            int ricochetsUsed = 0,
+            int ricochetsRemaining = 0,
+            long distanceTravelledMilli = 0,
+            int delayRemainingTicks = 0)
         {
             Id = id;
             SourceTowerId = sourceTowerId;
@@ -314,11 +377,23 @@ namespace RuleforgeTD.GameLogic.Simulation
             DirectionXBps = directionXBps;
             DirectionYBps = directionYBps;
             Homing = homing;
+            ApplyEnemyProgramOnHit = applyEnemyProgramOnHit;
             BindingCount = bindingCount;
+            TargetId = targetId;
+            VisualFlags = visualFlags;
+            RicochetsUsed = ricochetsUsed;
+            RicochetsRemaining = ricochetsRemaining;
+            DistanceTravelledMilli = distanceTravelledMilli;
+            DelayRemainingTicks = delayRemainingTicks;
         }
 
         /// <summary>런 안에서 재사용되지 않는 탄환 개체 ID다.</summary>
         public int Id { get; }
+        /// <summary>
+        /// 현재 조준 중인 적 개체 ID다. 표시 계층이 발사점부터 적 중심까지
+        /// 일관된 시각 궤적을 구성하는 데 사용하며 전투 판정에는 관여하지 않는다.
+        /// </summary>
+        public int TargetId { get; }
         /// <summary>이 탄환과 피해를 만든 타워 인스턴스 ID다.</summary>
         public int SourceTowerId { get; }
         /// <summary>현재 논리 좌표다.</summary>
@@ -339,8 +414,66 @@ namespace RuleforgeTD.GameLogic.Simulation
         public int DirectionYBps { get; }
         /// <summary>매 틱 대상을 다시 추적하는 탄환인지 나타낸다.</summary>
         public bool Homing { get; }
+        /// <summary>적중 시 출처 타워의 카드들을 적 해석으로 실행하는지 나타낸다.</summary>
+        public bool ApplyEnemyProgramOnHit { get; }
         /// <summary>적중·소멸 시 실행할 효과 바인딩 수다.</summary>
         public int BindingCount { get; }
+        /// <summary>현재 탄환에 적용된 카드별 표현 힌트다. 전투 판정에는 사용하지 않는다.</summary>
+        public ProjectileEffectVisualFlags VisualFlags { get; }
+        /// <summary>현재 탄환이 이미 사용한 도탄 횟수다.</summary>
+        public int RicochetsUsed { get; }
+        /// <summary>현재 탄환이 추가로 사용할 수 있는 도탄 횟수다.</summary>
+        public int RicochetsRemaining { get; }
+        /// <summary>생성 후 시뮬레이션에서 실제 이동한 누적 거리다.</summary>
+        public long DistanceTravelledMilli { get; }
+        /// <summary>지연 카드로 인해 이동을 재개하기까지 남은 틱 수다.</summary>
+        public int DelayRemainingTicks { get; }
+    }
+
+    /// <summary>
+    /// 화염 길이나 독안개처럼 월드에 일정 시간 남는 논리 위험 지대의
+    /// 읽기 전용 복사본이다. Unity 표현 계층은 이 값만 그리며 판정은
+    /// 계속 <see cref="GameSimulation"/>이 담당한다.
+    /// </summary>
+    public readonly struct HazardSnapshot
+    {
+        public HazardSnapshot(
+            int id,
+            StatusType statusType,
+            SimPosition startPosition,
+            SimPosition endPosition,
+            int radiusMilli,
+            int durationTicks,
+            int remainingTicks,
+            int sourceTowerId,
+            CardId sourceCardId,
+            int sourceCardInstanceId,
+            int sourceEntityId)
+        {
+            Id = id;
+            StatusType = statusType;
+            StartPosition = startPosition;
+            EndPosition = endPosition;
+            RadiusMilli = radiusMilli;
+            DurationTicks = durationTicks;
+            RemainingTicks = remainingTicks;
+            SourceTowerId = sourceTowerId;
+            SourceCardId = sourceCardId;
+            SourceCardInstanceId = sourceCardInstanceId;
+            SourceEntityId = sourceEntityId;
+        }
+
+        public int Id { get; }
+        public StatusType StatusType { get; }
+        public SimPosition StartPosition { get; }
+        public SimPosition EndPosition { get; }
+        public int RadiusMilli { get; }
+        public int DurationTicks { get; }
+        public int RemainingTicks { get; }
+        public int SourceTowerId { get; }
+        public CardId SourceCardId { get; }
+        public int SourceCardInstanceId { get; }
+        public int SourceEntityId { get; }
     }
 
     /// <summary>
@@ -483,13 +616,48 @@ namespace RuleforgeTD.GameLogic.Simulation
             string definitionId,
             int buildPointIndex,
             SimPosition position,
-            int[] cardInstanceIds)
+            int[] cardInstanceIds,
+            int level,
+            SubjectType subjectType,
+            SubjectType[] cardSubjectTypes)
         {
             Id = id;
             DefinitionId = definitionId;
             BuildPointIndex = buildPointIndex;
             Position = position;
             CardInstanceIds = cardInstanceIds;
+            Level = level;
+            SubjectType = subjectType;
+            CardSubjectTypes = cardSubjectTypes;
+        }
+
+        public TowerSnapshot(
+            int id,
+            string definitionId,
+            int buildPointIndex,
+            SimPosition position,
+            int[] cardInstanceIds,
+            int level,
+            SubjectType subjectType)
+        {
+            Id = id;
+            DefinitionId = definitionId;
+            BuildPointIndex = buildPointIndex;
+            Position = position;
+            CardInstanceIds = cardInstanceIds;
+            Level = level;
+            SubjectType = subjectType;
+            CardSubjectTypes =
+                new SubjectType[
+                    cardInstanceIds == null
+                        ? 0
+                        : cardInstanceIds.Length];
+            for (int slot = 0;
+                 slot < CardSubjectTypes.Length;
+                 slot++)
+            {
+                CardSubjectTypes[slot] = subjectType;
+            }
         }
 
         /// <summary>배치된 타워 인스턴스 ID다.</summary>
@@ -500,6 +668,12 @@ namespace RuleforgeTD.GameLogic.Simulation
         public int BuildPointIndex { get; }
         /// <summary>건설 지점에서 얻은 논리 좌표다.</summary>
         public SimPosition Position { get; }
+        /// <summary>1~7 범위의 현재 타워 레벨이다.</summary>
+        public int Level { get; }
+        /// <summary>호환용으로 유지되는 마지막 선택 해석이다.</summary>
+        public SubjectType SubjectType { get; }
+        /// <summary>각 슬롯에 독립적으로 설정된 탄환/적 해석이다.</summary>
+        public SubjectType[] CardSubjectTypes { get; }
         /// <summary>
         /// 슬롯 순서의 카드 인스턴스 ID 배열이며 빈 슬롯은 음수 값이다.
         /// </summary>
@@ -550,6 +724,7 @@ namespace RuleforgeTD.GameLogic.Simulation
             int gold,
             EnemySnapshot[] enemies,
             ProjectileSnapshot[] projectiles,
+            HazardSnapshot[] hazards,
             TowerSnapshot[] towers,
             CardInstanceSnapshot[] cards,
             CardId[] draftOffers,
@@ -572,6 +747,7 @@ namespace RuleforgeTD.GameLogic.Simulation
             Gold = gold;
             Enemies = enemies;
             Projectiles = projectiles;
+            Hazards = hazards;
             Towers = towers;
             Cards = cards;
             DraftOffers = draftOffers;
@@ -602,6 +778,8 @@ namespace RuleforgeTD.GameLogic.Simulation
         public EnemySnapshot[] Enemies { get; }
         /// <summary>현재 월드에 남아 있는 탄환 복사본이다.</summary>
         public ProjectileSnapshot[] Projectiles { get; }
+        /// <summary>현재 월드에 남아 있는 지속형 위험 지대 복사본이다.</summary>
+        public HazardSnapshot[] Hazards { get; }
         /// <summary>배치된 타워 복사본이다.</summary>
         public TowerSnapshot[] Towers { get; }
         /// <summary>보유한 모든 카드 인스턴스와 장착 상태다.</summary>

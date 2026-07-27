@@ -2245,6 +2245,8 @@ Archer Tower 전투 쇼케이스의 기본 장착 프로그램은 왼쪽에서 �
 현재 `phase1-content.json`의 적 해석 기준 화상과 중독 수치는 다음과 같다.
 
 * 화상: `ApplyBurn`, `amount 500 milli`, `durationTicks 90`, `intervalTicks 15`, `maxStacks 10`. 30Hz 기준 3초 동안 0.5초 간격으로 틱하며 `radiusMilli 1500`은 적 해석의 전염 반경이다.
+* 화상 탄환의 `BindBurn`은 `amount2 1000 milli` 길이마다 불길 선분을 확정하고, `amount3 60 ticks`에 따라 각 선분을 2초간 유지한다. 작성 중 선분은 매 이동 틱 탄환 위치까지 늘어나며, 마지막 선분은 적중점 또는 소멸점에서 닫혀 발사점부터 끝점까지 빈 구간 없이 이어진다.
+* 불길 접촉 판정은 `GameSimulation`의 선분 Hazard가 담당한다. 같은 불길 조각은 같은 적에게 한 번만 화상을 적용하고, 맞닿은 조각 여러 개가 같은 틱에 같은 적을 중복 적용하지 않는다. Unity 표현 계층은 `HazardSnapshot`을 단일 배치 메시로 애니메이션하며 별도 물리 판정을 만들지 않는다.
 * 중독: `ApplyPoison`, `amount 500 milli`, `durationTicks 180`, `intervalTicks 30`, `maxStacks 20`. 30Hz 기준 6초 동안 1초 간격으로 틱하며, 현재 `chanceBps 5000` 값은 중독 피해의 방어 무시율로 컴파일된다.
 
 쇼케이스의 `EnemyHealth`가 정수 체력을 사용하더라도 각 화상 및 중독 틱을 즉시 올림하여 1 피해로 바꾸지 않는다. 대상과 상태 종류별로 milli 피해를 누적하고, 누적값이 `1000 milli` 이상일 때만 정수 피해를 적용한 뒤 나머지를 보존한다. 이 누적기는 표시 프레임 속도가 아니라 고정된 상태 틱 일정에 따라 갱신한다.

@@ -252,6 +252,8 @@ namespace RuleforgeTD.GameLogic.Content
                 }
                 if (dto.cooldownTicks < 0 ||
                     dto.cooldownTicks > MaxDurationTicks ||
+                    dto.attackWindupTicks < 0 ||
+                    dto.attackWindupTicks > MaxDurationTicks ||
                     dto.rangeMilli < 0 ||
                     dto.rangeMilli > MaxSpatialRadiusMilli ||
                     dto.baseDamageMilli < 0 ||
@@ -283,6 +285,7 @@ namespace RuleforgeTD.GameLogic.Content
                     SlotCount = dto.slotCount,
                     ComputeCapacity = dto.computeCapacity,
                     CooldownTicks = dto.cooldownTicks,
+                    AttackWindupTicks = dto.attackWindupTicks,
                     RangeMilli = dto.rangeMilli,
                     BaseDamageMilli = dto.baseDamageMilli,
                     ProjectileSpeedMilliPerTick =
@@ -632,6 +635,7 @@ namespace RuleforgeTD.GameLogic.Content
                 hash.Add(tower.SlotCount);
                 hash.Add(tower.ComputeCapacity);
                 hash.Add(tower.CooldownTicks);
+                hash.Add(tower.AttackWindupTicks);
                 hash.Add(tower.RangeMilli);
                 hash.Add(tower.BaseDamageMilli);
                 hash.Add(tower.ProjectileSpeedMilliPerTick);
@@ -1239,7 +1243,7 @@ namespace RuleforgeTD.GameLogic.Content
                 dto.maxChainDepth > 64 ||
                 dto.maxEventsPerChain > 100_000 ||
                 dto.maxProjectileSpawnsPerChain > 10_000 ||
-                dto.maxEnemySplitCount > 16 ||
+                dto.maxEnemySplitCount > 1_024 ||
                 dto.maxEnemyLineageMembers > 1_024 ||
                 dto.maxProjectileBounces > 1_024 ||
                 dto.maxProjectilePierces > 1_024 ||
@@ -1381,6 +1385,20 @@ namespace RuleforgeTD.GameLogic.Content
                     invalid = dto.amount > 10_000 ||
                               dto.amount2 > 10_000;
                     break;
+                case EffectOperation.BindBurn:
+                    // amount2는 불길 선분 최대 길이, amount3는 불길 지속 틱이다.
+                    // 두 값과 화상 상태 수치를 명시하게 해 숨은 코드 기본값에
+                    // 밸런스가 종속되지 않도록 한다.
+                    invalid = dto.amount <= 0 ||
+                              dto.amount2 <= 0 ||
+                              dto.amount2 > MaxSpatialRadiusMilli ||
+                              dto.amount3 <= 0 ||
+                              dto.amount3 > MaxDurationTicks ||
+                              dto.durationTicks <= 0 ||
+                              dto.intervalTicks <= 0 ||
+                              dto.maxStacks <= 0 ||
+                              dto.radiusMilli <= 0;
+                    break;
                 case EffectOperation.ModifyProjectileSlow:
                 case EffectOperation.EnlargeProjectile:
                 case EffectOperation.EnlargeEnemy:
@@ -1395,6 +1413,212 @@ namespace RuleforgeTD.GameLogic.Content
                 case EffectOperation.ApplySlow:
                     invalid = dto.amount > 10_000 ||
                               dto.limit > 10_000;
+                    break;
+                case EffectOperation.ConfigureProjectileRicochet:
+                    invalid = dto.amount <= 0 ||
+                              !IsBoundedMultiplier(dto.amount2) ||
+                              dto.radiusMilli <= 0;
+                    break;
+                case EffectOperation.ApplyEnemyRicochet:
+                    invalid = dto.amount2 <= 0 ||
+                              dto.durationTicks <= 0 ||
+                              dto.maxStacks <= 0 ||
+                              dto.radiusMilli <= 0;
+                    break;
+                case EffectOperation.BindBleed:
+                case EffectOperation.ApplyBleed:
+                    invalid = dto.amount <= 0 ||
+                              dto.durationTicks <= 0 ||
+                              dto.maxStacks <= 0;
+                    break;
+                case EffectOperation.AccelerateProjectile:
+                    invalid = !IsBoundedMultiplier(dto.amount) ||
+                              dto.limit <= 0 ||
+                              dto.amount2 > dto.limit ||
+                              dto.limit > 30_000;
+                    break;
+                case EffectOperation.AccelerateEnemy:
+                    invalid = !IsBoundedMultiplier(dto.amount) ||
+                              dto.amount2 > dto.limit ||
+                              dto.limit > 100_000;
+                    break;
+                case EffectOperation.ApplyHomingPriority:
+                    invalid = dto.durationTicks <= 0 ||
+                              dto.maxStacks <= 0;
+                    break;
+                case EffectOperation.DelayProjectile:
+                    invalid = !IsBoundedMultiplier(dto.amount) ||
+                              dto.durationTicks <= 0;
+                    break;
+                case EffectOperation.ApplyDelay:
+                    invalid = dto.durationTicks <= 0 ||
+                              dto.maxStacks <= 0;
+                    break;
+                case EffectOperation.BindCurse:
+                case EffectOperation.ApplyCurse:
+                    invalid = dto.amount <= 0 ||
+                              dto.amount > 10_000 ||
+                              dto.durationTicks <= 0 ||
+                              dto.maxStacks <= 0 ||
+                              dto.radiusMilli <= 0 ||
+                              dto.limit <= 0 ||
+                              dto.limit > 30_000;
+                    break;
+                case EffectOperation.CreateBindTrap:
+                    invalid = dto.amount <= 0 ||
+                              dto.durationTicks <= 0 ||
+                              dto.intervalTicks <= 0 ||
+                              dto.maxStacks <= 0 ||
+                              dto.radiusMilli <= 0 ||
+                              dto.limit <= 0;
+                    break;
+                case EffectOperation.ApplyBind:
+                    invalid = dto.amount <= 0 ||
+                              dto.durationTicks <= 0 ||
+                              dto.maxStacks <= 0;
+                    break;
+                case EffectOperation.MakeAirborneProjectile:
+                    invalid = dto.amount <= 0 ||
+                              dto.amount2 <= 0 ||
+                              dto.amount2 > 10_000 ||
+                              dto.durationTicks <= 0 ||
+                              dto.radiusMilli <= 0 ||
+                              dto.limit <= 0;
+                    break;
+                case EffectOperation.ApplyAirborne:
+                    invalid = dto.amount <= 0 ||
+                              dto.amount2 <= 0 ||
+                              dto.durationTicks <= 0 ||
+                              dto.maxStacks <= 0 ||
+                              dto.radiusMilli <= 0 ||
+                              dto.limit <= 0;
+                    break;
+                case EffectOperation.BindShock:
+                    invalid = dto.amount <= 0 ||
+                              dto.amount2 <= 0 ||
+                              dto.amount2 > 10_000 ||
+                              dto.durationTicks <= 0 ||
+                              dto.maxStacks <= 0 ||
+                              dto.radiusMilli <= 0 ||
+                              dto.limit <= 0;
+                    break;
+                case EffectOperation.ApplyShock:
+                    invalid = dto.amount <= 0 ||
+                              dto.durationTicks <= 0 ||
+                              dto.maxStacks <= 0 ||
+                              dto.radiusMilli <= 0 ||
+                              dto.limit <= 0;
+                    break;
+                case EffectOperation.BindFreeze:
+                case EffectOperation.ApplyFreeze:
+                    invalid = dto.amount <= 0 ||
+                              dto.amount3 <= 0 ||
+                              dto.durationTicks <= 0 ||
+                              dto.intervalTicks <= 0 ||
+                              dto.maxStacks <= 0 ||
+                              dto.radiusMilli <= 0 ||
+                              dto.limit <= 0;
+                    break;
+                case EffectOperation.CreateAfterimageProjectile:
+                    invalid = !IsBoundedMultiplier(dto.amount) ||
+                              dto.durationTicks <= 0;
+                    break;
+                case EffectOperation.ApplyAfterimage:
+                    invalid = !IsBoundedMultiplier(dto.amount) ||
+                              dto.durationTicks <= 0 ||
+                              dto.maxStacks <= 0 ||
+                              dto.radiusMilli <= 0;
+                    break;
+                case EffectOperation.EnableProjectilePulse:
+                    invalid = dto.amount <= 0 ||
+                              dto.amount > 10_000 ||
+                              dto.durationTicks <= 0 ||
+                              dto.intervalTicks <= 0 ||
+                              dto.radiusMilli <= 0 ||
+                              dto.limit <= 0;
+                    break;
+                case EffectOperation.ApplyEnemyPulse:
+                case EffectOperation.ApplyEnemyContagion:
+                    invalid = dto.durationTicks <= 0 ||
+                              dto.intervalTicks <= 0 ||
+                              dto.maxStacks <= 0 ||
+                              dto.radiusMilli <= 0 ||
+                              dto.limit <= 0;
+                    break;
+                case EffectOperation.EnableProjectileMagnet:
+                    invalid = dto.amount <= 0 ||
+                              dto.amount > 10_000 ||
+                              dto.amount2 <= 0 ||
+                              dto.amount2 > 10_000 ||
+                              dto.durationTicks <= 0 ||
+                              dto.intervalTicks <= 0 ||
+                              dto.radiusMilli <= 0;
+                    break;
+                case EffectOperation.ApplyEnemyMagnet:
+                    invalid = dto.durationTicks <= 0 ||
+                              dto.intervalTicks <= 0 ||
+                              dto.maxStacks <= 0 ||
+                              dto.radiusMilli <= 0;
+                    break;
+                case EffectOperation.EnableProjectileReflect:
+                    invalid = dto.durationTicks <= 0 ||
+                              dto.limit <= 0;
+                    break;
+                case EffectOperation.ApplyEnemyReflect:
+                    invalid = dto.durationTicks <= 0 ||
+                              dto.maxStacks <= 0;
+                    break;
+                case EffectOperation.EnableProjectileContagion:
+                    invalid = dto.durationTicks <= 0 ||
+                              dto.intervalTicks <= 0 ||
+                              dto.radiusMilli <= 0 ||
+                              dto.limit <= 0;
+                    break;
+                case EffectOperation.BindSeal:
+                case EffectOperation.ApplySeal:
+                    invalid = dto.durationTicks <= 0 ||
+                              dto.maxStacks <= 0;
+                    break;
+                case EffectOperation.BindCorrosion:
+                case EffectOperation.ApplyCorrosion:
+                    invalid = dto.amount <= 0 ||
+                              dto.durationTicks <= 0 ||
+                              dto.intervalTicks <= 0 ||
+                              dto.maxStacks <= 0 ||
+                              dto.limit <= 0 ||
+                              dto.limit > 10_000 ||
+                              dto.chanceBps <= 0;
+                    break;
+                case EffectOperation.EnableProjectileOrbit:
+                    invalid = dto.amount <= 0 ||
+                              dto.amount > 10_000 ||
+                              dto.durationTicks <= 0 ||
+                              dto.intervalTicks <= 0 ||
+                              dto.radiusMilli <= 0;
+                    break;
+                case EffectOperation.ApplyEnemyOrbit:
+                    invalid = dto.amount <= 0 ||
+                              dto.durationTicks <= 0 ||
+                              dto.intervalTicks <= 0 ||
+                              dto.maxStacks <= 0 ||
+                              dto.radiusMilli <= 0 ||
+                              dto.limit <= 0 ||
+                              dto.limit > 10_000;
+                    break;
+                case EffectOperation.BindLifesteal:
+                case EffectOperation.ApplyLifesteal:
+                    invalid = dto.amount <= 0 ||
+                              dto.amount > 10_000 ||
+                              dto.durationTicks <= 0 ||
+                              dto.maxStacks <= 0;
+                    break;
+                case EffectOperation.BindFear:
+                case EffectOperation.ApplyFear:
+                    invalid = !IsBoundedMultiplier(dto.amount) ||
+                              dto.durationTicks <= 0 ||
+                              dto.intervalTicks <= 0 ||
+                              dto.maxStacks <= 0 ||
+                              !IsBoundedMultiplier(dto.limit);
                     break;
                 case EffectOperation.BindExplosion:
                     invalid = dto.amount > 100_000;
@@ -1510,6 +1734,13 @@ namespace RuleforgeTD.GameLogic.Content
                         maximumRewardBonusBps = Math.Max(
                             maximumRewardBonusBps,
                             10_000);
+                    }
+                    else if (node.Operation ==
+                             EffectOperation.AccelerateEnemy)
+                    {
+                        maximumRewardBonusBps = Math.Max(
+                            maximumRewardBonusBps,
+                            node.Limit);
                     }
                 }
 

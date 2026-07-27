@@ -95,12 +95,14 @@ namespace RuleforgeTD.GameLogic.Simulation
         /// </remarks>
         private CommandResult PlaceTower(string stableId, int buildPointIndex)
         {
-            // 전투 도중 배치가 바뀌면 같은 명령 로그의 결과가 달라질 수 있으므로 계획 단계만 허용한다.
-            if (phase != RunPhase.Planning)
+            // 고정 건설 지점과 명령 순서는 결정적이므로 전투 중에도 설치할 수 있다.
+            // 카드 편집은 별도 규칙으로 전투 중 계속 잠근다.
+            if (phase != RunPhase.Planning &&
+                phase != RunPhase.Combat)
             {
                 return CommandResult.Reject(
                     CommandError.InvalidPhase,
-                    "Towers can only be placed during planning.");
+                    "Towers can only be placed during planning or combat.");
             }
 
             if (!content.TryGetTowerId(stableId, out TowerDefinitionId definitionId))
@@ -162,9 +164,17 @@ namespace RuleforgeTD.GameLogic.Simulation
                 DefinitionId = definitionId,
                 BuildPointIndex = buildPointIndex,
                 Position = run.BuildSpotsInternal[buildPointIndex],
+                Level = 1,
+                SubjectType = definition.SubjectTypeMode ==
+                    SubjectTypeMode.Enemy
+                        ? SubjectType.Enemy
+                        : SubjectType.Projectile,
                 CardInstanceIds = new int[definition.SlotCount],
+                CardSubjectTypes =
+                    new SubjectType[definition.SlotCount],
                 Program = new CardId[0],
-                ProgramInstances = new int[0]
+                ProgramInstances = new int[0],
+                ProgramSubjectTypes = new SubjectType[0]
             };
 
             // 슬롯의 -1은 “비어 있음”을 뜻한다. 새 int 배열의 기본값 0은 카드 0번과
@@ -172,6 +182,7 @@ namespace RuleforgeTD.GameLogic.Simulation
             for (int slot = 0; slot < tower.CardInstanceIds.Length; slot++)
             {
                 tower.CardInstanceIds[slot] = -1;
+                tower.CardSubjectTypes[slot] = tower.SubjectType;
             }
 
             gold = checked(gold - constructionCost);
@@ -183,6 +194,199 @@ namespace RuleforgeTD.GameLogic.Simulation
                 tower.Id.Value,
                 buildPointIndex,
                 0,
+                definition.StableId);
+            return CommandResult.Success();
+        }
+
+        private CommandResult GrantDebugGold(int amount)
+        {
+            const int maximumSingleGrant = 1000000;
+            if (amount <= 0 ||
+                amount > maximumSingleGrant ||
+                gold > int.MaxValue - amount)
+            {
+                return CommandResult.Reject(
+                    CommandError.InvalidTarget,
+                    "Debug gold amount is outside the safe range.");
+            }
+
+            gold = checked(gold + amount);
+            AddPresentation(
+                PresentationEventType.RewardGranted,
+                -1,
+                -1,
+                amount,
+                "debug.konami");
+            return CommandResult.Success();
+        }
+
+        /// <summary>
+        /// Stage 01 타워의 레벨을 한 단계 올려 카드 슬롯을 개방한다.
+        /// 현재 프로토타입에서는 업그레이드 비용을 별도로 부과하지 않는다.
+        /// </summary>
+        private CommandResult UpgradeTower(int towerInstanceId)
+        {
+            if (!IsLoadoutEditablePhase())
+            {
+                return CommandResult.Reject(
+                    phase == RunPhase.Combat
+                        ? CommandError.CombatLoadoutLocked
+                        : CommandError.InvalidPhase,
+                    "Towers can only be upgraded outside combat.");
+            }
+
+            TowerState tower =
+                FindTower(new TowerId(towerInstanceId));
+            if (tower == null)
+            {
+                return CommandResult.Reject(
+                    CommandError.InvalidTarget,
+                    "Tower instance does not exist.");
+            }
+
+            if (tower.Level >= 7)
+            {
+                return CommandResult.Reject(
+                    CommandError.InvalidTarget,
+                    "Tower is already at maximum level.");
+            }
+
+            tower.Level++;
+            AddPresentation(
+                PresentationEventType.TowerUpgraded,
+                tower.Id.Value,
+                -1,
+                tower.Level,
+                content.GetTower(tower.DefinitionId).StableId);
+            return CommandResult.Success();
+        }
+
+        /// <summary>
+        /// 타워가 장착한 모든 카드에 사용할 탄환/적 해석을 선택한다.
+        /// 카드별로 문맥을 섞지 않아 실행 문장의 주체가 항상 하나로 유지된다.
+        /// </summary>
+        private CommandResult SetTowerSubjectType(
+            int towerInstanceId,
+            int rawSubjectType)
+        {
+            if (!IsLoadoutEditablePhase())
+            {
+                return CommandResult.Reject(
+                    phase == RunPhase.Combat
+                        ? CommandError.CombatLoadoutLocked
+                        : CommandError.InvalidPhase,
+                    "Tower card interpretation cannot change during combat.");
+            }
+
+            if (rawSubjectType != (int)SubjectType.Projectile &&
+                rawSubjectType != (int)SubjectType.Enemy)
+            {
+                return CommandResult.Reject(
+                    CommandError.InvalidTarget,
+                    "Unknown tower subject type.");
+            }
+
+            TowerState tower =
+                FindTower(new TowerId(towerInstanceId));
+            if (tower == null)
+            {
+                return CommandResult.Reject(
+                    CommandError.InvalidTarget,
+                    "Tower instance does not exist.");
+            }
+
+            SubjectType requested =
+                (SubjectType)rawSubjectType;
+            CompiledTowerDefinition definition =
+                content.GetTower(tower.DefinitionId);
+            if (requested == SubjectType.Projectile &&
+                definition.Trigger != TowerTrigger.Attack)
+            {
+                return CommandResult.Reject(
+                    CommandError.InvalidTarget,
+                    "This tower trigger cannot create a projectile subject.");
+            }
+
+            tower.SubjectType = requested;
+            for (int slot = 0;
+                 slot < tower.CardSubjectTypes.Length;
+                 slot++)
+            {
+                tower.CardSubjectTypes[slot] = requested;
+            }
+            AddPresentation(
+                PresentationEventType.TowerSubjectTypeChanged,
+                tower.Id.Value,
+                -1,
+                rawSubjectType,
+                content.GetTower(tower.DefinitionId).StableId);
+            return CommandResult.Success();
+        }
+
+        /// <summary>
+        /// 한 슬롯만 독립적으로 탄환/적 해석으로 바꾼다. 기존 타워 단위
+        /// 명령은 호환성을 위해 모든 슬롯을 한 번에 바꾸는 단축 명령으로
+        /// 유지한다.
+        /// </summary>
+        private CommandResult SetTowerSlotSubjectType(
+            int towerInstanceId,
+            int slotIndex,
+            int rawSubjectType)
+        {
+            if (!IsLoadoutEditablePhase())
+            {
+                return CommandResult.Reject(
+                    phase == RunPhase.Combat
+                        ? CommandError.CombatLoadoutLocked
+                        : CommandError.InvalidPhase,
+                    "Tower slot interpretation cannot change during combat.");
+            }
+
+            if (rawSubjectType != (int)SubjectType.Projectile &&
+                rawSubjectType != (int)SubjectType.Enemy)
+            {
+                return CommandResult.Reject(
+                    CommandError.InvalidTarget,
+                    "Unknown tower slot subject type.");
+            }
+
+            TowerState tower =
+                FindTower(new TowerId(towerInstanceId));
+            if (tower == null)
+            {
+                return CommandResult.Reject(
+                    CommandError.InvalidTarget,
+                    "Tower instance does not exist.");
+            }
+
+            int unlockedSlots = Math.Min(
+                tower.CardSubjectTypes.Length,
+                GetTowerCardCapacityForLevel(tower.Level));
+            if (slotIndex < 0 || slotIndex >= unlockedSlots)
+            {
+                return CommandResult.Reject(
+                    CommandError.SlotOutOfRange,
+                    "Tower slot is not unlocked.");
+            }
+
+            SubjectType requested = (SubjectType)rawSubjectType;
+            CompiledTowerDefinition definition =
+                content.GetTower(tower.DefinitionId);
+            if (requested == SubjectType.Projectile &&
+                definition.Trigger != TowerTrigger.Attack)
+            {
+                return CommandResult.Reject(
+                    CommandError.InvalidTarget,
+                    "This tower trigger cannot create a projectile subject.");
+            }
+
+            tower.CardSubjectTypes[slotIndex] = requested;
+            tower.SubjectType = requested;
+            AddPresentation(
+                PresentationEventType.TowerSubjectTypeChanged,
+                tower.Id.Value,
+                slotIndex,
+                rawSubjectType,
                 definition.StableId);
             return CommandResult.Success();
         }
@@ -223,10 +427,13 @@ namespace RuleforgeTD.GameLogic.Simulation
             }
 
             CompiledCardDefinition definition = content.GetCard(card.DefinitionId);
+            int unlockedSlotCount = Math.Min(
+                tower.CardInstanceIds.Length,
+                GetTowerCardCapacityForLevel(tower.Level));
 
             // 슬롯 비용이 2인 카드는 시작 칸과 바로 다음 칸을 함께 차지한다.
             if (slotIndex < 0 ||
-                slotIndex + definition.SlotCost > tower.CardInstanceIds.Length)
+                slotIndex + definition.SlotCost > unlockedSlotCount)
             {
                 return CommandResult.Reject(
                     CommandError.SlotOutOfRange,
@@ -290,6 +497,22 @@ namespace RuleforgeTD.GameLogic.Simulation
         {
             return phase == RunPhase.Planning ||
                    phase == RunPhase.CardPackLoadout;
+        }
+
+        /// <summary>
+        /// 레벨 1~3은 한 장, 4~5는 두 장, 6~7은 세 장을 장착할 수 있다.
+        /// 타워 정의의 실제 슬롯 수가 더 작으면 호출부에서 그 수로 제한한다.
+        /// </summary>
+        public static int GetTowerCardCapacityForLevel(int towerLevel)
+        {
+            int clampedLevel =
+                Math.Max(1, Math.Min(7, towerLevel));
+            if (clampedLevel <= 3)
+            {
+                return 1;
+            }
+
+            return clampedLevel <= 5 ? 2 : 3;
         }
 
         /// <summary>
@@ -390,11 +613,16 @@ namespace RuleforgeTD.GameLogic.Simulation
 
             // 타워 존재 여부와 두 슬롯의 배열 범위를 한 번에 검증한다.
             TowerState tower = FindTower(new TowerId(towerInstanceId));
+            int unlockedSlotCount = tower == null
+                ? 0
+                : Math.Min(
+                    tower.CardInstanceIds.Length,
+                    GetTowerCardCapacityForLevel(tower.Level));
             if (tower == null ||
                 fromSlot < 0 ||
                 toSlot < 0 ||
-                fromSlot >= tower.CardInstanceIds.Length ||
-                toSlot >= tower.CardInstanceIds.Length)
+                fromSlot >= unlockedSlotCount ||
+                toSlot >= unlockedSlotCount)
             {
                 return CommandResult.Reject(
                     CommandError.SlotOutOfRange,
@@ -542,6 +770,9 @@ namespace RuleforgeTD.GameLogic.Simulation
             {
                 CompileTowerProgram(towers[i]);
                 towers[i].GoldGeneratedThisWave = 0;
+                towers[i].AttackWindupRemaining = 0;
+                towers[i].PendingAttackTargetId =
+                    EntityId.Invalid;
                 towers[i].TargetsInside.Clear();
                 towers[i].LastTargetTriggerTick.Clear();
             }
@@ -1137,6 +1368,8 @@ namespace RuleforgeTD.GameLogic.Simulation
         {
             var definitions = new List<CardId>(tower.CardInstanceIds.Length);
             var instances = new List<int>(tower.CardInstanceIds.Length);
+            var subjectTypes =
+                new List<SubjectType>(tower.CardInstanceIds.Length);
             for (int slot = 0; slot < tower.CardInstanceIds.Length; slot++)
             {
                 int instanceId = tower.CardInstanceIds[slot];
@@ -1151,11 +1384,16 @@ namespace RuleforgeTD.GameLogic.Simulation
                 {
                     definitions.Add(card.DefinitionId);
                     instances.Add(instanceId);
+                    subjectTypes.Add(
+                        slot < tower.CardSubjectTypes.Length
+                            ? tower.CardSubjectTypes[slot]
+                            : tower.SubjectType);
                 }
             }
 
             tower.Program = definitions.ToArray();
             tower.ProgramInstances = instances.ToArray();
+            tower.ProgramSubjectTypes = subjectTypes.ToArray();
         }
 
         /// <summary>

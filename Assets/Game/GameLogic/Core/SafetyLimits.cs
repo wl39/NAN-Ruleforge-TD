@@ -21,7 +21,10 @@ namespace RuleforgeTD.GameLogic.Core
         public int MaxEventsPerChain { get; }
         /// <summary>하나의 연쇄작용이 생성할 수 있는 탄환 총량이다.</summary>
         public int MaxProjectileSpawnsPerChain { get; }
-        /// <summary>한 적 가계에서 허용하는 분열 발동 횟수다.</summary>
+        /// <summary>
+        /// 이전 콘텐츠 해시와 리플레이 호환성을 위해 보존하는 분열 횟수 힌트다.
+        /// 분열 자체는 체력 하한과 <see cref="MaxEnemiesPerLineage"/>로 종료한다.
+        /// </summary>
         public int MaxEnemySplitsPerLineage { get; }
         /// <summary>원본을 포함해 한 적 가계가 누적 생성할 수 있는 개체 수다.</summary>
         public int MaxEnemiesPerLineage { get; }
@@ -121,8 +124,8 @@ namespace RuleforgeTD.GameLogic.Core
                 maxChainDepth: 8,
                 maxEventsPerChain: 256,
                 maxProjectileSpawnsPerChain: 64,
-                maxEnemySplitsPerLineage: 2,
-                maxEnemiesPerLineage: 8,
+                maxEnemySplitsPerLineage: 255,
+                maxEnemiesPerLineage: 256,
                 maxRicochetsPerProjectile: 8,
                 maxPiercesPerProjectile: 12,
                 maxProjectileLifetimeTicks: 15 * DefaultTicksPerSecond,
@@ -357,7 +360,7 @@ namespace RuleforgeTD.GameLogic.Core
 
         /// <summary>
         /// 다음 세대 분열 한 번과 추가 개체 수를 함께 예약한다.
-        /// 분열 횟수와 누적 개체 수 상한을 모두 만족해야 성공한다.
+        /// 분열 횟수는 통계로만 기록하며, 누적 개체 수 상한을 만족해야 성공한다.
         /// </summary>
         public bool TryReserveSplit(
             int resultingGeneration,
@@ -367,12 +370,6 @@ namespace RuleforgeTD.GameLogic.Core
             if (resultingGeneration <= 0 || additionalEntities <= 0)
             {
                 failure = BudgetFailure.InvalidRequest;
-                return false;
-            }
-
-            if (SplitsUsed >= _limits.MaxEnemySplitsPerLineage)
-            {
-                failure = BudgetFailure.EnemySplitLimit;
                 return false;
             }
 

@@ -28,12 +28,35 @@ namespace RuleforgeTD.GameLogic.Simulation
                     continue;
                 }
 
+                SimPosition previousPosition = enemy.Position;
                 int movementMultiplier = enemy.SpeedMultiplierBps;
                 // 기절은 이동 배율을 0으로 만들고, 일반 둔화는 여러 효과를 합성한 뒤 상한을 적용한다.
                 // Bps는 10,000을 100%로 보는 정수 비율 단위라 부동소수점 오차가 없다.
-                if (HasActiveStatus(enemy, StatusType.Stun))
+                if (HasActiveStatus(enemy, StatusType.Stun) ||
+                    IsEnemyDelayed(enemy))
                 {
                     movementMultiplier = 0;
+                }
+                else if (TryProcessUncommonEnemyMovement(enemy))
+                {
+                    // 공포·회전처럼 고급 카드가 직접 위치를 처리한 경우에도 출혈은
+                    // 실제 월드 이동 거리를 동일하게 소비한다.
+                    long uncommonDistance = PathModel.DistanceMilli(
+                        previousPosition,
+                        enemy.Position);
+                    if (uncommonDistance > 0)
+                    {
+                        TriggerBleedFromMovement(
+                            enemy,
+                            uncommonDistance);
+                    }
+                    if (enemy.Alive &&
+                        enemy.PathProgressMilli >=
+                        path.TotalLengthMilli)
+                    {
+                        LeakEnemy(enemy);
+                    }
+                    continue;
                 }
                 else
                 {
@@ -52,7 +75,10 @@ namespace RuleforgeTD.GameLogic.Simulation
                     enemy.PathProgressMilli = Math.Min(
                         path.TotalLengthMilli,
                         enemy.PathProgressMilli + distance);
-                    enemy.Position = path.GetPosition(enemy.PathProgressMilli);
+                    RefreshEnemyPosition(enemy);
+                    TriggerBleedFromMovement(
+                        enemy,
+                        distance);
                     AddPresentation(
                         PresentationEventType.EnemyMoved,
                         enemy.Id.Value,
@@ -155,9 +181,30 @@ namespace RuleforgeTD.GameLogic.Simulation
             TowerState tower,
             CompiledTowerDefinition definition)
         {
-            if (tower.CooldownRemaining > 0)
+            bool cooldownWasActive =
+                tower.CooldownRemaining > 0;
+            if (cooldownWasActive)
             {
                 tower.CooldownRemaining--;
+            }
+
+            if (tower.AttackWindupRemaining > 0)
+            {
+                tower.AttackWindupRemaining--;
+                if (tower.AttackWindupRemaining == 0)
+                {
+                    ReleasePendingTowerAttack(
+                        tower,
+                        definition);
+                }
+
+                return;
+            }
+
+            // 기존 즉시 발사의 쿨다운 의미를 유지한다. 30틱 쿨다운이면
+            // 발사/준비 시작 사이 간격은 기존처럼 31번의 Step 호출이다.
+            if (cooldownWasActive)
+            {
                 return;
             }
 
@@ -168,6 +215,77 @@ namespace RuleforgeTD.GameLogic.Simulation
                 return;
             }
 
+            tower.CooldownRemaining =
+                Math.Max(1, definition.CooldownTicks);
+            tower.PendingAttackTargetId = target.Id;
+            tower.AttackWindupRemaining =
+                definition.AttackWindupTicks;
+            AddPresentation(
+                PresentationEventType.TowerAttackStarted,
+                target.Id.Value,
+                tower.Id.Value,
+                definition.AttackWindupTicks,
+                definition.StableId);
+
+            // 0은 새 필드가 없던 콘텐츠의 기본값이다. 같은 틱에 바로
+            // 발사해 기존 리플레이의 전투 타이밍을 유지한다.
+            if (tower.AttackWindupRemaining == 0)
+            {
+                ReleasePendingTowerAttack(
+                    tower,
+                    definition);
+            }
+        }
+
+        private void ReleasePendingTowerAttack(
+            TowerState tower,
+            CompiledTowerDefinition definition)
+        {
+            EntityId targetId =
+                tower.PendingAttackTargetId;
+            tower.PendingAttackTargetId =
+                EntityId.Invalid;
+            tower.AttackWindupRemaining = 0;
+
+            EnemyState target = FindEnemy(targetId);
+            if (target == null || !target.Alive)
+            {
+                // 준비 중 대상이 사라졌다면 같은 결정적 우선순위로 한 번만
+                // 재선정한다. 새 대상도 없으면 이번 공격은 취소하되 이미
+                // 시작된 쿨다운은 유지해 공격 속도가 비정상적으로 빨라지지 않는다.
+                target = SelectTowerTarget(
+                    tower.Position,
+                    definition.RangeMilli);
+                if (target == null)
+                {
+                    return;
+                }
+            }
+
+            SelectDistinctTowerTargets(
+                tower.Position,
+                definition.RangeMilli,
+                target,
+                GetArcherCountForTowerLevel(tower.Level),
+                towerVolleyTargetScratch);
+            for (int targetIndex = 0;
+                 targetIndex <
+                 towerVolleyTargetScratch.Count;
+                 targetIndex++)
+            {
+                FireTowerProjectile(
+                    tower,
+                    definition,
+                    towerVolleyTargetScratch[
+                        targetIndex].Id);
+            }
+        }
+
+        private void FireTowerProjectile(
+            TowerState tower,
+            CompiledTowerDefinition definition,
+            EntityId targetId)
+        {
             // RootChain은 이 한 번의 공격에서 파생되는 분열·폭발 등을 같은 인과관계로 묶어 예산을 센다.
             // ActivationId는 같은 체인 안에서도 각각의 실제 발동을 안정적으로 구별한다.
             ChainId chainId = CreateRootChain();
@@ -175,25 +293,28 @@ namespace RuleforgeTD.GameLogic.Simulation
             ProjectileState projectile = SpawnProjectile(
                 tower,
                 definition,
-                target.Id,
+                targetId,
                 chainId,
                 activationId);
-            if (projectile != null && tower.Program.Length > 0)
+            int firstProjectileCard =
+                FindFirstProgramIndex(
+                    tower,
+                    SubjectType.Projectile);
+            if (projectile != null &&
+                firstProjectileCard >= 0)
             {
-                // 카드 배열의 0번부터 시작한다. 이후 카드는 앞 카드가 끝날 때 다음 이벤트로 이어진다.
+                // 탄환 해석 슬롯만 왼쪽에서 오른쪽 순서로 실행한다.
                 EnqueueProgram(
                     SubjectType.Projectile,
                     projectile.Id,
                     tower.Id,
-                    0,
+                    firstProjectileCard,
                     chainId,
                     activationId,
                     EventId.Invalid,
                     0,
                     EventPhase.Tower);
             }
-
-            tower.CooldownRemaining = Math.Max(1, definition.CooldownTicks);
         }
 
         /// <summary>
@@ -224,7 +345,11 @@ namespace RuleforgeTD.GameLogic.Simulation
                 bool cooldownReady =
                     !tower.LastTargetTriggerTick.ContainsKey(enemy.Id.Value) ||
                     tick - lastTriggered >= definition.PerTargetCooldownTicks;
-                if (!wasInside && cooldownReady && tower.Program.Length > 0)
+                int firstEnemyCard =
+                    FindFirstProgramIndex(
+                        tower,
+                        SubjectType.Enemy);
+                if (!wasInside && cooldownReady && firstEnemyCard >= 0)
                 {
                     ChainId chainId = CreateRootChain();
                     ActivationId activationId = CreateActivation();
@@ -232,7 +357,7 @@ namespace RuleforgeTD.GameLogic.Simulation
                         SubjectType.Enemy,
                         enemy.Id,
                         tower.Id,
-                        0,
+                        firstEnemyCard,
                         chainId,
                         activationId,
                         EventId.Invalid,
@@ -293,6 +418,10 @@ namespace RuleforgeTD.GameLogic.Simulation
                 Generation = 0,
                 Position = tower.Position,
                 TargetId = targetId,
+                ApplyEnemyProgramOnHit =
+                    FindFirstProgramIndex(
+                        tower,
+                        SubjectType.Enemy) >= 0,
                 DamageMilli = definition.BaseDamageMilli,
                 SpeedMilliPerTick = definition.ProjectileSpeedMilliPerTick,
                 LifetimeRemaining = Math.Min(
@@ -338,6 +467,12 @@ namespace RuleforgeTD.GameLogic.Simulation
                     continue;
                 }
 
+                if (ShouldPauseProjectileForDelay(projectile) ||
+                    ProcessUncommonProjectileTick(projectile))
+                {
+                    continue;
+                }
+
                 if (projectile.Homing)
                 {
                     // 기존 표적이 죽었거나 이미 맞은 대상이면 같은 결정적 우선순위로 새 표적을 고른다.
@@ -371,20 +506,40 @@ namespace RuleforgeTD.GameLogic.Simulation
                     projectile.DirectionYBps,
                     projectile.SpeedMilliPerTick,
                     10000);
-                projectile.Position = SimPosition.FromMilliUnits(
+                SimPosition movementEnd = SimPosition.FromMilliUnits(
                     projectile.Position.X.MilliUnits + moveX,
                     projectile.Position.Y.MilliUnits + moveY);
-                SpawnBurnTrailIfNeeded(projectile, previous);
+                EnemyState target = FindFirstProjectileCollision(
+                    projectile,
+                    previous,
+                    movementEnd,
+                    out SimPosition impactPosition);
+                // 충돌이 있으면 실제 충돌 투영점까지만 이동한 것으로 기록한다.
+                // 가속 카드가 한 틱의 남은 overshoot 거리까지 피해 보너스로
+                // 선반영하거나 소멸 폭발 위치가 적 뒤로 밀리는 것을 막는다.
+                projectile.Position = target == null
+                    ? movementEnd
+                    : impactPosition;
+                RecordCommonProjectileMovement(
+                    projectile,
+                    previous);
                 AddPresentation(
                     PresentationEventType.ProjectileMoved,
                     projectile.Id.Value,
                     projectile.SourceTowerId.Value,
                     projectile.SpeedMilliPerTick);
 
-                EnemyState target = FindFirstProjectileCollision(
+                // 적중 틱에는 시뮬레이션의 이동 끝이 아니라 실제 대상 위치에서
+                // 마지막 불길 선분을 닫아 발사점부터 적중점까지 빈 구간이 없게 한다.
+                SpawnBurnTrailIfNeeded(
                     projectile,
-                    previous,
-                    projectile.Position);
+                    target == null
+                        ? projectile.Position
+                        : target.Position,
+                    target != null,
+                    target == null
+                        ? EntityId.Invalid
+                        : target.Id);
                 if (target != null)
                 {
                     // 충돌 즉시 체력을 깎지 않는다. Projectile 단계의 이벤트로 넣어 카드 바인딩과
@@ -455,6 +610,36 @@ namespace RuleforgeTD.GameLogic.Simulation
                 EventTags.SingleTarget |
                 (critical ? EventTags.Critical : EventTags.None));
 
+            // 적 해석을 선택한 공격 타워는 실제 충돌이 확정된 대상에게만
+            // 카드 프로그램을 실행한다. 빗나간 탄환이 원거리에서 적 효과를
+            // 적용하거나 발사 시점과 적중 시점이 뒤섞이는 일을 막는다.
+            if (projectile.ApplyEnemyProgramOnHit)
+            {
+                TowerState sourceTower =
+                    FindTower(projectile.SourceTowerId);
+                if (sourceTower != null &&
+                    sourceTower.Program.Length > 0)
+                {
+                    int firstEnemyCard =
+                        FindFirstProgramIndex(
+                            sourceTower,
+                            SubjectType.Enemy);
+                    if (firstEnemyCard >= 0)
+                    {
+                        EnqueueProgram(
+                            SubjectType.Enemy,
+                            target.Id,
+                            sourceTower.Id,
+                            firstEnemyCard,
+                            projectile.RootChainId,
+                            projectile.ActivationId,
+                            gameEvent.EventId,
+                            0,
+                            EventPhase.Projectile);
+                    }
+                }
+            }
+
             // 화상·중독·폭발 등은 카드를 읽을 때 투사체에 '적중 시 바인딩'으로 붙여 두었다가 여기서 발동한다.
             // FirstHit 계열은 Used를 기록해 관통 투사체라도 한 번만 발동한다.
             for (int i = 0; i < projectile.Bindings.Count; i++)
@@ -478,6 +663,17 @@ namespace RuleforgeTD.GameLogic.Simulation
                 target.Id.Value,
                 projectile.Id.Value,
                 (int)Math.Min(int.MaxValue, damage));
+
+            // 함정·귀환·공전은 적중 뒤 탄환 생존을 직접 인수한다. 그 밖의 탄환은
+            // 도탄을 먼저 시도한 뒤 기존 관통/소멸 규칙으로 진행한다.
+            if (HandleUncommonProjectileHit(
+                    projectile,
+                    target,
+                    gameEvent) ||
+                TryRicochetProjectile(projectile, target))
+            {
+                return;
+            }
 
             // 천공 상태인 적은 투사체의 개인 관통 횟수를 소비하지 않고 통과시킨다.
             // 두 경우 모두 전체 안전 상한(MaxPiercesPerProjectile)은 지켜 실제 무한 관통을 막는다.
@@ -560,6 +756,22 @@ namespace RuleforgeTD.GameLogic.Simulation
                 return;
             }
 
+            // 부모가 없는 소멸은 수명 종료이므로 현재 위치에서 선분을 닫는다.
+            // 적중으로 예약된 소멸은 MoveProjectiles가 이미 실제 적중점에서
+            // 닫았으므로 overshoot 위치까지 두 번째 선분을 만들지 않는다.
+            if (!gameEvent.ParentEventId.IsValid)
+            {
+                SpawnBurnTrailIfNeeded(
+                    projectile,
+                    projectile.Position,
+                    true,
+                    EntityId.Invalid);
+            }
+
+            HandleUncommonProjectileExpired(
+                projectile,
+                gameEvent);
+
             for (int i = 0; i < projectile.Bindings.Count; i++)
             {
                 EffectBinding binding = projectile.Bindings[i];
@@ -593,6 +805,17 @@ namespace RuleforgeTD.GameLogic.Simulation
         /// </summary>
         private EnemyState SelectTowerTarget(SimPosition origin, int rangeMilli)
         {
+            return SelectTowerTargetExcluding(
+                origin,
+                rangeMilli,
+                null);
+        }
+
+        private EnemyState SelectTowerTargetExcluding(
+            SimPosition origin,
+            int rangeMilli,
+            List<EnemyState> excluded)
+        {
             EnemyState selected = null;
             bool selectedMarked = false;
             spatialIndex.Query(origin, rangeMilli, spatialScratch);
@@ -600,6 +823,12 @@ namespace RuleforgeTD.GameLogic.Simulation
             {
                 EnemyState enemy = FindEnemy(spatialScratch[i]);
                 if (!enemy.Alive || !PathModel.IsWithin(origin, enemy.Position, rangeMilli))
+                {
+                    continue;
+                }
+
+                if (excluded != null &&
+                    excluded.Contains(enemy))
                 {
                     continue;
                 }
@@ -622,30 +851,65 @@ namespace RuleforgeTD.GameLogic.Simulation
         }
 
         /// <summary>
+        /// 한 발리의 각 궁수에게 서로 다른 적을 배정한다. 적이 궁수보다
+        /// 적으면 존재하는 적 수만큼만 발사해 같은 대상을 중복 선택하지 않는다.
+        /// 첫 대상은 준비 애니메이션이 추적하던 대상이며, 나머지도 동일한
+        /// 표식/거리/진행도/EntityId 우선순위를 사용한다.
+        /// </summary>
+        private void SelectDistinctTowerTargets(
+            SimPosition origin,
+            int rangeMilli,
+            EnemyState primary,
+            int limit,
+            List<EnemyState> output)
+        {
+            output.Clear();
+            if (primary != null &&
+                primary.Alive &&
+                PathModel.IsWithin(
+                    origin,
+                    primary.Position,
+                    rangeMilli))
+            {
+                output.Add(primary);
+            }
+
+            int clampedLimit = Math.Max(
+                1,
+                Math.Min(3, limit));
+            while (output.Count < clampedLimit)
+            {
+                EnemyState next =
+                    SelectTowerTargetExcluding(
+                        origin,
+                        rangeMilli,
+                        output);
+                if (next == null)
+                {
+                    break;
+                }
+
+                output.Add(next);
+            }
+        }
+
+        private static int GetArcherCountForTowerLevel(
+            int towerLevel)
+        {
+            if (towerLevel <= 1)
+            {
+                return 1;
+            }
+
+            return towerLevel <= 5 ? 2 : 3;
+        }
+
+        /// <summary>
         /// 유도 또는 관통 투사체의 다음 표적을 고른다. 이미 맞힌 적은 다시 선택하지 않는다.
         /// </summary>
         private EnemyState SelectProjectileTarget(ProjectileState projectile)
         {
-            EnemyState selected = null;
-            for (int i = 0; i < enemies.Count; i++)
-            {
-                EnemyState enemy = enemies[i];
-                if (!enemy.Alive || projectile.HitEnemies.Contains(enemy.Id.Value))
-                {
-                    continue;
-                }
-
-                if (selected == null ||
-                    CompareTargetPriority(
-                        projectile.Position,
-                        enemy,
-                        selected) < 0)
-                {
-                    selected = enemy;
-                }
-            }
-
-            return selected;
+            return SelectCommonProjectileTarget(projectile);
         }
 
         /// <summary>
@@ -685,7 +949,8 @@ namespace RuleforgeTD.GameLogic.Simulation
         private EnemyState FindFirstProjectileCollision(
             ProjectileState projectile,
             SimPosition start,
-            SimPosition end)
+            SimPosition end,
+            out SimPosition impactPosition)
         {
             EnemyState selected = null;
             long selectedProjection = long.MaxValue;
@@ -727,6 +992,28 @@ namespace RuleforgeTD.GameLogic.Simulation
                 }
             }
 
+            if (selected == null)
+            {
+                impactPosition = end;
+                return null;
+            }
+
+            long startX = start.X.MilliUnits;
+            long startY = start.Y.MilliUnits;
+            long vx = end.X.MilliUnits - startX;
+            long vy = end.Y.MilliUnits - startY;
+            long lengthSquared = checked(vx * vx + vy * vy);
+            if (lengthSquared <= 0)
+            {
+                impactPosition = start;
+                return selected;
+            }
+
+            impactPosition = SimPosition.FromMilliUnits(
+                startX + checked(vx * selectedProjection) /
+                lengthSquared,
+                startY + checked(vy * selectedProjection) /
+                lengthSquared);
             return selected;
         }
 
@@ -740,6 +1027,18 @@ namespace RuleforgeTD.GameLogic.Simulation
                 (int)DeterministicMath.MultiplyBasisPoints(
                     run.EnemyBaseHitRadiusMilli,
                     enemy.SizeMultiplierBps));
+        }
+
+        /// <summary>
+        /// 경로 중심 위치에 분열 가지의 수직 오프셋을 더해 실제 전투 위치를 갱신한다.
+        /// 분열 오프셋은 이동 진행도와 독립적이므로 코너를 지난 뒤에도 두 가지가
+        /// 갑자기 한 점으로 합쳐지지 않는다.
+        /// </summary>
+        private void RefreshEnemyPosition(EnemyState enemy)
+        {
+            enemy.Position =
+                path.GetPosition(enemy.PathProgressMilli) +
+                enemy.PathLateralOffset;
         }
 
         /// <summary>
@@ -842,10 +1141,13 @@ namespace RuleforgeTD.GameLogic.Simulation
         /// </summary>
         private void CleanupDeadEntities()
         {
+            CleanupUncommonCardState();
             for (int i = projectiles.Count - 1; i >= 0; i--)
             {
                 if (!projectiles[i].Alive)
                 {
+                    ForgetCommonProjectileRuntime(
+                        projectiles[i].Id);
                     projectiles.RemoveAt(i);
                 }
             }
