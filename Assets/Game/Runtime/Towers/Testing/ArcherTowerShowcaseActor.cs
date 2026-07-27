@@ -48,6 +48,10 @@ namespace RuleforgeTD.Towers.Testing
             new List<ArcherProjectileView>(MaximumPooledProjectiles);
         private readonly List<EnemyHealth> dynamicTargetBuffer =
             new List<EnemyHealth>();
+        private readonly List<EnemyHealth> aimedArcherTargets =
+            new List<EnemyHealth>(3);
+        private readonly Vector3[] aimedArcherTargetPositions =
+            new Vector3[3];
         private EnemyHealth currentTarget;
         private float upgradeTimer;
         private float volleyTimer;
@@ -81,6 +85,7 @@ namespace RuleforgeTD.Towers.Testing
                 ? enemyCombatSystem.TargetCount
                 : targets == null ? 0 : targets.Length;
         public EnemyHealth CurrentTarget => currentTarget;
+        public int AimedTargetCount => aimedArcherTargets.Count;
         public int SuccessfulHitCount => successfulHitCount;
         public int TotalProjectileLaunchCount => totalProjectileLaunchCount;
         public ArcherShowcaseCardProgram CardProgram => cardProgram;
@@ -136,11 +141,9 @@ namespace RuleforgeTD.Towers.Testing
 
             if (volleyTimer <= 0f)
             {
-                EnemyHealth target = AcquireNearestTarget();
-                if (!towerView.IsUpgrading && target != null)
+                int aimedCount = PrepareDistinctArcherTargets();
+                if (!towerView.IsUpgrading && aimedCount > 0)
                 {
-                    towerView.AimAt(
-                        ArcherProjectileView.GetTargetAimPoint(target));
                     towerView.PlayVolley();
                 }
 
@@ -228,14 +231,16 @@ namespace RuleforgeTD.Towers.Testing
 
         public EnemyHealth AimAtNearestTarget()
         {
-            EnemyHealth target = AcquireNearestTarget();
-            if (target != null && towerView != null)
-            {
-                towerView.AimAt(
-                    ArcherProjectileView.GetTargetAimPoint(target));
-            }
+            PrepareDistinctArcherTargets();
+            return currentTarget;
+        }
 
-            return target;
+        public EnemyHealth GetAimedTarget(int targetSlot)
+        {
+            return targetSlot >= 0 &&
+                   targetSlot < aimedArcherTargets.Count
+                ? aimedArcherTargets[targetSlot]
+                : null;
         }
 
         private void Subscribe()
@@ -245,7 +250,8 @@ namespace RuleforgeTD.Towers.Testing
                 return;
             }
 
-            towerView.ArrowRequested += HandleArrowRequested;
+            towerView.ArrowRequestedForTargetSlot +=
+                HandleArrowRequested;
             subscribed = true;
         }
 
@@ -256,7 +262,8 @@ namespace RuleforgeTD.Towers.Testing
                 return;
             }
 
-            towerView.ArrowRequested -= HandleArrowRequested;
+            towerView.ArrowRequestedForTargetSlot -=
+                HandleArrowRequested;
             subscribed = false;
         }
 
@@ -268,6 +275,7 @@ namespace RuleforgeTD.Towers.Testing
         }
 
         private void HandleArrowRequested(
+            int targetSlot,
             Vector3 origin,
             Vector2 direction,
             int unitTier)
@@ -277,9 +285,13 @@ namespace RuleforgeTD.Towers.Testing
                 return;
             }
 
-            EnemyHealth target = IsValidTarget(currentTarget)
-                ? currentTarget
-                : AcquireNearestTarget();
+            EnemyHealth target = GetAimedTarget(targetSlot);
+            if (!IsValidTarget(target))
+            {
+                PrepareDistinctArcherTargets();
+                target = GetAimedTarget(targetSlot);
+            }
+
             if (target == null)
             {
                 return;
@@ -337,16 +349,11 @@ namespace RuleforgeTD.Towers.Testing
         private void UpdateTargeting(float deltaTime)
         {
             targetScanTimer -= deltaTime;
-            if (targetScanTimer <= 0f || !IsValidTarget(currentTarget))
+            if (targetScanTimer <= 0f ||
+                !AreAimedTargetsValid())
             {
-                AcquireNearestTarget();
+                PrepareDistinctArcherTargets();
                 targetScanTimer = targetScanInterval;
-            }
-
-            if (currentTarget != null)
-            {
-                towerView.AimAt(
-                    ArcherProjectileView.GetTargetAimPoint(currentTarget));
             }
         }
 
@@ -363,64 +370,116 @@ namespace RuleforgeTD.Towers.Testing
 
         private EnemyHealth AcquireNearestTarget()
         {
+            PrepareDistinctArcherTargets();
+            return currentTarget;
+        }
+
+        private int PrepareDistinctArcherTargets()
+        {
+            aimedArcherTargets.Clear();
             if (towerView == null)
             {
                 currentTarget = null;
-                return null;
+                return 0;
             }
 
-            float maximumDistanceSquared = targetRange * targetRange;
-            float bestDistanceSquared = maximumDistanceSquared;
-            EnemyHealth bestTarget = null;
             Vector3 towerPosition = towerView.transform.position;
             if (!useExplicitTargets && enemyCombatSystem != null)
             {
                 enemyCombatSystem.CopyTargetsTo(dynamicTargetBuffer);
-                for (int i = 0; i < dynamicTargetBuffer.Count; i++)
-                {
-                    EnemyHealth candidate = dynamicTargetBuffer[i];
-                    EvaluateCandidate(
-                        candidate,
-                        towerPosition,
-                        ref bestDistanceSquared,
-                        ref bestTarget);
-                }
+                SelectDistinctTargets(
+                    dynamicTargetBuffer,
+                    towerPosition);
             }
             else if (targets != null)
             {
-                for (int i = 0; i < targets.Length; i++)
+                SelectDistinctTargets(
+                    targets,
+                    towerPosition);
+            }
+
+            currentTarget = aimedArcherTargets.Count > 0
+                ? aimedArcherTargets[0]
+                : null;
+            for (int i = 0; i < aimedArcherTargets.Count; i++)
+            {
+                aimedArcherTargetPositions[i] =
+                    ArcherProjectileView.GetTargetAimPoint(
+                        aimedArcherTargets[i]);
+            }
+
+            towerView.AimAtDistinctTargets(
+                aimedArcherTargetPositions,
+                aimedArcherTargets.Count);
+            return aimedArcherTargets.Count;
+        }
+
+        private void SelectDistinctTargets(
+            IList<EnemyHealth> candidates,
+            Vector3 towerPosition)
+        {
+            int limit = Mathf.Min(
+                towerView.ArcherCount,
+                aimedArcherTargetPositions.Length);
+            float maximumDistanceSquared =
+                targetRange * targetRange;
+            while (aimedArcherTargets.Count < limit)
+            {
+                EnemyHealth bestTarget = null;
+                float bestDistanceSquared =
+                    maximumDistanceSquared;
+                for (int i = 0; i < candidates.Count; i++)
                 {
-                    EnemyHealth candidate = targets[i];
-                    EvaluateCandidate(
-                        candidate,
-                        towerPosition,
-                        ref bestDistanceSquared,
-                        ref bestTarget);
+                    EnemyHealth candidate = candidates[i];
+                    if (!IsValidTarget(candidate) ||
+                        aimedArcherTargets.Contains(candidate))
+                    {
+                        continue;
+                    }
+
+                    float distanceSquared =
+                        (candidate.transform.position -
+                         towerPosition).sqrMagnitude;
+                    if (distanceSquared <
+                            bestDistanceSquared ||
+                        (Mathf.Approximately(
+                             distanceSquared,
+                             bestDistanceSquared) &&
+                         CompareTargets(
+                             candidate,
+                             bestTarget) < 0))
+                    {
+                        bestDistanceSquared =
+                            distanceSquared;
+                        bestTarget = candidate;
+                    }
+                }
+
+                if (bestTarget == null)
+                {
+                    break;
+                }
+
+                aimedArcherTargets.Add(bestTarget);
+            }
+        }
+
+        private bool AreAimedTargetsValid()
+        {
+            if (aimedArcherTargets.Count == 0)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < aimedArcherTargets.Count; i++)
+            {
+                if (!IsValidTarget(aimedArcherTargets[i]))
+                {
+                    return false;
                 }
             }
 
-            currentTarget = bestTarget;
-            return currentTarget;
-        }
-
-        private static void EvaluateCandidate(
-            EnemyHealth candidate,
-            Vector3 towerPosition,
-            ref float bestDistanceSquared,
-            ref EnemyHealth bestTarget)
-        {
-            if (!IsValidTarget(candidate))
-            {
-                return;
-            }
-
-            float distanceSquared =
-                (candidate.transform.position - towerPosition).sqrMagnitude;
-            if (distanceSquared < bestDistanceSquared)
-            {
-                bestDistanceSquared = distanceSquared;
-                bestTarget = candidate;
-            }
+            return true;
         }
 
         private static bool IsValidTarget(EnemyHealth candidate)
@@ -480,6 +539,7 @@ namespace RuleforgeTD.Towers.Testing
             if (hitEnemy == currentTarget && hitEnemy.IsDead)
             {
                 currentTarget = null;
+                aimedArcherTargets.Remove(hitEnemy);
                 targetScanTimer = 0f;
             }
         }

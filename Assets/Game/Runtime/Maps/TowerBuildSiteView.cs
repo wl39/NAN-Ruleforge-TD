@@ -1,3 +1,5 @@
+using System;
+using RuleforgeTD.Battle;
 using UnityEngine;
 
 namespace RuleforgeTD.Maps
@@ -16,6 +18,8 @@ namespace RuleforgeTD.Maps
     [ExecuteAlways]
     public sealed class TowerBuildSiteView : MonoBehaviour
     {
+        public const float AuthoredVisualScale = 1.1f;
+
         [SerializeField]
         private int buildPointIndex = -1;
 
@@ -40,6 +44,8 @@ namespace RuleforgeTD.Maps
         public int UnlockCost => unlockCost;
         public TowerBuildSiteVisualState State => state;
         public bool CanBuild => state == TowerBuildSiteVisualState.Available;
+
+        public event Action<TowerBuildSiteView> Clicked;
 
         public void ConfigureAuthoring(
             int pointIndex,
@@ -68,6 +74,17 @@ namespace RuleforgeTD.Maps
             RefreshVisual();
         }
 
+        public bool RequestBuild()
+        {
+            if (!Application.isPlaying || !CanBuild)
+            {
+                return false;
+            }
+
+            Clicked?.Invoke(this);
+            return true;
+        }
+
         private void Reset()
         {
             targetRenderer = GetComponent<SpriteRenderer>();
@@ -83,6 +100,16 @@ namespace RuleforgeTD.Maps
         {
             unlockCost = Mathf.Max(0, unlockCost);
             RefreshVisual();
+        }
+
+        private void OnMouseUpAsButton()
+        {
+            if (StageOneCameraController.ShouldSuppressWorldClick)
+            {
+                return;
+            }
+
+            RequestBuild();
         }
 
         private void RefreshVisual()

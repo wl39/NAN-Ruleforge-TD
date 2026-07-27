@@ -1,0 +1,668 @@
+{
+  "locale": "ko-KR",
+  "strings": [
+    {
+      "key": "hud.summary_format",
+      "value": "웨이브 {0}/{1}  ·  본진 {2}  ·  골드 {3}  ·  {4}"
+    },
+    {
+      "key": "hud.play",
+      "value": "시작"
+    },
+    {
+      "key": "hud.pause",
+      "value": "일시정지"
+    },
+    {
+      "key": "hud.resume",
+      "value": "계속"
+    },
+    {
+      "key": "speed.0_5x",
+      "value": "0.5배"
+    },
+    {
+      "key": "speed.1x",
+      "value": "1배"
+    },
+    {
+      "key": "speed.2x",
+      "value": "2배"
+    },
+    {
+      "key": "speed.3x",
+      "value": "3배"
+    },
+    {
+      "key": "hud.cards_title",
+      "value": "장착 카드"
+    },
+    {
+      "key": "hud.empty_card",
+      "value": "빈 카드 슬롯"
+    },
+    {
+      "key": "hud.card_format",
+      "value": "{0}\n{1}"
+    },
+    {
+      "key": "reward.title",
+      "value": "보상 카드 선택"
+    },
+    {
+      "key": "reward.instruction",
+      "value": "다음 전투에 사용할 카드 한 장을 선택하세요."
+    },
+    {
+      "key": "reward.card_simple_format",
+      "value": "{0}\n\n{1}"
+    },
+    {
+      "key": "phase.awaiting_starting_tower",
+      "value": "시작 준비"
+    },
+    {
+      "key": "phase.planning",
+      "value": "계획"
+    },
+    {
+      "key": "phase.combat",
+      "value": "전투"
+    },
+    {
+      "key": "phase.draft",
+      "value": "카드 선택"
+    },
+    {
+      "key": "phase.victory",
+      "value": "승리"
+    },
+    {
+      "key": "phase.defeat",
+      "value": "패배"
+    },
+    {
+      "key": "phase.card_pack_choice",
+      "value": "카드팩 선택"
+    },
+    {
+      "key": "phase.card_pack_loadout",
+      "value": "카드 장착"
+    },
+    {
+      "key": "phase.unknown",
+      "value": "상태 확인 중"
+    },
+    {
+      "key": "status.empty",
+      "value": ""
+    },
+    {
+      "key": "status.ready",
+      "value": "빈 건설 슬롯을 누르고 처음 건설할 타워를 선택하세요."
+    },
+    {
+      "key": "status.choose_tower",
+      "value": "이 건설 슬롯에 설치할 타워를 선택하세요."
+    },
+    {
+      "key": "tower_build.title",
+      "value": "건설할 타워 선택"
+    },
+    {
+      "key": "tower_build.free",
+      "value": "첫 타워 건설 비용 · 무료"
+    },
+    {
+      "key": "tower_build.cost_format",
+      "value": "건설 비용 · 골드 {0}"
+    },
+    {
+      "key": "status.build",
+      "value": "빈 건설 슬롯을 눌러 타워를 설치할 수 있습니다."
+    },
+    {
+      "key": "status.tower_placed",
+      "value": "타워를 설치했습니다. 장착 카드를 확인하고 전투를 시작하세요."
+    },
+    {
+      "key": "status.tower_place_failed_format",
+      "value": "타워를 설치할 수 없습니다: {0}"
+    },
+    {
+      "key": "status.wave_started_format",
+      "value": "웨이브 {0}이 시작되었습니다."
+    },
+    {
+      "key": "status.wave_started",
+      "value": "웨이브가 시작되었습니다."
+    },
+    {
+      "key": "status.combat",
+      "value": "타워가 자동으로 공격합니다. 카드 효과의 연쇄를 확인하세요."
+    },
+    {
+      "key": "status.paused",
+      "value": "전투를 일시정지했습니다."
+    },
+    {
+      "key": "status.pause",
+      "value": "전투를 일시정지했습니다."
+    },
+    {
+      "key": "status.resumed",
+      "value": "전투를 계속합니다."
+    },
+    {
+      "key": "status.resume",
+      "value": "전투를 계속합니다."
+    },
+    {
+      "key": "status.speed",
+      "value": "전투 배속을 변경했습니다."
+    },
+    {
+      "key": "status.speed_format",
+      "value": "전투 배속을 {0}배로 변경했습니다."
+    },
+    {
+      "key": "status.no_tower",
+      "value": "전투를 시작하려면 타워를 하나 이상 설치해야 합니다."
+    },
+    {
+      "key": "status.insufficient_gold",
+      "value": "타워를 설치할 골드가 부족합니다."
+    },
+    {
+      "key": "status.reward",
+      "value": "웨이브 보상 카드를 선택하세요."
+    },
+    {
+      "key": "status.reward_selected_format",
+      "value": "{0} 카드를 선택했습니다."
+    },
+    {
+      "key": "status.victory",
+      "value": "스테이지를 방어했습니다!"
+    },
+    {
+      "key": "status.defeat",
+      "value": "본진이 무너졌습니다. 카드 순서와 타워 위치를 바꿔 다시 시도해 보세요."
+    },
+    {
+      "key": "tower_panel.title_format",
+      "value": "{0} · Lv.{1}"
+    },
+    {
+      "key": "tower_panel.level_up",
+      "value": "레벨 올리기"
+    },
+    {
+      "key": "tower_panel.max_level",
+      "value": "최대 레벨"
+    },
+    {
+      "key": "tower_panel.projectile",
+      "value": "탄환에 적용"
+    },
+    {
+      "key": "tower_panel.enemy",
+      "value": "적에게 적용"
+    },
+    {
+      "key": "tower_panel.instruction",
+      "value": "카드를 슬롯으로 드래그하거나, 슬롯을 고른 뒤 카드를 누르세요."
+    },
+    {
+      "key": "tower_panel.blueprint_title",
+      "value": "타워 카드 설계도"
+    },
+    {
+      "key": "tower_panel.preview_title",
+      "value": "선택한 타워"
+    },
+    {
+      "key": "tower_panel.active_effect",
+      "value": "현재 적용된 카드 효과"
+    },
+    {
+      "key": "tower_panel.target_title",
+      "value": "적용 대상"
+    },
+    {
+      "key": "tower_panel.slot_drop",
+      "value": "카드를 끌어와 이 슬롯에 장착하세요."
+    },
+    {
+      "key": "tower_panel.unlock_level_format",
+      "value": "Lv.{0}에 해금"
+    },
+    {
+      "key": "tower_panel.inventory",
+      "value": "보유 카드 · 드래그해서 장착"
+    },
+    {
+      "key": "tower_panel.equipped_badge",
+      "value": "장착"
+    },
+    {
+      "key": "tower_panel.move_badge",
+      "value": "이동"
+    },
+    {
+      "key": "tower_panel.combat_locked",
+      "value": "전투 중에는 확인만 가능합니다."
+    },
+    {
+      "key": "tower_panel.slot_format",
+      "value": "슬롯 {0} · {1}"
+    },
+    {
+      "key": "tower_panel.locked_slot_format",
+      "value": "슬롯 {0} · 잠김"
+    },
+    {
+      "key": "tower_panel.empty",
+      "value": "비어 있음"
+    },
+    {
+      "key": "tower_panel.locked",
+      "value": "잠김"
+    },
+    {
+      "key": "tower_panel.subject_projectile_short",
+      "value": "탄"
+    },
+    {
+      "key": "tower_panel.subject_enemy_short",
+      "value": "적"
+    },
+    {
+      "key": "card_symbol.split",
+      "value": "×2"
+    },
+    {
+      "key": "card_symbol.pierce",
+      "value": "→"
+    },
+    {
+      "key": "card_symbol.burn",
+      "value": "불"
+    },
+    {
+      "key": "card_symbol.slow",
+      "value": "느림"
+    },
+    {
+      "key": "card_symbol.explode",
+      "value": "폭발"
+    },
+    {
+      "key": "card_symbol.knockback",
+      "value": "밀침"
+    },
+    {
+      "key": "card_symbol.mark",
+      "value": "표식"
+    },
+    {
+      "key": "card_symbol.gold_bounty",
+      "value": "G"
+    },
+    {
+      "key": "card_symbol.poison",
+      "value": "독"
+    },
+    {
+      "key": "card_symbol.enlarge",
+      "value": "+"
+    },
+    {
+      "key": "card_symbol.shrink",
+      "value": "−"
+    },
+    {
+      "key": "card_symbol.stun",
+      "value": "기절"
+    },
+    {
+      "key": "card_symbol.ricochet",
+      "value": "튕김"
+    },
+    {
+      "key": "card_symbol.bleed",
+      "value": "출혈"
+    },
+    {
+      "key": "card_symbol.accelerate",
+      "value": "가속"
+    },
+    {
+      "key": "card_symbol.homing",
+      "value": "추적"
+    },
+    {
+      "key": "card_symbol.delay",
+      "value": "지연"
+    },
+    {
+      "key": "card_symbol.curse",
+      "value": "저주"
+    },
+    {
+      "key": "card_symbol.bind",
+      "value": "속박"
+    },
+    {
+      "key": "card_symbol.airborne",
+      "value": "부양"
+    },
+    {
+      "key": "card_symbol.shock",
+      "value": "감전"
+    },
+    {
+      "key": "card_symbol.freeze",
+      "value": "빙결"
+    },
+    {
+      "key": "card_symbol.afterimage",
+      "value": "잔상"
+    },
+    {
+      "key": "card_symbol.pulse",
+      "value": "파동"
+    },
+    {
+      "key": "card_symbol.magnet",
+      "value": "자석"
+    },
+    {
+      "key": "card_symbol.reflect",
+      "value": "반사"
+    },
+    {
+      "key": "card_symbol.contagion",
+      "value": "전염"
+    },
+    {
+      "key": "card_symbol.seal",
+      "value": "봉인"
+    },
+    {
+      "key": "card_symbol.corrosion",
+      "value": "부식"
+    },
+    {
+      "key": "card_symbol.orbit",
+      "value": "회전"
+    },
+    {
+      "key": "card_symbol.lifesteal",
+      "value": "흡혈"
+    },
+    {
+      "key": "card_symbol.fear",
+      "value": "공포"
+    },
+    {
+      "key": "tower_action.upgrade",
+      "value": "타워 업그레이드"
+    },
+    {
+      "key": "tower_action.cards",
+      "value": "카드 장착하기"
+    },
+    {
+      "key": "status.tower_selected",
+      "value": "공격 범위와 타워 작업을 확인하세요."
+    },
+    {
+      "key": "status.tower_upgraded_format",
+      "value": "타워가 레벨 {0}이 되었습니다."
+    },
+    {
+      "key": "status.card_equipped_format",
+      "value": "{0} 카드를 슬롯 {1}에 장착했습니다."
+    },
+    {
+      "key": "status.card_unequipped_format",
+      "value": "{0} 카드를 장착 해제했습니다."
+    },
+    {
+      "key": "status.slot_occupied",
+      "value": "현재 슬롯의 카드를 먼저 장착 해제하세요."
+    },
+    {
+      "key": "status.loadout_locked",
+      "value": "전투 중에는 카드와 타워 설정을 변경할 수 없습니다."
+    },
+    {
+      "key": "status.loadout_failed_format",
+      "value": "타워 설정을 변경할 수 없습니다: {0}"
+    },
+    {
+      "key": "status.subject_projectile",
+      "value": "장착 카드를 탄환에 적용합니다."
+    },
+    {
+      "key": "status.subject_enemy",
+      "value": "장착 카드를 실제로 적중한 적에게 적용합니다."
+    },
+    {
+      "key": "status.konami_gold_format",
+      "value": "코나미 커맨드 발동! 골드 {0}을 획득했습니다."
+    }
+  ],
+  "cards": [
+    {
+      "id": "split",
+      "name": "분열",
+      "projectile": "탄환이 2발로 나뉘며 각 탄환은 원래 피해의 65%를 줍니다.",
+      "enemy": "적이 현재·최대 체력의 45%를 가진 두 개체로 나뉩니다."
+    },
+    {
+      "id": "pierce",
+      "name": "관통",
+      "projectile": "적 2명을 추가로 관통하며 관통할 때마다 피해가 10% 감소합니다.",
+      "enemy": "적이 천공 상태가 되어 탄환이 통과하고 방어력 일부를 무시합니다."
+    },
+    {
+      "id": "burn",
+      "name": "화상",
+      "projectile": "발사 지점부터 적중 지점까지 2초 동안 불길을 남기며, 밟은 적에게 중첩 가능한 화상을 부여합니다.",
+      "enemy": "짧은 간격으로 화염 피해를 받으며 높은 중첩은 주변으로 번질 수 있습니다."
+    },
+    {
+      "id": "slow",
+      "name": "둔화",
+      "projectile": "탄속은 느려지지만 수명, 크기, 충돌 범위가 증가합니다.",
+      "enemy": "이동 속도가 감소하며 최종 둔화는 60%를 넘지 않습니다."
+    },
+    {
+      "id": "explode",
+      "name": "폭발",
+      "projectile": "첫 적중 또는 소멸 시 주변 적에게 범위 피해를 줍니다.",
+      "enemy": "사망할 때 주변 적에게 범위 피해를 줍니다."
+    },
+    {
+      "id": "knockback",
+      "name": "밀치기",
+      "projectile": "적중한 적을 탄환 진행 방향으로 밀어냅니다.",
+      "enemy": "경로 뒤쪽으로 밀려나며 다른 적과 부딪히면 충돌 피해를 줍니다."
+    },
+    {
+      "id": "mark",
+      "name": "표식",
+      "projectile": "처음 적중한 적에게 피해 증폭 표식을 남깁니다.",
+      "enemy": "받는 피해가 증가하고 타워의 우선 공격 대상이 됩니다."
+    },
+    {
+      "id": "gold_bounty",
+      "name": "골드 획득",
+      "projectile": "새로운 적을 처음 맞힐 때 제한된 양의 골드를 생성합니다.",
+      "enemy": "처치 보상이 증가하며 분열체는 부모의 보상 예산을 나눠 가집니다."
+    },
+    {
+      "id": "poison",
+      "name": "중독",
+      "projectile": "적중한 적에게 중독 중첩을 부여하고 짧은 독안개를 남깁니다.",
+      "enemy": "긴 시간 동안 방어력 일부를 무시하는 중첩 독 피해를 받습니다."
+    },
+    {
+      "id": "enlarge",
+      "name": "거대화",
+      "projectile": "크기, 피해, 충돌 범위가 증가하지만 이동 속도가 감소합니다.",
+      "enemy": "크기와 피격 범위, 보상이 늘고 이동 속도가 감소합니다."
+    },
+    {
+      "id": "shrink",
+      "name": "축소",
+      "projectile": "크기와 기본 피해가 줄지만 탄속과 치명타 확률이 증가합니다.",
+      "enemy": "최대 체력과 크기가 줄지만 이동 속도가 증가합니다."
+    },
+    {
+      "id": "stun",
+      "name": "기절",
+      "projectile": "첫 적중 시 적을 짧게 기절시킵니다.",
+      "enemy": "즉시 기절하며 정예와 보스에게는 저항 게이지를 누적합니다."
+    },
+    {
+      "id": "ricochet",
+      "name": "도탄",
+      "projectile": "적중 후 아직 맞히지 않은 가까운 적에게 실제로 방향을 바꿔 튕깁니다.",
+      "enemy": "강제 이동할 때 주변 적에게 튕겨 충돌 피해를 줍니다."
+    },
+    {
+      "id": "bleed",
+      "name": "출혈",
+      "projectile": "적중하거나 관통할 때 이동 피해를 일으키는 출혈을 부여합니다.",
+      "enemy": "이동하거나 밀려날 때 이동 거리에 비례한 출혈 피해를 받습니다."
+    },
+    {
+      "id": "accelerate",
+      "name": "가속",
+      "projectile": "탄속이 증가하고 비행한 거리에 비례해 피해가 강해집니다.",
+      "enemy": "이동 속도와 처치 보상이 함께 증가합니다."
+    },
+    {
+      "id": "homing",
+      "name": "추적",
+      "projectile": "가장 가까운 적을 추적하며 추적 표식이 있는 적을 우선합니다.",
+      "enemy": "유도 가능한 탄환들이 이 적을 우선 추적합니다."
+    },
+    {
+      "id": "delay",
+      "name": "지연",
+      "projectile": "잠시 공중에 정지한 뒤 강화된 피해로 다시 움직입니다.",
+      "enemy": "다음 이동과 특수 능력 실행이 지연되며 지속 피해 시간은 흐릅니다."
+    },
+    {
+      "id": "curse",
+      "name": "저주",
+      "projectile": "적중한 적에게 보라색 저주를 부여합니다.",
+      "enemy": "상태이상 피해와 지속시간이 증가하고 사망 시 주변 적에게 옮겨갑니다."
+    },
+    {
+      "id": "bind",
+      "name": "속박",
+      "projectile": "적중 위치에 회색 속박 파동을 반복하는 함정으로 고정됩니다.",
+      "enemy": "일정 시간 회색 사슬에 묶여 이동할 수 없습니다."
+    },
+    {
+      "id": "airborne",
+      "name": "에어본",
+      "projectile": "포물선으로 날아가 착탄하며 주변 적에게 피해를 줍니다.",
+      "enemy": "공중에 떠올라 이동하지 못하고 착지할 때 충돌 피해를 줍니다."
+    },
+    {
+      "id": "shock",
+      "name": "감전",
+      "projectile": "적중 후 푸른 전기가 가까운 적에게 연쇄됩니다.",
+      "enemy": "충전 중첩이 최대가 되면 주변 적에게 전기를 방출합니다."
+    },
+    {
+      "id": "freeze",
+      "name": "빙결",
+      "projectile": "적중 시 냉기를 쌓고 소멸할 때 얼음 파편을 방출합니다.",
+      "enemy": "냉기가 최대 중첩에 도달하면 얼어붙고 이후 짧은 빙결 면역을 얻습니다."
+    },
+    {
+      "id": "afterimage",
+      "name": "잔상",
+      "projectile": "지나간 경로를 약한 유령 탄환이 잠시 뒤 다시 따라갑니다.",
+      "enemy": "이동 경로에 잔상을 남기며 잔상이 받은 피해 일부를 전달받습니다."
+    },
+    {
+      "id": "pulse",
+      "name": "파동",
+      "projectile": "비행 중 주변에 주기적으로 약한 범위 파동을 방출합니다.",
+      "enemy": "주기적으로 주변 적에게 자신이 가진 상태이상 일부를 퍼뜨립니다."
+    },
+    {
+      "id": "magnet",
+      "name": "자석",
+      "projectile": "가까운 아군 탄환을 끌어당겨 합체하고 피해를 흡수합니다.",
+      "enemy": "주변 아군 탄환의 진행 방향을 자신 쪽으로 끌어당깁니다."
+    },
+    {
+      "id": "reflect",
+      "name": "반사",
+      "projectile": "적중 후 타워 방향으로 되돌아왔다가 다시 적을 추적합니다.",
+      "enemy": "자신을 맞힌 탄환을 가까운 다른 적에게 반사합니다."
+    },
+    {
+      "id": "contagion",
+      "name": "전염",
+      "projectile": "가까운 아군 탄환과 접촉하면 상태 효과 하나를 복사해 전달합니다.",
+      "enemy": "일정 시간마다 자신이 가진 디버프 하나를 가까운 적에게 옮깁니다."
+    },
+    {
+      "id": "seal",
+      "name": "봉인",
+      "projectile": "처음 적중한 적의 특수 능력을 일정 시간 막습니다.",
+      "enemy": "보호막, 치유, 순간이동, 소환 등의 특수 능력을 사용할 수 없습니다."
+    },
+    {
+      "id": "corrosion",
+      "name": "부식",
+      "projectile": "적중할 때마다 적의 방어력을 감소시킵니다.",
+      "enemy": "방어력과 최대 체력이 하한선까지 서서히 감소합니다."
+    },
+    {
+      "id": "orbit",
+      "name": "회전",
+      "projectile": "처음 적중한 적 주위를 공전하며 여러 번 피해를 줍니다.",
+      "enemy": "현재 위치 주변을 회전하며 느려지고 다른 적과 충돌합니다."
+    },
+    {
+      "id": "lifesteal",
+      "name": "흡혈",
+      "projectile": "입힌 피해 일부만큼 본진 체력을 회복합니다.",
+      "enemy": "이 적에게 입힌 피해 일부만큼 본진 체력을 회복합니다."
+    },
+    {
+      "id": "fear",
+      "name": "공포",
+      "projectile": "적중한 적을 일정 시간 경로 반대 방향으로 달아나게 합니다.",
+      "enemy": "즉시 뒤로 달아나며 공포가 끝나면 잠시 이동 속도가 증가합니다."
+    }
+  ],
+  "towers": [
+    {
+      "id": "ballista",
+      "name": "궁수 타워",
+      "description": "궁수들이 공격할 때 장착 카드를 선택한 대상 효과로 왼쪽부터 실행하는 범용 타워입니다."
+    },
+    {
+      "id": "mutation_obelisk",
+      "name": "뮤테이션 오벨리스크",
+      "description": "적이 사거리에 들어오면 장착 카드를 그 적에게 직접 적용합니다."
+    },
+    {
+      "id": "death_engine",
+      "name": "데스 엔진",
+      "description": "적이 사망하면 주변 적에게 장착 카드 순서를 전달해 처치 연쇄를 만듭니다."
+    }
+  ]
+}

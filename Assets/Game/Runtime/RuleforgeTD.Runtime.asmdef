@@ -2,7 +2,8 @@
   "name": "RuleforgeTD.Runtime",
   "rootNamespace": "RuleforgeTD",
   "references": [
-    "RuleforgeTD.GameLogic"
+    "RuleforgeTD.GameLogic",
+    "Unity.ugui"
   ],
   "includePlatforms": [],
   "excludePlatforms": [],

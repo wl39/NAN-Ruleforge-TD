@@ -250,8 +250,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 7 Decor/Tree2
   clusterId: forest_west
   isRoadsideMarker: 0
@@ -436,8 +436,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 2 Fence/3
   clusterId: forest_west
   isRoadsideMarker: 0
@@ -538,8 +538,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 4 Stone/1
   clusterId: scrub_south
   isRoadsideMarker: 0
@@ -640,8 +640,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 2 Fence/8
   clusterId: camp_northeast
   isRoadsideMarker: 0
@@ -742,8 +742,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 2 Fence/4
   clusterId: forest_west
   isRoadsideMarker: 0
@@ -845,8 +845,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 7 Decor/Tree1
   clusterId: forest_ridge
   isRoadsideMarker: 0
@@ -947,8 +947,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 7 Decor/Log2
   clusterId: scrub_south
   isRoadsideMarker: 0
@@ -1134,8 +1134,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 9 Bush/5
   clusterId: forest_east
   isRoadsideMarker: 0
@@ -1237,8 +1237,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 9 Bush/5
   clusterId: forest_ridge
   isRoadsideMarker: 0
@@ -1424,8 +1424,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 7 Decor/Tree1
   clusterId: forest_north
   isRoadsideMarker: 0
@@ -1610,8 +1610,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 2 Fence/10
   clusterId: forest_north
   isRoadsideMarker: 0
@@ -1713,8 +1713,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 9 Bush/2
   clusterId: forest_east
   isRoadsideMarker: 0
@@ -2068,8 +2068,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 9 Bush/6
   clusterId: scrub_south
   isRoadsideMarker: 0
@@ -2170,8 +2170,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 5 Grass/4
   clusterId: meadow_east
   isRoadsideMarker: 0
@@ -2272,8 +2272,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 2 Fence/7
   clusterId: camp_northeast
   isRoadsideMarker: 0
@@ -2374,8 +2374,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 7 Decor/Box2
   clusterId: camp_southwest
   isRoadsideMarker: 0
@@ -2477,8 +2477,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 9 Bush/2
   clusterId: camp_northeast
   isRoadsideMarker: 0
@@ -2747,8 +2747,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 2 Fence/8
   clusterId: forest_west
   isRoadsideMarker: 0
@@ -2850,8 +2850,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 7 Decor/Tree1
   clusterId: forest_east
   isRoadsideMarker: 0
@@ -3121,8 +3121,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 7 Decor/Tree1
   clusterId: forest_west
   isRoadsideMarker: 0
@@ -3223,8 +3223,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 4 Stone/11
   clusterId: forest_north
   isRoadsideMarker: 0
@@ -3325,8 +3325,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 6 Flower/2
   clusterId: meadow_west
   isRoadsideMarker: 0
@@ -3412,8 +3412,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 8dce0670d6e72452da670da45568c58f, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   localWaypoints:
   - {x: 0, y: 0}
   - {x: 8, y: 0}
@@ -3447,8 +3447,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 3d59c916c15284ab3a77bfb5f54146e3, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   terrain: {fileID: 663195634}
 --- !u!1 &302672728
 GameObject:
@@ -3494,8 +3494,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 7 Decor/Tree1
   clusterId: forest_north
   isRoadsideMarker: 0
@@ -3597,8 +3597,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 9 Bush/6
   clusterId: forest_west
   isRoadsideMarker: 0
@@ -3783,8 +3783,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 4 Stone/5
   clusterId: scrub_south
   isRoadsideMarker: 0
@@ -3886,8 +3886,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: Flag_DownRight
   clusterId: roadside_verges
   isRoadsideMarker: 1
@@ -3903,8 +3903,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: e29d4dc00425841a69f83fc0245adf74, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   target: {fileID: 332344390}
   frames:
   - {fileID: 4682488852330052137, guid: ec8e49cbade194d68af542af15b820d1, type: 3}
@@ -4010,8 +4010,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: Flag_UpRight
   clusterId: roadside_verges
   isRoadsideMarker: 1
@@ -4027,8 +4027,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: e29d4dc00425841a69f83fc0245adf74, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   target: {fileID: 332836366}
   frames:
   - {fileID: 291099835393546197, guid: 00103cb0f7dce48bba1a329645ec2a14, type: 3}
@@ -4134,8 +4134,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 9 Bush/4
   clusterId: forest_ridge
   isRoadsideMarker: 0
@@ -4237,8 +4237,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 9 Bush/4
   clusterId: forest_east
   isRoadsideMarker: 0
@@ -4592,8 +4592,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 7 Decor/Tree1
   clusterId: forest_west
   isRoadsideMarker: 0
@@ -4694,8 +4694,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 4 Stone/14
   clusterId: scrub_south
   isRoadsideMarker: 0
@@ -4880,8 +4880,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 6 Flower/3
   clusterId: meadow_central
   isRoadsideMarker: 0
@@ -5005,8 +5005,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 4e6bc9145198642d18e521ba97086d16, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   clusterId: forest_ridge
   profile: Forest Edge
   radius: {x: 3.6, y: 1.8}
@@ -5055,8 +5055,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 8 Camp/2
   clusterId: camp_northeast
   isRoadsideMarker: 0
@@ -5158,8 +5158,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 9 Bush/4
   clusterId: forest_east
   isRoadsideMarker: 0
@@ -5261,8 +5261,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 9 Bush/4
   clusterId: forest_north
   isRoadsideMarker: 0
@@ -5447,8 +5447,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 6 Flower/5
   clusterId: meadow_east
   isRoadsideMarker: 0
@@ -5633,8 +5633,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 5 Grass/6
   clusterId: meadow_central
   isRoadsideMarker: 0
@@ -5736,8 +5736,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 9 Bush/4
   clusterId: forest_east
   isRoadsideMarker: 0
@@ -5839,8 +5839,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 7 Decor/Tree1
   clusterId: forest_west
   isRoadsideMarker: 0
@@ -5978,8 +5978,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 4e6bc9145198642d18e521ba97086d16, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   clusterId: forest_west
   profile: Dense Forest
   radius: {x: 4.2, y: 3.8}
@@ -6034,8 +6034,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 4e6bc9145198642d18e521ba97086d16, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   clusterId: camp_southwest
   profile: Abandoned Camp
   radius: {x: 2.7, y: 1.05}
@@ -6083,8 +6083,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 2 Fence/4
   clusterId: camp_southwest
   isRoadsideMarker: 0
@@ -6185,8 +6185,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 7 Decor/Log2
   clusterId: forest_north
   isRoadsideMarker: 0
@@ -6287,8 +6287,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 7 Decor/Log1
   clusterId: forest_ridge
   isRoadsideMarker: 0
@@ -6389,8 +6389,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 7 Decor/Log3
   clusterId: scrub_south
   isRoadsideMarker: 0
@@ -6492,8 +6492,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 7 Decor/Tree1
   clusterId: forest_ridge
   isRoadsideMarker: 0
@@ -6594,8 +6594,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 7 Decor/Log1
   clusterId: forest_north
   isRoadsideMarker: 0
@@ -6696,8 +6696,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 6 Flower/2
   clusterId: meadow_west
   isRoadsideMarker: 0
@@ -6799,8 +6799,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 9 Bush/2
   clusterId: forest_east
   isRoadsideMarker: 0
@@ -6901,8 +6901,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 2 Fence/3
   clusterId: forest_ridge
   isRoadsideMarker: 0
@@ -7004,8 +7004,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 7 Decor/Tree1
   clusterId: forest_north
   isRoadsideMarker: 0
@@ -7106,8 +7106,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 7 Decor/Log3
   clusterId: scrub_south
   isRoadsideMarker: 0
@@ -7293,8 +7293,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 7 Decor/Tree1
   clusterId: forest_north
   isRoadsideMarker: 0
@@ -7396,8 +7396,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 8 Camp/1
   clusterId: camp_northeast
   isRoadsideMarker: 0
@@ -7498,8 +7498,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 4 Stone/14
   clusterId: scrub_south
   isRoadsideMarker: 0
@@ -7632,8 +7632,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 276174a64fd5f4f35b5def1aef611dbd, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &497415252
 GameObject:
   m_ObjectHideFlags: 0
@@ -7677,8 +7677,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 5 Grass/5
   clusterId: meadow_central
   isRoadsideMarker: 0
@@ -7779,8 +7779,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 7 Decor/Log2
   clusterId: scrub_south
   isRoadsideMarker: 0
@@ -7881,8 +7881,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 4 Stone/6
   clusterId: forest_north
   isRoadsideMarker: 0
@@ -7984,8 +7984,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 7 Decor/Tree1
   clusterId: forest_east
   isRoadsideMarker: 0
@@ -8086,8 +8086,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 5 Grass/4
   clusterId: meadow_west
   isRoadsideMarker: 0
@@ -8272,8 +8272,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 7 Decor/Log2
   clusterId: forest_west
   isRoadsideMarker: 0
@@ -8374,8 +8374,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 2 Fence/3
   clusterId: forest_east
   isRoadsideMarker: 0
@@ -8561,8 +8561,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 7 Decor/Tree2
   clusterId: forest_west
   isRoadsideMarker: 0
@@ -8831,8 +8831,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 2 Fence/10
   clusterId: forest_ridge
   isRoadsideMarker: 0
@@ -8934,8 +8934,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 7 Decor/Tree1
   clusterId: forest_east
   isRoadsideMarker: 0
@@ -9120,8 +9120,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 2 Fence/3
   clusterId: forest_north
   isRoadsideMarker: 0
@@ -9223,8 +9223,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 9 Bush/2
   clusterId: forest_north
   isRoadsideMarker: 0
@@ -9326,8 +9326,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 9 Bush/4
   clusterId: forest_west
   isRoadsideMarker: 0
@@ -9512,8 +9512,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 6 Flower/1
   clusterId: meadow_west
   isRoadsideMarker: 0
@@ -9866,8 +9866,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 2 Fence/3
   clusterId: camp_northeast
   isRoadsideMarker: 0
@@ -10053,8 +10053,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 9 Bush/6
   clusterId: forest_west
   isRoadsideMarker: 0
@@ -10155,8 +10155,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 2 Fence/3
   clusterId: camp_southwest
   isRoadsideMarker: 0
@@ -10258,8 +10258,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 9 Bush/5
   clusterId: forest_north
   isRoadsideMarker: 0
@@ -10360,8 +10360,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 2 Fence/4
   clusterId: forest_north
   isRoadsideMarker: 0
@@ -10462,8 +10462,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 6 Flower/4
   clusterId: meadow_central
   isRoadsideMarker: 0
@@ -17995,8 +17995,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 2 Fence/1
   clusterId: forest_east
   isRoadsideMarker: 0
@@ -18097,8 +18097,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 6 Flower/1
   clusterId: meadow_east
   isRoadsideMarker: 0
@@ -18284,8 +18284,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 7 Decor/Tree1
   clusterId: forest_ridge
   isRoadsideMarker: 0
@@ -18470,8 +18470,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 4 Stone/9
   clusterId: scrub_south
   isRoadsideMarker: 0
@@ -18657,8 +18657,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 9 Bush/3
   clusterId: forest_west
   isRoadsideMarker: 0
@@ -18759,8 +18759,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 4 Stone/2
   clusterId: forest_west
   isRoadsideMarker: 0
@@ -18900,8 +18900,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 4 Stone/9
   clusterId: scrub_south
   isRoadsideMarker: 0
@@ -19003,8 +19003,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 7 Decor/Tree1
   clusterId: forest_west
   isRoadsideMarker: 0
@@ -19190,8 +19190,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 7 Decor/Tree1
   clusterId: forest_north
   isRoadsideMarker: 0
@@ -19376,8 +19376,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 2 Fence/2
   clusterId: forest_east
   isRoadsideMarker: 0
@@ -19483,8 +19483,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 4e6bc9145198642d18e521ba97086d16, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   clusterId: roadside_verges
   profile: Roadside Verges
   radius: {x: 14, y: 9}
@@ -19533,8 +19533,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 9 Bush/5
   clusterId: scrub_south
   isRoadsideMarker: 0
@@ -19635,8 +19635,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 7 Decor/Log3
   clusterId: camp_northeast
   isRoadsideMarker: 0
@@ -19738,8 +19738,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 9 Bush/6
   clusterId: forest_east
   isRoadsideMarker: 0
@@ -19841,8 +19841,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 7 Decor/Tree1
   clusterId: forest_east
   isRoadsideMarker: 0
@@ -19975,8 +19975,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 276174a64fd5f4f35b5def1aef611dbd, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &840134768
 GameObject:
   m_ObjectHideFlags: 0
@@ -20105,8 +20105,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: Campfire_Lit
   clusterId: camp_northeast
   isRoadsideMarker: 0
@@ -20122,8 +20122,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: e29d4dc00425841a69f83fc0245adf74, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   target: {fileID: 851570283}
   frames:
   - {fileID: 1039031751271885592, guid: 7b986d60dde7a4b98bc3ba3b32a82331, type: 3}
@@ -20228,8 +20228,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 6 Flower/1
   clusterId: meadow_east
   isRoadsideMarker: 0
@@ -20330,8 +20330,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 6 Flower/1
   clusterId: meadow_east
   isRoadsideMarker: 0
@@ -20433,8 +20433,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 9 Bush/2
   clusterId: forest_east
   isRoadsideMarker: 0
@@ -20619,8 +20619,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 6 Flower/1
   clusterId: meadow_west
   isRoadsideMarker: 0
@@ -20721,8 +20721,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 3 Pointer/2
   clusterId: roadside_verges
   isRoadsideMarker: 1
@@ -20908,8 +20908,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 9 Bush/3
   clusterId: forest_west
   isRoadsideMarker: 0
@@ -21179,8 +21179,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 9 Bush/6
   clusterId: forest_west
   isRoadsideMarker: 0
@@ -21281,8 +21281,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 4 Stone/6
   clusterId: forest_east
   isRoadsideMarker: 0
@@ -21383,8 +21383,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 2 Fence/2
   clusterId: forest_west
   isRoadsideMarker: 0
@@ -21486,8 +21486,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 9 Bush/6
   clusterId: forest_east
   isRoadsideMarker: 0
@@ -21672,8 +21672,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 5 Grass/4
   clusterId: meadow_east
   isRoadsideMarker: 0
@@ -21858,8 +21858,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 4 Stone/3
   clusterId: scrub_south
   isRoadsideMarker: 0
@@ -21961,8 +21961,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 7 Decor/Tree1
   clusterId: forest_west
   isRoadsideMarker: 0
@@ -22063,8 +22063,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 7 Decor/Log3
   clusterId: scrub_south
   isRoadsideMarker: 0
@@ -22249,8 +22249,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 5 Grass/4
   clusterId: meadow_west
   isRoadsideMarker: 0
@@ -22520,8 +22520,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 7 Decor/Tree1
   clusterId: forest_west
   isRoadsideMarker: 0
@@ -22623,8 +22623,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 8 Camp/3
   clusterId: camp_northeast
   isRoadsideMarker: 0
@@ -22726,8 +22726,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 9 Bush/5
   clusterId: forest_west
   isRoadsideMarker: 0
@@ -22828,8 +22828,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 7 Decor/Log2
   clusterId: scrub_south
   isRoadsideMarker: 0
@@ -23046,8 +23046,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 276174a64fd5f4f35b5def1aef611dbd, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &1054671808
 GameObject:
   m_ObjectHideFlags: 0
@@ -23075,8 +23075,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 6cc64bff8e7a84a23807a42298828efe, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   terrain: {fileID: 663195634}
   groundDecals: {fileID: 1067530742}
   decorationRoot: {fileID: 2105341156}
@@ -23167,8 +23167,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 4e6bc9145198642d18e521ba97086d16, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   clusterId: meadow_central
   profile: Wildflower Meadow
   radius: {x: 3, y: 1.8}
@@ -23217,8 +23217,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 9 Bush/1
   clusterId: forest_west
   isRoadsideMarker: 0
@@ -23320,8 +23320,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 9 Bush/2
   clusterId: forest_ridge
   isRoadsideMarker: 0
@@ -24329,8 +24329,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 7 Decor/Tree1
   clusterId: forest_east
   isRoadsideMarker: 0
@@ -24515,8 +24515,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 4 Stone/3
   clusterId: meadow_central
   isRoadsideMarker: 0
@@ -24702,8 +24702,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 9 Bush/2
   clusterId: forest_north
   isRoadsideMarker: 0
@@ -24973,8 +24973,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 7 Decor/Tree1
   clusterId: forest_west
   isRoadsideMarker: 0
@@ -25075,8 +25075,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 6 Flower/1
   clusterId: meadow_east
   isRoadsideMarker: 0
@@ -25178,8 +25178,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 9 Bush/5
   clusterId: forest_north
   isRoadsideMarker: 0
@@ -25281,8 +25281,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 9 Bush/3
   clusterId: forest_ridge
   isRoadsideMarker: 0
@@ -25384,8 +25384,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 7 Decor/Tree1
   clusterId: forest_west
   isRoadsideMarker: 0
@@ -25486,8 +25486,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 3 Pointer/4
   clusterId: roadside_verges
   isRoadsideMarker: 1
@@ -25588,8 +25588,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 6 Flower/5
   clusterId: meadow_east
   isRoadsideMarker: 0
@@ -25691,8 +25691,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 9 Bush/2
   clusterId: forest_west
   isRoadsideMarker: 0
@@ -25793,8 +25793,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 6 Flower/1
   clusterId: meadow_east
   isRoadsideMarker: 0
@@ -25896,8 +25896,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 9 Bush/1
   clusterId: forest_west
   isRoadsideMarker: 0
@@ -26083,8 +26083,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 7 Decor/Tree1
   clusterId: forest_north
   isRoadsideMarker: 0
@@ -26185,8 +26185,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 7 Decor/Log2
   clusterId: forest_west
   isRoadsideMarker: 0
@@ -26455,8 +26455,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 6 Flower/4
   clusterId: meadow_central
   isRoadsideMarker: 0
@@ -26557,8 +26557,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 4 Stone/6
   clusterId: forest_ridge
   isRoadsideMarker: 0
@@ -26775,8 +26775,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 276174a64fd5f4f35b5def1aef611dbd, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &1274645807
 GameObject:
   m_ObjectHideFlags: 0
@@ -26989,8 +26989,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 9 Bush/5
   clusterId: forest_north
   isRoadsideMarker: 0
@@ -27092,8 +27092,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 7 Decor/Tree1
   clusterId: forest_north
   isRoadsideMarker: 0
@@ -27194,8 +27194,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 6 Flower/1
   clusterId: meadow_east
   isRoadsideMarker: 0
@@ -27296,8 +27296,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 6 Flower/3
   clusterId: meadow_central
   isRoadsideMarker: 0
@@ -27398,8 +27398,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 5 Grass/5
   clusterId: meadow_west
   isRoadsideMarker: 0
@@ -27500,8 +27500,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 2 Fence/2
   clusterId: forest_north
   isRoadsideMarker: 0
@@ -27603,8 +27603,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: Campfire_Unlit
   clusterId: camp_southwest
   isRoadsideMarker: 0
@@ -27620,8 +27620,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: e29d4dc00425841a69f83fc0245adf74, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   target: {fileID: 1296796081}
   frames:
   - {fileID: 3484167350458997633, guid: a0cd96b059b08410593abea933dfd1a8, type: 3}
@@ -27726,8 +27726,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 6 Flower/1
   clusterId: meadow_west
   isRoadsideMarker: 0
@@ -27828,8 +27828,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 3 Pointer/1
   clusterId: roadside_verges
   isRoadsideMarker: 1
@@ -27930,8 +27930,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 2 Fence/6
   clusterId: scrub_south
   isRoadsideMarker: 0
@@ -28033,8 +28033,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 7 Decor/Tree2
   clusterId: forest_east
   isRoadsideMarker: 0
@@ -28163,8 +28163,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 4e6bc9145198642d18e521ba97086d16, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   clusterId: forest_east
   profile: Woodland
   radius: {x: 2.7, y: 3.6}
@@ -28316,8 +28316,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 4e6bc9145198642d18e521ba97086d16, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   clusterId: scrub_south
   profile: Rocky Scrub
   radius: {x: 7, y: 1.9}
@@ -28366,8 +28366,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 9 Bush/6
   clusterId: forest_ridge
   isRoadsideMarker: 0
@@ -28468,8 +28468,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 2 Fence/10
   clusterId: forest_east
   isRoadsideMarker: 0
@@ -28571,8 +28571,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 9 Bush/1
   clusterId: forest_west
   isRoadsideMarker: 0
@@ -28673,8 +28673,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 4 Stone/4
   clusterId: meadow_west
   isRoadsideMarker: 0
@@ -28775,8 +28775,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 2 Fence/5
   clusterId: scrub_south
   isRoadsideMarker: 0
@@ -28878,8 +28878,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 9 Bush/4
   clusterId: forest_east
   isRoadsideMarker: 0
@@ -29012,8 +29012,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 276174a64fd5f4f35b5def1aef611dbd, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &1345229864
 GameObject:
   m_ObjectHideFlags: 0
@@ -29057,8 +29057,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 6 Flower/1
   clusterId: meadow_west
   isRoadsideMarker: 0
@@ -29160,8 +29160,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 7 Decor/Tree1
   clusterId: forest_east
   isRoadsideMarker: 0
@@ -29262,8 +29262,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 6 Flower/3
   clusterId: meadow_central
   isRoadsideMarker: 0
@@ -29364,8 +29364,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 6 Flower/1
   clusterId: meadow_west
   isRoadsideMarker: 0
@@ -29467,8 +29467,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 7 Decor/Tree1
   clusterId: forest_ridge
   isRoadsideMarker: 0
@@ -29653,8 +29653,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 2 Fence/8
   clusterId: forest_ridge
   isRoadsideMarker: 0
@@ -29839,8 +29839,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 6 Flower/3
   clusterId: meadow_central
   isRoadsideMarker: 0
@@ -29942,8 +29942,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 9 Bush/5
   clusterId: forest_north
   isRoadsideMarker: 0
@@ -30129,8 +30129,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 9 Bush/1
   clusterId: forest_north
   isRoadsideMarker: 0
@@ -30316,8 +30316,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 7 Decor/Tree2
   clusterId: forest_ridge
   isRoadsideMarker: 0
@@ -30418,8 +30418,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 6 Flower/2
   clusterId: meadow_west
   isRoadsideMarker: 0
@@ -30520,8 +30520,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 7 Decor/Box1
   clusterId: camp_northeast
   isRoadsideMarker: 0
@@ -30623,8 +30623,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 7 Decor/Tree1
   clusterId: forest_north
   isRoadsideMarker: 0
@@ -30758,8 +30758,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 4e6bc9145198642d18e521ba97086d16, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   clusterId: forest_north
   profile: Dense Forest
   radius: {x: 4.6, y: 2.3}
@@ -30808,8 +30808,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 9 Bush/1
   clusterId: forest_west
   isRoadsideMarker: 0
@@ -30911,8 +30911,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 9 Bush/2
   clusterId: forest_north
   isRoadsideMarker: 0
@@ -31013,8 +31013,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 7 Decor/Log2
   clusterId: forest_ridge
   isRoadsideMarker: 0
@@ -31116,8 +31116,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 7 Decor/Tree1
   clusterId: forest_ridge
   isRoadsideMarker: 0
@@ -31219,8 +31219,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 7 Decor/Tree1
   clusterId: forest_ridge
   isRoadsideMarker: 0
@@ -31573,8 +31573,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 2 Fence/1
   clusterId: forest_north
   isRoadsideMarker: 0
@@ -31675,8 +31675,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 2 Fence/4
   clusterId: forest_east
   isRoadsideMarker: 0
@@ -31777,8 +31777,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 6 Flower/3
   clusterId: meadow_central
   isRoadsideMarker: 0
@@ -31879,8 +31879,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 4 Stone/7
   clusterId: scrub_south
   isRoadsideMarker: 0
@@ -32149,8 +32149,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 6 Flower/4
   clusterId: meadow_central
   isRoadsideMarker: 0
@@ -32336,8 +32336,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 9 Bush/6
   clusterId: forest_west
   isRoadsideMarker: 0
@@ -32522,8 +32522,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 4 Stone/6
   clusterId: forest_east
   isRoadsideMarker: 0
@@ -32633,8 +32633,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 4e6bc9145198642d18e521ba97086d16, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   clusterId: camp_northeast
   profile: Ranger Camp
   radius: {x: 2.5, y: 1.7}
@@ -32709,8 +32709,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 276174a64fd5f4f35b5def1aef611dbd, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!4 &1598799615 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 8481492884441291657, guid: e82a329cef6e14481b8bc8fd9cb9c097, type: 3}
@@ -32759,8 +32759,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 6 Flower/1
   clusterId: meadow_west
   isRoadsideMarker: 0
@@ -32861,8 +32861,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 2 Fence/1
   clusterId: forest_west
   isRoadsideMarker: 0
@@ -32964,8 +32964,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 7 Decor/Tree1
   clusterId: forest_north
   isRoadsideMarker: 0
@@ -33067,8 +33067,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 7 Decor/Tree1
   clusterId: forest_west
   isRoadsideMarker: 0
@@ -33254,8 +33254,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 7 Decor/Tree2
   clusterId: forest_east
   isRoadsideMarker: 0
@@ -33388,8 +33388,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 276174a64fd5f4f35b5def1aef611dbd, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &1629993512
 GameObject:
   m_ObjectHideFlags: 0
@@ -33433,8 +33433,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 4 Stone/4
   clusterId: meadow_east
   isRoadsideMarker: 0
@@ -33787,8 +33787,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 6 Flower/1
   clusterId: meadow_west
   isRoadsideMarker: 0
@@ -33905,8 +33905,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 4e6bc9145198642d18e521ba97086d16, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   clusterId: meadow_east
   profile: Wildflower Meadow
   radius: {x: 3.1, y: 2.8}
@@ -34039,8 +34039,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 9 Bush/4
   clusterId: scrub_south
   isRoadsideMarker: 0
@@ -34141,8 +34141,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 6 Flower/1
   clusterId: meadow_west
   isRoadsideMarker: 0
@@ -34244,8 +34244,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 6a160d838ff8b4b4693ac20007e008c7, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   m_AssetsPPU: 32
   m_RefResolutionX: 1280
   m_RefResolutionY: 720
@@ -34441,8 +34441,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 7 Decor/Tree1
   clusterId: forest_west
   isRoadsideMarker: 0
@@ -34659,8 +34659,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 276174a64fd5f4f35b5def1aef611dbd, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &1706997551
 GameObject:
   m_ObjectHideFlags: 0
@@ -34704,8 +34704,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 5 Grass/6
   clusterId: meadow_east
   isRoadsideMarker: 0
@@ -34891,8 +34891,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: Flag_Down
   clusterId: roadside_verges
   isRoadsideMarker: 1
@@ -34908,8 +34908,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: e29d4dc00425841a69f83fc0245adf74, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   target: {fileID: 1715504241}
   frames:
   - {fileID: -6831152648146273511, guid: 24c5e09e40bea49cba61b7c762ab9ce4, type: 3}
@@ -35098,8 +35098,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 5 Grass/4
   clusterId: meadow_west
   isRoadsideMarker: 0
@@ -35200,8 +35200,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 6 Flower/1
   clusterId: meadow_west
   isRoadsideMarker: 0
@@ -35386,8 +35386,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 6 Flower/1
   clusterId: meadow_east
   isRoadsideMarker: 0
@@ -35489,8 +35489,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 9 Bush/5
   clusterId: forest_west
   isRoadsideMarker: 0
@@ -35675,8 +35675,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 7 Decor/Log1
   clusterId: camp_southwest
   isRoadsideMarker: 0
@@ -35777,8 +35777,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 2 Fence/8
   clusterId: forest_north
   isRoadsideMarker: 0
@@ -35964,8 +35964,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 9 Bush/4
   clusterId: forest_west
   isRoadsideMarker: 0
@@ -36067,8 +36067,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 9 Bush/3
   clusterId: forest_west
   isRoadsideMarker: 0
@@ -36170,8 +36170,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 9 Bush/3
   clusterId: forest_east
   isRoadsideMarker: 0
@@ -36273,8 +36273,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 9 Bush/6
   clusterId: forest_ridge
   isRoadsideMarker: 0
@@ -36416,6 +36416,53 @@ SpriteRenderer:
   m_WasSpriteAssigned: 1
   m_MaskInteraction: 0
   m_SpriteSortPoint: 1
+--- !u!1 &1804292038
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1804292040}
+  - component: {fileID: 1804292039}
+  m_Layer: 0
+  m_Name: Gameplay
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1804292039
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1804292038}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c97b453c2f03a418dabf01c49115df3b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  stageMap: {fileID: 1054671809}
+  presentationCatalog: {fileID: 11400000, guid: aea2b2b858143486191798a1007d9c6d, type: 2}
+  seed: 12345
+--- !u!4 &1804292040
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1804292038}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1804649199
 GameObject:
   m_ObjectHideFlags: 0
@@ -36459,8 +36506,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 5 Grass/5
   clusterId: meadow_central
   isRoadsideMarker: 0
@@ -36562,8 +36609,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 7 Decor/Tree1
   clusterId: forest_north
   isRoadsideMarker: 0
@@ -36664,8 +36711,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 6 Flower/3
   clusterId: meadow_central
   isRoadsideMarker: 0
@@ -36766,8 +36813,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 4 Stone/2
   clusterId: forest_east
   isRoadsideMarker: 0
@@ -36952,8 +36999,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 6 Flower/6
   clusterId: meadow_east
   isRoadsideMarker: 0
@@ -37139,8 +37186,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 9 Bush/6
   clusterId: forest_north
   isRoadsideMarker: 0
@@ -37345,8 +37392,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 4e6bc9145198642d18e521ba97086d16, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   clusterId: meadow_west
   profile: Wildflower Meadow
   radius: {x: 4.5, y: 2.7}
@@ -37395,8 +37442,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 7 Decor/Tree1
   clusterId: forest_west
   isRoadsideMarker: 0
@@ -37497,8 +37544,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 6 Flower/1
   clusterId: meadow_east
   isRoadsideMarker: 0
@@ -37599,8 +37646,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 2 Fence/4
   clusterId: forest_ridge
   isRoadsideMarker: 0
@@ -37785,8 +37832,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 6 Flower/1
   clusterId: meadow_west
   isRoadsideMarker: 0
@@ -37887,8 +37934,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 2 Fence/2
   clusterId: forest_ridge
   isRoadsideMarker: 0
@@ -37990,8 +38037,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 9 Bush/6
   clusterId: forest_ridge
   isRoadsideMarker: 0
@@ -38093,8 +38140,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 9 Bush/3
   clusterId: forest_north
   isRoadsideMarker: 0
@@ -38279,8 +38326,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 4 Stone/7
   clusterId: scrub_south
   isRoadsideMarker: 0
@@ -38382,8 +38429,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 8 Camp/4
   clusterId: camp_southwest
   isRoadsideMarker: 0
@@ -38652,8 +38699,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 6 Flower/1
   clusterId: meadow_west
   isRoadsideMarker: 0
@@ -38839,8 +38886,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 9 Bush/6
   clusterId: forest_ridge
   isRoadsideMarker: 0
@@ -38941,8 +38988,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 2 Fence/1
   clusterId: camp_southwest
   isRoadsideMarker: 0
@@ -39043,8 +39090,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 6 Flower/5
   clusterId: meadow_central
   isRoadsideMarker: 0
@@ -39230,8 +39277,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 9 Bush/3
   clusterId: forest_ridge
   isRoadsideMarker: 0
@@ -39333,8 +39380,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 8 Camp/2
   clusterId: camp_southwest
   isRoadsideMarker: 0
@@ -39435,8 +39482,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 5 Grass/5
   clusterId: meadow_east
   isRoadsideMarker: 0
@@ -39537,8 +39584,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 5 Grass/5
   clusterId: meadow_west
   isRoadsideMarker: 0
@@ -39685,8 +39732,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 2 Fence/10
   clusterId: forest_west
   isRoadsideMarker: 0
@@ -39872,8 +39919,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 7 Decor/Tree1
   clusterId: forest_east
   isRoadsideMarker: 0
@@ -39975,8 +40022,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 9 Bush/2
   clusterId: forest_north
   isRoadsideMarker: 0
@@ -40078,8 +40125,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 9 Bush/1
   clusterId: forest_north
   isRoadsideMarker: 0
@@ -40180,8 +40227,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 6 Flower/1
   clusterId: meadow_west
   isRoadsideMarker: 0
@@ -40324,8 +40371,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 6 Flower/1
   clusterId: meadow_east
   isRoadsideMarker: 0
@@ -40595,8 +40642,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 9 Bush/3
   clusterId: forest_north
   isRoadsideMarker: 0
@@ -40697,8 +40744,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 4 Stone/5
   clusterId: scrub_south
   isRoadsideMarker: 0
@@ -40884,8 +40931,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8fba6efca36e47c68f2f17be73a6d4c, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   assetKey: 9 Bush/5
   clusterId: forest_east
   isRoadsideMarker: 0
@@ -41032,3 +41079,4 @@ SceneRoots:
   m_ObjectHideFlags: 0
   m_Roots:
   - {fileID: 1054671810}
+  - {fileID: 1804292040}

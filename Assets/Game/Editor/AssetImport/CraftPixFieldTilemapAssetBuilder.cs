@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using RuleforgeTD.Battle;
 using RuleforgeTD.Maps;
 using UnityEditor;
 using UnityEditor.Build;
@@ -24,6 +25,12 @@ namespace RuleforgeTD.Editor.AssetImport
             "Assets/Game/Scenes/Battle/Stage01.unity";
         public const string WebGLBuildPath =
             "Builds/WebGL/Stage01";
+        private const string WebGLStagingRootPath =
+            "Builds/WebGL/.Stage01-staging";
+        private const string WebGLStagingBuildPath =
+            WebGLStagingRootPath + "/Stage01";
+        private const string WebGLPreviousBuildPath =
+            "Builds/WebGL/.Stage01-previous";
 
         private const string RawRoot =
             "Assets/ThirdParty/CraftPix/Raw/Maps/Fields";
@@ -135,6 +142,12 @@ namespace RuleforgeTD.Editor.AssetImport
             "Ruleforge TD/Assets/Rebuild Fields Tilemap Content")]
         public static void BuildFromMenu()
         {
+            if (!EditorSceneManager
+                    .SaveCurrentModifiedScenesIfUserWantsTo())
+            {
+                return;
+            }
+
             BuildAll();
         }
 
@@ -213,20 +226,22 @@ namespace RuleforgeTD.Editor.AssetImport
             BuildAll();
             ValidateGeneratedAssets();
 
-            if (Directory.Exists(WebGLBuildPath))
+            if (Directory.Exists(WebGLStagingRootPath))
             {
-                Directory.Delete(WebGLBuildPath, true);
+                Directory.Delete(WebGLStagingRootPath, true);
             }
 
-            Directory.CreateDirectory(WebGLBuildPath);
+            Directory.CreateDirectory(WebGLStagingBuildPath);
             PlayerSettings.WebGL.compressionFormat =
                 WebGLCompressionFormat.Disabled;
             PlayerSettings.WebGL.decompressionFallback = false;
+            PlayerSettings.WebGL.template =
+                "PROJECT:RuleforgeFullscreen";
 
             var options = new BuildPlayerOptions
             {
                 scenes = new[] { StageOneScenePath },
-                locationPathName = WebGLBuildPath,
+                locationPathName = WebGLStagingBuildPath,
                 target = BuildTarget.WebGL,
                 options = BuildOptions.None
             };
@@ -242,6 +257,7 @@ namespace RuleforgeTD.Editor.AssetImport
                     " error(s).");
             }
 
+            PublishWebGLBuild();
             Debug.Log(
                 "RULEFORGE_FIELDS_WEBGL_BUILD_OK path=" +
                 WebGLBuildPath +
@@ -249,6 +265,64 @@ namespace RuleforgeTD.Editor.AssetImport
                 summary.totalSize +
                 " duration=" +
                 summary.totalTime);
+        }
+
+        private static void PublishWebGLBuild()
+        {
+            if (!Directory.Exists(WebGLStagingBuildPath))
+            {
+                throw new BuildFailedException(
+                    "Stage 01 WebGL staging build is missing: " +
+                    WebGLStagingBuildPath);
+            }
+
+            if (Directory.Exists(WebGLPreviousBuildPath))
+            {
+                Directory.Delete(WebGLPreviousBuildPath, true);
+            }
+
+            bool previousBuildMoved = false;
+            try
+            {
+                if (Directory.Exists(WebGLBuildPath))
+                {
+                    Directory.Move(
+                        WebGLBuildPath,
+                        WebGLPreviousBuildPath);
+                    previousBuildMoved = true;
+                }
+
+                Directory.Move(
+                    WebGLStagingBuildPath,
+                    WebGLBuildPath);
+                if (Directory.Exists(WebGLStagingRootPath))
+                {
+                    Directory.Delete(
+                        WebGLStagingRootPath,
+                        true);
+                }
+
+                if (previousBuildMoved &&
+                    Directory.Exists(WebGLPreviousBuildPath))
+                {
+                    Directory.Delete(
+                        WebGLPreviousBuildPath,
+                        true);
+                }
+            }
+            catch
+            {
+                if (!Directory.Exists(WebGLBuildPath) &&
+                    previousBuildMoved &&
+                    Directory.Exists(WebGLPreviousBuildPath))
+                {
+                    Directory.Move(
+                        WebGLPreviousBuildPath,
+                        WebGLBuildPath);
+                }
+
+                throw;
+            }
         }
 
         private static void BuildAll()
@@ -1007,6 +1081,9 @@ namespace RuleforgeTD.Editor.AssetImport
             var root = new GameObject("Tower Build Site");
             try
             {
+                root.transform.localScale =
+                    Vector3.one *
+                    TowerBuildSiteView.AuthoredVisualScale;
                 SpriteRenderer renderer =
                     root.AddComponent<SpriteRenderer>();
                 renderer.sprite = available;
@@ -1039,6 +1116,8 @@ namespace RuleforgeTD.Editor.AssetImport
                     StageOneScenePath) != null;
             if (exists && !overwrite)
             {
+                StageOneGameplaySceneInstaller
+                    .InstallFromCommandLine();
                 return;
             }
 
@@ -1143,6 +1222,9 @@ namespace RuleforgeTD.Editor.AssetImport
                 sites);
 
             CreateCamera(stageRoot.transform);
+            StageOneGameplaySceneInstaller.EnsureInstalled(
+                scene,
+                stageMap);
             EditorSceneManager.MarkSceneDirty(scene);
             EditorSceneManager.SaveScene(scene, StageOneScenePath);
 
@@ -3111,6 +3193,71 @@ namespace RuleforgeTD.Editor.AssetImport
                 {
                     throw new InvalidOperationException(
                         "Stage 01 must expose eight build sites.");
+                }
+
+                StageOneBattleController controller = scene
+                    .GetRootGameObjects()
+                    .SelectMany(root =>
+                        root.GetComponentsInChildren<
+                            StageOneBattleController>(true))
+                    .SingleOrDefault();
+                if (controller == null ||
+                    controller.StageMap != stage ||
+                    controller.PresentationCatalog == null ||
+                    controller.Seed !=
+                    StageOneGameplaySceneInstaller.AuthoredSeed)
+                {
+                    throw new InvalidOperationException(
+                        "Stage 01 gameplay controller is not configured.");
+                }
+
+                StageOnePresentationCatalog catalog =
+                    controller.PresentationCatalog;
+                if (catalog.TowerBindingCount != 7 ||
+                    catalog.EnemyBindingCount != 7 ||
+                    catalog.ProjectileDirectionCount != 5 ||
+                    catalog.DefaultCardProgramCount != 3 ||
+                    catalog.UiFont == null)
+                {
+                    throw new InvalidOperationException(
+                        "Stage 01 presentation catalog is incomplete.");
+                }
+
+                if (!catalog.TryGetTower(
+                        "ballista",
+                        out GameObject towerPrefab,
+                        out float towerScale) ||
+                    towerPrefab == null ||
+                    towerScale <= 0f)
+                {
+                    throw new InvalidOperationException(
+                        "Stage 01 ballista presentation is missing.");
+                }
+
+                string[] expectedEnemies =
+                {
+                    "raider",
+                    "runner",
+                    "armored_knight",
+                    "elite_golem",
+                    "boss_guardian",
+                    "boss_summoner",
+                    "boss_time_walker"
+                };
+                for (int i = 0; i < expectedEnemies.Length; i++)
+                {
+                    if (!catalog.TryGetEnemy(
+                            expectedEnemies[i],
+                            out GameObject enemyPrefab,
+                            out float enemyScale) ||
+                        enemyPrefab == null ||
+                        enemyScale <= 0f)
+                    {
+                        throw new InvalidOperationException(
+                            "Stage 01 enemy presentation is missing: " +
+                            expectedEnemies[i] +
+                            ".");
+                    }
                 }
 
                 RunMapSource run = LoadRunMapSource();

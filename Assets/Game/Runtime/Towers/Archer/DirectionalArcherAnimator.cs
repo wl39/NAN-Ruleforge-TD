@@ -8,15 +8,13 @@ namespace RuleforgeTD.Towers.Archer
     [RequireComponent(typeof(SpriteRenderer))]
     public sealed class DirectionalArcherAnimator : MonoBehaviour
     {
-        private const int ReleaseFrameIndex = 4;
-
         [SerializeField] private SpriteRenderer spriteRenderer;
         [SerializeField] private Transform projectileOrigin;
         [SerializeField] private bool sideFramesFaceLeft = true;
         [SerializeField] private Vector2 initialAim = Vector2.down;
         [SerializeField] private int idlePhaseSeed;
         [SerializeField, Min(0.05f)] private float idleFrameDuration = 0.18f;
-        [SerializeField, Min(0.05f)] private float preattackDuration = 0.16f;
+        [SerializeField, Min(0.05f)] private float preattackDuration = 0.15f;
         [SerializeField, Min(0.04f)] private float attackFrameDuration = 0.09f;
 
         [SerializeField] private Sprite[] idleDown = Array.Empty<Sprite>();
@@ -35,6 +33,7 @@ namespace RuleforgeTD.Towers.Archer
         private Vector2 aimDirection = Vector2.down;
         private int currentFrameIndex;
         private float elapsed;
+        private bool blueprintPreviewAnimationEnabled;
 
         public event Action<DirectionalArcherAnimator> ArrowReleased;
 
@@ -46,6 +45,16 @@ namespace RuleforgeTD.Towers.Archer
             : projectileOrigin.position;
         public int CurrentFrameIndex => currentFrameIndex;
         public bool IsConfigured => spriteRenderer != null && idleDown.Length > 0;
+        public float ArrowReleaseDelay =>
+            preattackDuration +
+            Mathf.Max(
+                0,
+                GetFrames(
+                    ArcherUnitAnimationBehaviour.Attack,
+                    currentDirection).Length - 1) *
+            attackFrameDuration;
+        public bool IsBlueprintPreviewAnimationEnabled =>
+            blueprintPreviewAnimationEnabled;
 
         private void Awake()
         {
@@ -74,7 +83,9 @@ namespace RuleforgeTD.Towers.Archer
                 return;
             }
 
-            elapsed += Time.deltaTime;
+            elapsed += blueprintPreviewAnimationEnabled
+                ? Time.unscaledDeltaTime
+                : Time.deltaTime;
             switch (currentBehaviour)
             {
                 case ArcherUnitAnimationBehaviour.Preattack:
@@ -142,6 +153,11 @@ namespace RuleforgeTD.Towers.Archer
 
         public bool PlayAttack()
         {
+            if (blueprintPreviewAnimationEnabled)
+            {
+                return false;
+            }
+
             Sprite[] attackFrames = GetFrames(
                 ArcherUnitAnimationBehaviour.Attack,
                 currentDirection);
@@ -175,6 +191,25 @@ namespace RuleforgeTD.Towers.Archer
             ApplyCurrentSprite();
         }
 
+        /// <summary>
+        /// Keeps only this selected tower's idle presentation moving while the
+        /// blueprint pauses world time. Entering preview cancels any attack so
+        /// no ArrowReleased event can leak out of the paused workbench.
+        /// </summary>
+        public void SetBlueprintPreviewAnimation(bool enabled)
+        {
+            if (blueprintPreviewAnimationEnabled == enabled)
+            {
+                return;
+            }
+
+            blueprintPreviewAnimationEnabled = enabled;
+            if (enabled)
+            {
+                ResetToIdle(true);
+            }
+        }
+
         private void UpdateIdle()
         {
             Sprite[] frames = GetFrames(currentBehaviour, currentDirection);
@@ -199,28 +234,33 @@ namespace RuleforgeTD.Towers.Archer
             currentBehaviour = ArcherUnitAnimationBehaviour.Attack;
             currentFrameIndex = 0;
             ApplyCurrentSprite();
+            UpdateAttack();
         }
 
         private void UpdateAttack()
         {
-            if (elapsed < attackFrameDuration)
-            {
-                return;
-            }
-
-            elapsed -= attackFrameDuration;
             Sprite[] frames = GetFrames(currentBehaviour, currentDirection);
-            currentFrameIndex++;
-            if (currentFrameIndex >= frames.Length)
+            while (currentBehaviour ==
+                       ArcherUnitAnimationBehaviour.Attack &&
+                   elapsed >= attackFrameDuration)
             {
-                ResetToIdle(false);
-                return;
-            }
+                elapsed -= attackFrameDuration;
+                currentFrameIndex++;
+                if (currentFrameIndex >= frames.Length)
+                {
+                    ResetToIdle(false);
+                    return;
+                }
 
-            ApplyCurrentSprite();
-            if (currentFrameIndex == Mathf.Min(ReleaseFrameIndex, frames.Length - 1))
-            {
-                ArrowReleased?.Invoke(this);
+                ApplyCurrentSprite();
+                if (currentFrameIndex == frames.Length - 1)
+                {
+                    // The authored attack sheets keep the nocked arrow visible
+                    // through the penultimate frame. Emit on the first frame
+                    // where it has left the bow so the projectile and release
+                    // pose begin together.
+                    ArrowReleased?.Invoke(this);
+                }
             }
         }
 

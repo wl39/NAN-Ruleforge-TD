@@ -15,8 +15,7 @@ namespace RuleforgeTD.Towers.Testing
 
         private const int InitialPooledChildrenPerRoot = 2;
         private const int BasisPointScale = 10000;
-        private const float SplitOffsetDistance = 0.24f;
-        private const float GoldenAngleDegrees = 137.50776f;
+        private const float SplitVisualGap = 0.12f;
 
         [FormerlySerializedAs("enemies")]
         [SerializeField] private EnemyHealth[] roots =
@@ -427,11 +426,12 @@ namespace RuleforgeTD.Towers.Testing
                 childStatus.CopyAllFrom(sourceStatus);
             }
 
-            int childOrdinal =
-                GetLineageChildOrdinal(lineageIndex, childIndex);
+            Vector2 leftBranchOffset =
+                GetSplitLeftOffset(sourceActor, source);
             childActor.CopyRuntimeRouteFrom(
                 sourceActor,
-                GetSplitOffset(lineageIndex, childOrdinal));
+                -leftBranchOffset);
+            sourceActor.ApplyPositionOffset(leftBranchOffset);
             childActor.SetMovementEnabled(true);
 
             SetGeneration(source, nextGeneration);
@@ -778,25 +778,6 @@ namespace RuleforgeTD.Towers.Testing
             return count;
         }
 
-        private int GetLineageChildOrdinal(
-            int lineageIndex,
-            int childIndex)
-        {
-            int ordinal = 0;
-            for (int i = 0;
-                 i < childIndex &&
-                 i < childLineageIndices.Count;
-                 i++)
-            {
-                if (childLineageIndices[i] == lineageIndex)
-                {
-                    ordinal++;
-                }
-            }
-
-            return ordinal;
-        }
-
         private void EnsureAuthoringState()
         {
             roots = roots ?? Array.Empty<EnemyHealth>();
@@ -947,20 +928,22 @@ namespace RuleforgeTD.Towers.Testing
             movementSystem.Configure(actors);
         }
 
-        private static Vector2 GetSplitOffset(
-            int lineageIndex,
-            int childOrdinal)
+        private static Vector2 GetSplitLeftOffset(
+            EnemyTestActor sourceActor,
+            EnemyHealth source)
         {
-            float angle =
-                (childOrdinal * GoldenAngleDegrees +
-                 lineageIndex * 31f) *
-                Mathf.Deg2Rad;
-            float radius =
-                SplitOffsetDistance *
-                (1f + 0.12f * (childOrdinal % 4));
-            return new Vector2(
-                Mathf.Cos(angle),
-                Mathf.Sin(angle)) * radius;
+            Vector2 forward = sourceActor.CurrentTravelDirection;
+            Vector2 left = new Vector2(-forward.y, forward.x);
+            SpriteRenderer renderer =
+                source.GetComponentInChildren<SpriteRenderer>();
+            float visualRadius = renderer == null
+                ? 0.3f
+                : Mathf.Max(
+                    renderer.bounds.extents.x,
+                    renderer.bounds.extents.y);
+            float halfSeparation =
+                Mathf.Max(0.3f, visualRadius + SplitVisualGap * 0.5f);
+            return left * halfSeparation;
         }
 
         private static int MultiplyBasisPointsAllowZero(

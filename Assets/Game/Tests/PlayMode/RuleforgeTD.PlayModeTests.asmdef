@@ -2,7 +2,9 @@
   "name": "RuleforgeTD.PlayModeTests",
   "rootNamespace": "RuleforgeTD.Tests.PlayMode",
   "references": [
-    "RuleforgeTD.Runtime"
+    "RuleforgeTD.Runtime",
+    "RuleforgeTD.GameLogic",
+    "Unity.ugui"
   ],
   "includePlatforms": [],
   "excludePlatforms": [],

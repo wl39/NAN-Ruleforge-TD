@@ -251,7 +251,7 @@ MonoBehaviour:
   initialAim: {x: 0, y: -1}
   idlePhaseSeed: 101
   idleFrameDuration: 0.18
-  preattackDuration: 0.16
+  preattackDuration: 0.15
   attackFrameDuration: 0.09
   idleDown:
   - {fileID: 1011460931156595950, guid: 1f962bff2523f43ee931057dbc3c5934, type: 3}

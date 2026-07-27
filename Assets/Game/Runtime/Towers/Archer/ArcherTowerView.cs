@@ -6,6 +6,16 @@ namespace RuleforgeTD.Towers.Archer
     [DisallowMultipleComponent]
     public sealed class ArcherTowerView : MonoBehaviour
     {
+        // CraftPix tower frames are imported at 48 PPU. Their visible base
+        // and the build-site image both occupy a 62 x 61 px footprint. Since
+        // the site is centered on its root, its exact lower half is 30.5 px.
+        private const float AuthoredGroundAnchorPixels = 30.5f;
+        // The 62 px tower footprint occupies x=5...66 inside a 70 px frame.
+        // Its visual bounds are therefore one source pixel right of the
+        // centered pivot; move the complete tower presentation back left.
+        private const float AuthoredHorizontalAlignmentPixels = 1f;
+        private const float AuthoredPixelsPerUnit = 48f;
+
         public enum TowerAnimationMode
         {
             Idle,
@@ -28,7 +38,6 @@ namespace RuleforgeTD.Towers.Archer
         [SerializeField, Min(0f)] private float archerDropStagger = 0.055f;
         [SerializeField, Min(0.04f)] private float archerLandingBounceDuration = 0.14f;
         [SerializeField, Min(0f)] private float archerLandingBounceHeight = 0.08f;
-
         private TowerAnimationMode mode = TowerAnimationMode.Idle;
         private int currentFrameIndex;
         private int idleCycle;
@@ -39,8 +48,20 @@ namespace RuleforgeTD.Towers.Archer
         private float archerLandingElapsed;
         private bool isArcherLanding;
         private bool archersVisible;
+        private int nextProjectileArcherIndex;
+        private int[] archerTargetSlots = Array.Empty<int>();
+        private int aimedTargetCount;
+        private bool blueprintPreviewAnimationEnabled;
+        private bool visualAuthoringPositionsCaptured;
+        private bool visibleBaseAlignmentEnabled;
+        private Vector3 towerRendererAuthoredLocalPosition;
+        private Vector3 archerRootAuthoredLocalPosition;
+        private float visibleBaseOffsetX;
+        private float visibleBaseOffsetY;
 
         public event Action<Vector3, Vector2, int> ArrowRequested;
+        public event Action<int, Vector3, Vector2, int>
+            ArrowRequestedForTargetSlot;
 
         public int Level => level;
         public int UnitTier => unitTier;
@@ -48,6 +69,7 @@ namespace RuleforgeTD.Towers.Archer
         public int ArcherCount => archers == null ? 0 : archers.Length;
         public int IdleFrameCount => idleFrames == null ? 0 : idleFrames.Length;
         public float IdleFrameDuration => idleFrameDuration;
+        public int AimedTargetCount => aimedTargetCount;
         public int UpgradeFrameCount => upgradeFrames == null ? 0 : upgradeFrames.Length;
         public int CurrentFrameIndex => currentFrameIndex;
         public int IdleCycle => idleCycle;
@@ -58,9 +80,23 @@ namespace RuleforgeTD.Towers.Archer
             archersVisible &&
             archerRoot != null &&
             archerRoot.activeInHierarchy;
+        public SpriteRenderer TowerRenderer => towerRenderer;
+        public bool IsBlueprintPreviewAnimationEnabled =>
+            blueprintPreviewAnimationEnabled;
+        public bool IsVisibleBaseAlignmentEnabled =>
+            visibleBaseAlignmentEnabled;
+        public float VisibleBaseOffsetX => visibleBaseOffsetX;
+        public float VisibleBaseOffsetY => visibleBaseOffsetY;
+        public Vector3 TowerVisualCenter => towerRenderer != null &&
+                                            towerRenderer.sprite != null
+            ? towerRenderer.bounds.center
+            : transform.position;
+        public float VisibleBaseWorldY =>
+            GetVisibleBaseWorldY();
 
         private void Awake()
         {
+            CaptureVisualAuthoringPositions();
             CaptureArcherSeatPositions();
             HookArcherEvents();
             RestartIdle();
@@ -74,20 +110,26 @@ namespace RuleforgeTD.Towers.Archer
 
         private void OnDisable()
         {
+            SetBlueprintPreviewAnimation(false);
+            ClearDistinctTargets();
             ResetArcherLanding(true);
             UnhookArcherEvents();
         }
 
         private void Update()
         {
-            UpdateArcherLanding();
+            float animationDeltaTime =
+                blueprintPreviewAnimationEnabled
+                    ? Time.unscaledDeltaTime
+                    : Time.deltaTime;
+            UpdateArcherLanding(animationDeltaTime);
 
             if (towerRenderer == null)
             {
                 return;
             }
 
-            frameElapsed += Time.deltaTime;
+            frameElapsed += animationDeltaTime;
             if (frameElapsed < currentFrameDuration)
             {
                 return;
@@ -124,6 +166,7 @@ namespace RuleforgeTD.Towers.Archer
             idleFrames = towerIdleFrames ?? Array.Empty<Sprite>();
             upgradeFrames = towerUpgradeFrames ?? Array.Empty<Sprite>();
 
+            CaptureVisualAuthoringPositions();
             CaptureArcherSeatPositions();
             HookArcherEvents();
             RestartIdle();
@@ -137,6 +180,7 @@ namespace RuleforgeTD.Towers.Archer
             }
 
             mode = TowerAnimationMode.Upgrade;
+            ClearDistinctTargets();
             currentFrameIndex = 0;
             frameElapsed = 0f;
             currentFrameDuration = upgradeFrameDuration;
@@ -144,6 +188,38 @@ namespace RuleforgeTD.Towers.Archer
             SetArchersVisible(false);
             ApplyTowerSprite(upgradeFrames[0]);
             return true;
+        }
+
+        /// <summary>
+        /// Advances only this selected tower's visual animation on unscaled
+        /// time. GameSimulation and every other world presentation remain
+        /// paused; crew animators are forced to safe idle loops.
+        /// </summary>
+        public void SetBlueprintPreviewAnimation(bool enabled)
+        {
+            if (blueprintPreviewAnimationEnabled == enabled)
+            {
+                return;
+            }
+
+            blueprintPreviewAnimationEnabled = enabled;
+            if (enabled)
+            {
+                ClearDistinctTargets();
+            }
+
+            if (archers == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < archers.Length; i++)
+            {
+                if (archers[i] != null)
+                {
+                    archers[i].SetBlueprintPreviewAnimation(enabled);
+                }
+            }
         }
 
         public int PlayVolley()
@@ -156,16 +232,34 @@ namespace RuleforgeTD.Towers.Archer
                 return 0;
             }
 
+            EnsureArcherTargetSlotCapacity();
             int started = 0;
             for (int i = 0; i < archers.Length; i++)
             {
-                if (archers[i] != null && archers[i].PlayAttack())
+                bool hasDistinctTarget =
+                    aimedTargetCount <= 0 ||
+                    archerTargetSlots[i] >= 0;
+                if (hasDistinctTarget &&
+                    archers[i] != null &&
+                    archers[i].PlayAttack())
                 {
                     started++;
                 }
             }
 
             return started;
+        }
+
+        /// <summary>
+        /// Aligns the authored ground-footprint point of every tower frame
+        /// with the prefab root. The root remains the deterministic build
+        /// point, while the body, crew, and projectile origins move together.
+        /// </summary>
+        public void EnableVisibleBaseAlignment()
+        {
+            CaptureVisualAuthoringPositions();
+            visibleBaseAlignmentEnabled = true;
+            ApplyVisibleBaseAlignment();
         }
 
         public int AimAt(Vector3 worldPosition)
@@ -175,6 +269,7 @@ namespace RuleforgeTD.Towers.Archer
                 return 0;
             }
 
+            EnsureArcherTargetSlotCapacity();
             int aimed = 0;
             for (int i = 0; i < archers.Length; i++)
             {
@@ -191,15 +286,116 @@ namespace RuleforgeTD.Towers.Archer
                 }
 
                 archers[i].SetAim(direction);
+                archerTargetSlots[i] = 0;
                 aimed++;
             }
 
+            aimedTargetCount = aimed > 0 ? 1 : 0;
             return aimed;
+        }
+
+        /// <summary>
+        /// Assigns each available target slot to a different archer. The lead
+        /// archer matches the next authored projectile origin, so simulation
+        /// projectiles and bow release poses keep the same target ordering.
+        /// </summary>
+        public int AimAtDistinctTargets(
+            Vector3[] worldPositions,
+            int targetCount)
+        {
+            if (archers == null ||
+                archers.Length == 0 ||
+                worldPositions == null)
+            {
+                ClearDistinctTargets();
+                return 0;
+            }
+
+            EnsureArcherTargetSlotCapacity();
+            for (int i = 0; i < archerTargetSlots.Length; i++)
+            {
+                archerTargetSlots[i] = -1;
+            }
+
+            int count = Mathf.Clamp(
+                targetCount,
+                0,
+                Mathf.Min(
+                    archers.Length,
+                    worldPositions.Length));
+            int leadIndex = PositiveModulo(
+                nextProjectileArcherIndex,
+                archers.Length);
+            int aimed = 0;
+            for (int slot = 0; slot < count; slot++)
+            {
+                int archerIndex = PositiveModulo(
+                    leadIndex + slot,
+                    archers.Length);
+                DirectionalArcherAnimator archer =
+                    archers[archerIndex];
+                if (archer == null)
+                {
+                    continue;
+                }
+
+                Vector2 direction =
+                    worldPositions[slot] -
+                    archer.transform.position;
+                if (direction.sqrMagnitude <= 0.000001f)
+                {
+                    continue;
+                }
+
+                archer.SetAim(direction);
+                archerTargetSlots[archerIndex] = slot;
+                aimed++;
+            }
+
+            aimedTargetCount = aimed;
+            return aimed;
+        }
+
+        /// <summary>
+        /// Returns an authored bow-tip origin for visible crews. Closed-roof,
+        /// crewless, upgrading, and landing towers fall back to the rendered
+        /// tower body's center.
+        /// </summary>
+        public Vector3 GetNextProjectileLaunchOrigin()
+        {
+            if (!AreArchersVisible ||
+                IsUpgrading ||
+                IsArcherLanding ||
+                archers == null ||
+                archers.Length == 0)
+            {
+                return TowerVisualCenter;
+            }
+
+            for (int attempt = 0;
+                 attempt < archers.Length;
+                 attempt++)
+            {
+                int index = PositiveModulo(
+                    nextProjectileArcherIndex++,
+                    archers.Length);
+                DirectionalArcherAnimator archer = archers[index];
+                bool hasDistinctTarget =
+                    aimedTargetCount <= 0 ||
+                    archerTargetSlots[index] >= 0;
+                if (archer != null && hasDistinctTarget)
+                {
+                    return archer.ProjectileOrigin;
+                }
+            }
+
+            return TowerVisualCenter;
         }
 
         public void RestartIdle()
         {
             mode = TowerAnimationMode.Idle;
+            ClearDistinctTargets();
             currentFrameIndex = 0;
             frameElapsed = 0f;
             idleCycle = 0;
@@ -302,6 +498,147 @@ namespace RuleforgeTD.Towers.Archer
             if (towerRenderer != null && sprite != null)
             {
                 towerRenderer.sprite = sprite;
+                ApplyVisibleBaseAlignment();
+            }
+        }
+
+        private void CaptureVisualAuthoringPositions()
+        {
+            if (visualAuthoringPositionsCaptured)
+            {
+                return;
+            }
+
+            if (towerRenderer != null)
+            {
+                towerRendererAuthoredLocalPosition =
+                    towerRenderer.transform.localPosition;
+            }
+
+            if (archerRoot != null)
+            {
+                archerRootAuthoredLocalPosition =
+                    archerRoot.transform.localPosition;
+            }
+
+            visualAuthoringPositionsCaptured = true;
+        }
+
+        private void ApplyVisibleBaseAlignment()
+        {
+            if (!visibleBaseAlignmentEnabled ||
+                towerRenderer == null ||
+                towerRenderer.sprite == null)
+            {
+                return;
+            }
+
+            CaptureVisualAuthoringPositions();
+            visibleBaseOffsetX =
+                -AuthoredHorizontalAlignmentPixels /
+                AuthoredPixelsPerUnit;
+            visibleBaseOffsetY =
+                -GetSpriteMeshMinimumY(towerRenderer.sprite) -
+                AuthoredGroundAnchorPixels /
+                AuthoredPixelsPerUnit;
+            Vector3 bodyPosition =
+                towerRendererAuthoredLocalPosition;
+            bodyPosition.x += visibleBaseOffsetX;
+            bodyPosition.y += visibleBaseOffsetY;
+            towerRenderer.transform.localPosition = bodyPosition;
+
+            if (archerRoot != null)
+            {
+                Vector3 crewPosition =
+                    archerRootAuthoredLocalPosition;
+                crewPosition.x += visibleBaseOffsetX;
+                crewPosition.y += visibleBaseOffsetY;
+                archerRoot.transform.localPosition = crewPosition;
+            }
+        }
+
+        private float GetVisibleBaseWorldY()
+        {
+            if (towerRenderer == null ||
+                towerRenderer.sprite == null)
+            {
+                return transform.position.y;
+            }
+
+            Vector2[] vertices =
+                towerRenderer.sprite.vertices;
+            if (vertices == null || vertices.Length == 0)
+            {
+                return towerRenderer.bounds.min.y;
+            }
+
+            float minimum = float.PositiveInfinity;
+            for (int i = 0; i < vertices.Length; i++)
+            {
+                float worldY = towerRenderer.transform
+                    .TransformPoint(vertices[i]).y;
+                minimum = Mathf.Min(minimum, worldY);
+            }
+
+            return float.IsPositiveInfinity(minimum)
+                ? towerRenderer.bounds.min.y
+                : minimum;
+        }
+
+        private static float GetSpriteMeshMinimumY(
+            Sprite sprite)
+        {
+            Vector2[] vertices = sprite == null
+                ? null
+                : sprite.vertices;
+            if (vertices == null || vertices.Length == 0)
+            {
+                return sprite == null
+                    ? 0f
+                    : sprite.bounds.min.y;
+            }
+
+            float minimum = float.PositiveInfinity;
+            for (int i = 0; i < vertices.Length; i++)
+            {
+                minimum = Mathf.Min(
+                    minimum,
+                    vertices[i].y);
+            }
+
+            return float.IsPositiveInfinity(minimum)
+                ? 0f
+                : minimum;
+        }
+
+        private void EnsureArcherTargetSlotCapacity()
+        {
+            int required = archers == null
+                ? 0
+                : archers.Length;
+            if (archerTargetSlots == null ||
+                archerTargetSlots.Length != required)
+            {
+                archerTargetSlots =
+                    new int[required];
+                for (int i = 0; i < required; i++)
+                {
+                    archerTargetSlots[i] = -1;
+                }
+            }
+        }
+
+        private void ClearDistinctTargets()
+        {
+            aimedTargetCount = 0;
+            if (archerTargetSlots == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < archerTargetSlots.Length; i++)
+            {
+                archerTargetSlots[i] = -1;
             }
         }
 
@@ -381,14 +718,14 @@ namespace RuleforgeTD.Towers.Archer
             }
         }
 
-        private void UpdateArcherLanding()
+        private void UpdateArcherLanding(float animationDeltaTime)
         {
             if (!isArcherLanding || archers == null)
             {
                 return;
             }
 
-            archerLandingElapsed += Time.deltaTime;
+            archerLandingElapsed += animationDeltaTime;
             bool allLanded = true;
             for (int i = 0; i < archers.Length; i++)
             {
@@ -507,6 +844,24 @@ namespace RuleforgeTD.Towers.Archer
             Vector3 origin = archer.ProjectileOrigin +
                              (Vector3)(direction * 0.08f);
             ArrowRequested?.Invoke(origin, direction, unitTier);
+            int archerIndex =
+                Array.IndexOf(archers, archer);
+            int targetSlot =
+                archerIndex >= 0 &&
+                archerIndex < archerTargetSlots.Length
+                    ? archerTargetSlots[archerIndex]
+                    : -1;
+            ArrowRequestedForTargetSlot?.Invoke(
+                targetSlot,
+                origin,
+                direction,
+                unitTier);
+        }
+
+        private static int PositiveModulo(int value, int divisor)
+        {
+            int result = value % divisor;
+            return result < 0 ? result + divisor : result;
         }
 
     }

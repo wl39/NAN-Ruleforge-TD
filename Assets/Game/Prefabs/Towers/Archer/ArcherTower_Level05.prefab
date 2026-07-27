@@ -222,7 +222,7 @@ MonoBehaviour:
   initialAim: {x: 0.8944272, y: 0.4472136}
   idlePhaseSeed: 542
   idleFrameDuration: 0.18
-  preattackDuration: 0.16
+  preattackDuration: 0.15
   attackFrameDuration: 0.09
   idleDown:
   - {fileID: 6019538198510867986, guid: cd88601998fc044458a2c93af011d506, type: 3}
@@ -400,7 +400,7 @@ MonoBehaviour:
   initialAim: {x: -0.8944272, y: 0.4472136}
   idlePhaseSeed: 505
   idleFrameDuration: 0.18
-  preattackDuration: 0.16
+  preattackDuration: 0.15
   attackFrameDuration: 0.09
   idleDown:
   - {fileID: 6019538198510867986, guid: cd88601998fc044458a2c93af011d506, type: 3}

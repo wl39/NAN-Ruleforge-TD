@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
 using RuleforgeTD.Enemies;
@@ -13,6 +14,75 @@ namespace RuleforgeTD.Tests.PlayMode
 {
     public sealed class ArcherTowerAnimationSceneTests
     {
+        [UnityTest]
+        public IEnumerator MultipleArchers_TargetDifferentEnemiesAndReleaseTogether()
+        {
+            SceneManager.LoadScene(
+                "ArcherTowerAnimationTest",
+                LoadSceneMode.Single);
+            yield return null;
+
+            ArcherTowerShowcaseActor[] showcases =
+                Object.FindObjectsOfType<ArcherTowerShowcaseActor>();
+            for (int i = 0; i < showcases.Length; i++)
+            {
+                showcases[i].SetAutomaticPlayback(false);
+            }
+
+            ArcherTowerView tower = Object
+                .FindObjectsOfType<ArcherTowerView>()
+                .Single(candidate => candidate.Level == 6);
+            ArcherTowerShowcaseActor showcase =
+                tower.GetComponent<ArcherTowerShowcaseActor>();
+            Assert.That(showcase, Is.Not.Null);
+            tower.RestartIdle();
+            Assert.That(showcase.AimAtNearestTarget(), Is.Not.Null);
+
+            Assert.That(tower.ArcherCount, Is.EqualTo(3));
+            Assert.That(
+                showcase.AimedTargetCount,
+                Is.EqualTo(tower.ArcherCount));
+            var uniqueTargets = new HashSet<EnemyHealth>();
+            for (int i = 0; i < showcase.AimedTargetCount; i++)
+            {
+                Assert.That(
+                    uniqueTargets.Add(showcase.GetAimedTarget(i)),
+                    Is.True,
+                    "Each archer must receive a different target.");
+            }
+
+            var releaseTimes = new List<float>();
+            var releasedTargetSlots = new HashSet<int>();
+            tower.ArrowRequestedForTargetSlot +=
+                (targetSlot, origin, direction, tier) =>
+                {
+                    releaseTimes.Add(Time.time);
+                    releasedTargetSlots.Add(targetSlot);
+                };
+
+            Assert.That(
+                tower.PlayVolley(),
+                Is.EqualTo(showcase.AimedTargetCount));
+
+            float timeout = Time.time + 2f;
+            while (releaseTimes.Count < showcase.AimedTargetCount &&
+                   Time.time < timeout)
+            {
+                yield return null;
+            }
+
+            Assert.That(
+                releaseTimes,
+                Has.Count.EqualTo(tower.ArcherCount));
+            Assert.That(
+                releasedTargetSlots,
+                Is.EquivalentTo(new[] { 0, 1, 2 }));
+            Assert.That(
+                releaseTimes.Max() - releaseTimes.Min(),
+                Is.LessThan(0.04f),
+                "Archers should release together after receiving unique targets.");
+        }
+
         [UnityTest]
         public IEnumerator ShowcaseScene_ConfiguresEnemySplitProgramAndSingleProjectiles()
         {
@@ -154,11 +224,29 @@ namespace RuleforgeTD.Tests.PlayMode
                 Assert.That(
                     towerArchers,
                     Has.Length.EqualTo(expectedArcherCount));
+                foreach (DirectionalArcherAnimator archer in towerArchers)
+                {
+                    Assert.That(
+                        archer.ArrowReleaseDelay,
+                        Is.EqualTo(0.6f).Within(0.001f),
+                        "The authored release delay must match the " +
+                        "18-tick simulation windup at 30 Hz.");
+                }
+                SpriteRenderer bodyRenderer = tower.transform
+                    .Find("Tower Body")
+                    .GetComponent<SpriteRenderer>();
+                Vector3 resolvedLaunchOrigin =
+                    tower.GetNextProjectileLaunchOrigin();
                 if (expectedOpen)
                 {
-                    SpriteRenderer bodyRenderer = tower.transform
-                        .Find("Tower Body")
-                        .GetComponent<SpriteRenderer>();
+                    Assert.That(
+                        towerArchers.Any(archer =>
+                            Vector3.Distance(
+                                archer.ProjectileOrigin,
+                                resolvedLaunchOrigin) <
+                            0.001f),
+                        Is.True,
+                        "Open-roof towers must launch from an authored bow tip.");
                     float minimumX = towerArchers
                         .Min(archer => archer.transform.localPosition.x);
                     float maximumX = towerArchers
@@ -179,6 +267,12 @@ namespace RuleforgeTD.Tests.PlayMode
                 }
                 else
                 {
+                    Assert.That(
+                        Vector3.Distance(
+                            resolvedLaunchOrigin,
+                            bodyRenderer.bounds.center),
+                        Is.LessThan(0.001f),
+                        "Closed-roof towers must launch from the tower center.");
                     foreach (DirectionalArcherAnimator archer in towerArchers)
                     {
                         Assert.That(
@@ -317,6 +411,14 @@ namespace RuleforgeTD.Tests.PlayMode
                 levelOneShowcase.TotalProjectileLaunchCount;
             int successfulHitsBefore =
                 levelOneShowcase.SuccessfulHitCount;
+            int releaseFrameIndex = -1;
+            ArcherUnitAnimationBehaviour releaseBehaviour =
+                ArcherUnitAnimationBehaviour.Idle;
+            archers[0].ArrowReleased += releasedArcher =>
+            {
+                releaseFrameIndex = releasedArcher.CurrentFrameIndex;
+                releaseBehaviour = releasedArcher.CurrentBehaviour;
+            };
             Assert.That(levelOne.PlayVolley(), Is.EqualTo(1));
             float hitTimeout = 2.5f;
             while (levelOneShowcase.SuccessfulHitCount ==
@@ -329,6 +431,14 @@ namespace RuleforgeTD.Tests.PlayMode
 
             Assert.That(levelOneShowcase.PooledProjectileCount, Is.GreaterThan(0));
             Assert.That(levelOneShowcase.SuccessfulHitCount, Is.GreaterThan(0));
+            Assert.That(
+                releaseBehaviour,
+                Is.EqualTo(ArcherUnitAnimationBehaviour.Attack));
+            Assert.That(
+                releaseFrameIndex,
+                Is.EqualTo(5),
+                "The projectile must begin on the final authored attack " +
+                "frame, where the nocked arrow first leaves the bow.");
             Assert.That(
                 levelOneShowcase.TotalProjectileLaunchCount -
                 launchesBeforeHit,
@@ -343,7 +453,16 @@ namespace RuleforgeTD.Tests.PlayMode
             EnemyHealth[] splitMembers =
                 combatSystem.GetActiveLineageMembers(target);
             Assert.That(splitMembers, Has.Length.EqualTo(2));
-            Assert.That(combatSystem.ActiveSplitEnemyCount, Is.EqualTo(1));
+            Assert.That(
+                combatSystem.ActiveSplitEnemyCount,
+                Is.GreaterThanOrEqualTo(1),
+                "At least the targeted lineage must have an active split child.");
+            Assert.That(
+                Vector3.Distance(
+                    splitMembers[0].transform.position,
+                    splitMembers[1].transform.position),
+                Is.GreaterThanOrEqualTo(0.6f),
+                "Split enemies must spawn on visibly separated left/right branches.");
             int expectedSplitMaximum = Mathf.Max(
                 1,
                 maximumHealthBeforeHit *

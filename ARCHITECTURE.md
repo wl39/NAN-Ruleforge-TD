@@ -4,7 +4,7 @@
 
 이 문서는 Ruleforge TD의 전투 및 런 진행 로직이 따라야 하는 구조적 계약을 정의한다. `AGENTS.md`가 제품 설계의 최상위 원본이며, 이 문서는 그중 Phase 0~1 게임 로직을 구현 가능한 형태로 구체화한다.
 
-현재 실행 가능한 `phase1-content.json`은 카드 12장, 타워 3종, 적 7종, 9웨이브를 컴파일한다. `CARD_RULES.md`의 58장과 `TOWER_RULES.md`의 18종은 전체 게임을 위한 설계 계약이며, Phase 1 런타임에 모두 등록되어 있다는 뜻이 아니다.
+현재 실행 가능한 `phase1-content.json`은 카드 32장(Common 14장, Uncommon 18장), 타워 3종, 적 7종, 9웨이브를 컴파일한다. `CARD_RULES.md`의 58장과 `TOWER_RULES.md`의 18종은 전체 게임을 위한 설계 계약이며, Phase 1 런타임에 모두 등록되어 있다는 뜻이 아니다.
 
 현재 범위에 포함되는 항목은 다음과 같다.
 
@@ -14,13 +14,14 @@
 - 피해, 보상, 웨이브, 드래프트
 - 명령 입력, 상태 스냅샷, 표현 이벤트
 - 설정과 완료된 런을 위한 저장 포트
+- Stage01 고정 건설 지점 입력, 런타임 HUD와 스냅샷 기반 전투 표현
+- 적·탄환·상태 파티클 오브젝트 풀과 WebGL Stage01 빌드
 
 현재 범위에서 제외되는 항목은 다음과 같다.
 
-- 스프라이트, 애니메이션, VFX, SFX
-- uGUI와 카드 드래그 화면
-- CraftPix 파일 및 프리팹 연결
-- 실제 씬 구성과 브라우저 입력
+- 완성 카드 일러스트와 카드 드래그 앤 드롭 편집
+- SFX와 완성형 전투 로그
+- Stage01 외 맵의 실제 씬 구성
 - 전투 중 저장 및 이어하기
 
 ## 2. 계층과 의존성
@@ -48,6 +49,16 @@ RuleforgeTD.GameLogic
 ```
 
 기존 `RuleforgeTD.Runtime`의 `EnemyHealth`와 애니메이션 코드는 표현 데모로 보존한다. 해당 컴포넌트의 체력, 사망 여부, Transform 위치는 새 시뮬레이션의 원본 상태가 아니다.
+
+### Stage01 Unity 브리지
+
+`StageOneBattleController`는 건설 지점과 uGUI 입력을 `GameCommand`로 바꾸고, 30Hz 누적 시간에 맞춰 `GameSimulation.Step()`을 호출한다. 일시정지는 Step 호출을 멈추고, 2배속은 같은 실제 시간에 두 배의 고정 틱을 처리한다. Unity `Time.timeScale`은 애니메이션과 파티클 표현 속도만 동기화하며 판정 수치의 원본으로 사용하지 않는다.
+
+`StageOneEnemyView`, `StageOneProjectileView`, 타워 프리팹은 `SimulationSnapshot`을 읽는 대리자다. 적과 탄환은 풀에서 재사용하며, 화상·중독 연출도 `EnemySnapshot.StatusDetails`를 읽을 뿐 지속시간이나 피해를 직접 갱신하지 않는다. `StageOneGameplaySceneInstaller`가 Stage01 씬, 프레젠테이션 카탈로그, 한국어 임시 UI 데이터를 멱등적으로 연결한다.
+
+Stage01에서는 타워를 클릭하면 별도의 소형 장착 패널이 열린다. 이 패널은 선택 타워의 레벨, 해금 슬롯, 보유 카드, 탄환/적 해석을 스냅샷에서 읽고 모든 변경을 `GameCommand`로 보낸다. 화면에 보이는 슬롯 잠금만으로 규칙을 대신하지 않으며, 시뮬레이션도 레벨별 슬롯 수를 다시 검증한다.
+
+`StageOneCameraController`는 Terrain Tilemap의 실제 렌더 경계를 기준으로 최대 줌아웃을 계산한다. 화면비가 달라져도 카메라 사각형이 맵 밖으로 나가지 않으며, 휠은 포인터 중심 줌, 가운데 버튼은 경계 안 패닝을 담당한다. Stage01에서는 Pixel Perfect Camera의 크기 덮어쓰기를 비활성화한다. WebGL은 `RuleforgeFullscreen` 템플릿을 사용해 캔버스를 브라우저 뷰포트 전체로 맞추고 기본 푸터와 페이지 여백을 두지 않는다.
 
 ## 3. 공개 진입점
 
@@ -80,11 +91,13 @@ ulong GameSimulation.ComputeStateHash();
 | 명령 | 허용 상태 | 핵심 검증 |
 | --- | --- | --- |
 | `ChooseStartingTower` | AwaitingStartingTower | 시작 선택지 포함 여부 |
-| `PlaceTower` | Planning | 빈 고정 건설 지점, 소유 타워 여부 |
-| `EquipCard` | Planning | 소유 카드, 슬롯, 연산력, 중복 정책 |
-| `MoveCard` | Planning | 원본/대상 슬롯과 타워가 유효한지 |
-| `UnequipCard` | Planning | 장착 중인 카드를 인벤토리로 되돌리는지 |
-| `ReorderCard` | Planning | 같은 타워의 유효한 두 슬롯인지 |
+| `PlaceTower` | Planning, Combat | 빈 고정 건설 지점, 소유 타워 여부, 건설 비용 |
+| `UpgradeTower` | Planning, CardPackLoadout | 레벨 1~7 범위 |
+| `SetTowerSubjectType` | Planning, CardPackLoadout | 탄환/적 해석, 타워 트리거 호환성 |
+| `EquipCard` | Planning, CardPackLoadout | 소유 카드, 레벨 해금 슬롯, 연산력, 중복 정책 |
+| `MoveCard` | Planning, CardPackLoadout | 원본/대상 슬롯과 타워가 유효한지 |
+| `UnequipCard` | Planning, CardPackLoadout | 장착 중인 카드를 인벤토리로 되돌리는지 |
+| `ReorderCard` | Planning, CardPackLoadout | 같은 타워의 해금된 두 슬롯인지 |
 | `SelectDraft` | Draft | 현재 제안의 0~2 인덱스인지 |
 | `OpenCardPack` | Combat | 월드에 존재하는 특수 몬스터팩인지 |
 | `SelectCardPack` | CardPackChoice | 현재 제안의 0~2 인덱스인지 |
@@ -173,7 +186,7 @@ Uninitialized
 
 ### 타워
 
-타워는 배치 지점, 콘텐츠 ID, 쿨다운, 트리거별 런타임 메모리, 장착 카드, 웨이브용 `ProgramSnapshot`을 가진다. 타워 로직은 카드의 효과를 직접 구현하지 않고 Trigger, SubjectType, SubjectSelector만 결정한다.
+타워는 배치 지점, 콘텐츠 ID, 1~7 레벨, 선택한 `SubjectType`, 쿨다운, 트리거별 런타임 메모리, 장착 카드, 웨이브용 `ProgramSnapshot`을 가진다. 타워 로직은 카드의 효과를 직접 구현하지 않고 Trigger, SubjectType, SubjectSelector만 결정한다. 공격 타워가 적 해석을 선택하면 탄환은 적 해석 플래그를 들고 비행하고, 실제 충돌이 확정된 적에게만 프로그램을 실행한다.
 
 ## 8. 콘텐츠 파이프라인
 
@@ -201,7 +214,7 @@ JSON 논리 데이터와 밸런스 데이터가 런타임 수치의 단일 원�
 
 컴파일 결과는 모든 활성 정의와 안전 한도, 런 설정을 포함하는 `ContentHash`를 가진다. 별도로 `RunConfig.DefinitionHash`가 시작 선택지, 초기 해금, 경로, 건설 지점, 드래프트 및 전투 공통값을 지문으로 만든다. 두 지문은 `ComputeStateHash()`에 포함되므로 같은 시드라도 콘텐츠나 런 설정이 다르면 같은 리플레이로 간주하지 않는다.
 
-전체 58장과 18개 타워의 설계 계약은 각각 `CARD_RULES.md`, `TOWER_RULES.md`를 따른다. Phase 1 `CompiledContent`에는 활성 12장과 3종만 들어간다. 콘텐츠 컴파일은 양쪽 해석을 검증하고, `GameSimulation.Initialize`는 그 활성 집합의 executor 등록을 다시 검증한다. 후속 카드는 실제 JSON과 executor가 추가된 Phase부터 런타임 검증 대상이 된다.
+전체 58장과 18개 타워의 설계 계약은 각각 `CARD_RULES.md`, `TOWER_RULES.md`를 따른다. Phase 1 `CompiledContent`에는 활성 카드 32장과 타워 3종만 들어간다. 콘텐츠 컴파일은 양쪽 해석을 검증하고, `GameSimulation.Initialize`는 그 활성 집합의 executor 등록을 다시 검증한다. 후속 카드는 실제 JSON과 executor가 추가된 Phase부터 런타임 검증 대상이 된다.
 
 ## 9. 시스템 처리 순서
 
@@ -227,7 +240,7 @@ JSON 논리 데이터와 밸런스 데이터가 런타임 수치의 단일 원�
 
 - 틱, 런 상태, 현재 웨이브
 - 본진 체력, 골드
-- 타워의 정의 ID, 건설 지점, 논리 위치, 슬롯별 카드 인스턴스
+- 타워의 정의 ID, 건설 지점, 논리 위치, 레벨, SubjectType, 슬롯별 카드 인스턴스
 - 적의 가계, 경로 진행도, 위치, 체력, 방어력, 둔화/속도/크기 배율, 제어 게이지, 가지별 보상/진행도
 - 탄환의 위치, 피해, 수명, 반경, 관통 사용량, 방향, 추적 여부와 바인딩 수
 - 상태 인스턴스의 출처, 중첩, 강도, 남은 틱, 틱 간격, 방어 무시

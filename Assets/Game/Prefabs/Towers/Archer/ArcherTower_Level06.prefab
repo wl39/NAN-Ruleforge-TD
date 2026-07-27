@@ -103,7 +103,7 @@ MonoBehaviour:
   initialAim: {x: 0, y: -1}
   idlePhaseSeed: 643
   idleFrameDuration: 0.18
-  preattackDuration: 0.16
+  preattackDuration: 0.15
   attackFrameDuration: 0.09
   idleDown:
   - {fileID: 1278955141106711614, guid: 7c3a3b00eaf5a4dd994f1e86cc6419a5, type: 3}
@@ -312,7 +312,7 @@ MonoBehaviour:
   initialAim: {x: 0.8944272, y: 0.4472136}
   idlePhaseSeed: 680
   idleFrameDuration: 0.18
-  preattackDuration: 0.16
+  preattackDuration: 0.15
   attackFrameDuration: 0.09
   idleDown:
   - {fileID: 1278955141106711614, guid: 7c3a3b00eaf5a4dd994f1e86cc6419a5, type: 3}
@@ -601,7 +601,7 @@ MonoBehaviour:
   initialAim: {x: -0.8944272, y: 0.4472136}
   idlePhaseSeed: 606
   idleFrameDuration: 0.18
-  preattackDuration: 0.16
+  preattackDuration: 0.15
   attackFrameDuration: 0.09
   idleDown:
   - {fileID: 1278955141106711614, guid: 7c3a3b00eaf5a4dd994f1e86cc6419a5, type: 3}

@@ -18,6 +18,23 @@ namespace RuleforgeTD.Enemies.Testing
         private bool movementEnabled = true;
 
         public bool MovementEnabled => movementEnabled;
+        public Vector2 CurrentTravelDirection
+        {
+            get
+            {
+                if (!initialized)
+                {
+                    InitializeRoute();
+                }
+
+                Vector2 displacement =
+                    GetWaypoint(targetWaypointIndex) -
+                    (Vector2)transform.position;
+                return displacement.sqrMagnitude > 0.000001f
+                    ? displacement.normalized
+                    : Vector2.right;
+            }
+        }
 
         public void Configure(
             DirectionalEnemyAnimator targetAnimator,
@@ -78,6 +95,11 @@ namespace RuleforgeTD.Enemies.Testing
         public void SetMovementEnabled(bool enabled)
         {
             movementEnabled = enabled;
+        }
+
+        public void ApplyPositionOffset(Vector2 offset)
+        {
+            transform.position += (Vector3)offset;
         }
 
         public void Simulate(float deltaTime)
