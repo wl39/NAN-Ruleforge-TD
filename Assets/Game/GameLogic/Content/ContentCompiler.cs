@@ -246,9 +246,15 @@ namespace RuleforgeTD.GameLogic.Content
                 if (dto.slotCount <= 0 ||
                     dto.slotCount > 16 ||
                     dto.computeCapacity <= 0 ||
-                    dto.computeCapacity > 1_000)
+                    dto.computeCapacity > 1_000 ||
+                    dto.constructionCost <= 0 ||
+                    dto.constructionCost > MaxScalar ||
+                    dto.duplicateCostStepBps < 0 ||
+                    dto.duplicateCostStepBps > 10_000)
                 {
-                    errors.Add("Tower '" + dto.id + "' must have slots and compute capacity.");
+                    errors.Add(
+                        "Tower '" + dto.id +
+                        "' must have valid slots, compute, and construction costs.");
                 }
                 if (dto.cooldownTicks < 0 ||
                     dto.cooldownTicks > MaxDurationTicks ||
@@ -274,6 +280,8 @@ namespace RuleforgeTD.GameLogic.Content
                         "' has a negative or invalid combat value.");
                 }
 
+                CompiledTowerLevelBalance[] levels =
+                    CompileTowerLevels(dto, trigger, errors);
                 towers[i] = new CompiledTowerDefinition
                 {
                     Id = new TowerDefinitionId(i),
@@ -284,6 +292,9 @@ namespace RuleforgeTD.GameLogic.Content
                     Selector = selector,
                     SlotCount = dto.slotCount,
                     ComputeCapacity = dto.computeCapacity,
+                    ConstructionCost = dto.constructionCost,
+                    DuplicateCostStepBps =
+                        dto.duplicateCostStepBps,
                     CooldownTicks = dto.cooldownTicks,
                     AttackWindupTicks = dto.attackWindupTicks,
                     RangeMilli = dto.rangeMilli,
@@ -293,7 +304,8 @@ namespace RuleforgeTD.GameLogic.Content
                     ProjectileLifetimeTicks = dto.projectileLifetimeTicks,
                     SelectorRadiusMilli = dto.selectorRadiusMilli,
                     TargetLimit = dto.targetLimit,
-                    PerTargetCooldownTicks = dto.perTargetCooldownTicks
+                    PerTargetCooldownTicks = dto.perTargetCooldownTicks,
+                    LevelsInternal = levels
                 };
             }
 
@@ -634,6 +646,8 @@ namespace RuleforgeTD.GameLogic.Content
                 hash.Add((int)tower.Selector);
                 hash.Add(tower.SlotCount);
                 hash.Add(tower.ComputeCapacity);
+                hash.Add(tower.ConstructionCost);
+                hash.Add(tower.DuplicateCostStepBps);
                 hash.Add(tower.CooldownTicks);
                 hash.Add(tower.AttackWindupTicks);
                 hash.Add(tower.RangeMilli);
@@ -643,6 +657,25 @@ namespace RuleforgeTD.GameLogic.Content
                 hash.Add(tower.SelectorRadiusMilli);
                 hash.Add(tower.TargetLimit);
                 hash.Add(tower.PerTargetCooldownTicks);
+                CompiledTowerLevelBalance[] levels =
+                    tower.LevelsInternal;
+                hash.Add(levels.Length);
+                for (int levelIndex = 0;
+                     levelIndex < levels.Length;
+                     levelIndex++)
+                {
+                    CompiledTowerLevelBalance level =
+                        levels[levelIndex];
+                    hash.Add(level.UpgradeCost);
+                    hash.Add(level.UnlockedSlots);
+                    hash.Add(level.ComputeCapacity);
+                    hash.Add(level.CooldownTicks);
+                    hash.Add(level.RangeMilli);
+                    hash.Add(level.SelectorRadiusMilli);
+                    hash.Add(level.TargetLimit);
+                    hash.Add(level.PerTargetCooldownTicks);
+                    hash.Add(level.VolleyCount);
+                }
             }
 
             hash.Add(enemies.Length);
@@ -920,6 +953,131 @@ namespace RuleforgeTD.GameLogic.Content
                     dto.limit,
                     dto.chanceBps,
                     dto.referenceId);
+            }
+
+            return result;
+        }
+
+        private static CompiledTowerLevelBalance[] CompileTowerLevels(
+            TowerDefinitionDto tower,
+            TowerTrigger trigger,
+            List<string> errors)
+        {
+            const int levelCount = 7;
+            TowerLevelBalanceDto[] source =
+                tower.levels ?? Array.Empty<TowerLevelBalanceDto>();
+            if (source.Length != levelCount)
+            {
+                errors.Add(
+                    "Tower '" + tower.id +
+                    "' must define exactly seven level balances.");
+            }
+
+            var result =
+                new CompiledTowerLevelBalance[levelCount];
+            for (int index = 0; index < levelCount; index++)
+            {
+                TowerLevelBalanceDto level =
+                    index < source.Length
+                        ? source[index]
+                        : null;
+                if (level == null)
+                {
+                    errors.Add(
+                        "Tower '" + tower.id +
+                        "' has a null level balance at level " +
+                        (index + 1) + ".");
+                    level = new TowerLevelBalanceDto
+                    {
+                        upgradeCost = 0,
+                        unlockedSlots =
+                            index <= 2
+                                ? 1
+                                : index <= 4
+                                    ? Math.Min(2, tower.slotCount)
+                                    : tower.slotCount,
+                        computeCapacity = tower.computeCapacity,
+                        cooldownTicks = tower.cooldownTicks,
+                        rangeMilli = tower.rangeMilli,
+                        selectorRadiusMilli =
+                            tower.selectorRadiusMilli,
+                        targetLimit = tower.targetLimit,
+                        perTargetCooldownTicks =
+                            tower.perTargetCooldownTicks,
+                        volleyCount =
+                            trigger == TowerTrigger.Attack
+                                ? index == 0
+                                    ? 1
+                                    : index <= 4
+                                        ? 2
+                                        : 3
+                                : 0
+                    };
+                }
+
+                bool invalid =
+                    (index == 0
+                        ? level.upgradeCost != 0
+                        : level.upgradeCost <= 0) ||
+                    level.upgradeCost > MaxScalar ||
+                    level.unlockedSlots <= 0 ||
+                    level.unlockedSlots > tower.slotCount ||
+                    level.computeCapacity <= 0 ||
+                    level.computeCapacity > 1_000 ||
+                    level.cooldownTicks < 0 ||
+                    level.cooldownTicks > MaxDurationTicks ||
+                    level.rangeMilli < 0 ||
+                    level.rangeMilli > MaxSpatialRadiusMilli ||
+                    level.selectorRadiusMilli < 0 ||
+                    level.selectorRadiusMilli >
+                        MaxSpatialRadiusMilli ||
+                    level.targetLimit <= 0 ||
+                    level.targetLimit > 1_024 ||
+                    level.perTargetCooldownTicks < 0 ||
+                    level.perTargetCooldownTicks >
+                        MaxDurationTicks ||
+                    level.volleyCount < 0 ||
+                    level.volleyCount > 16 ||
+                    (trigger == TowerTrigger.Attack &&
+                     level.volleyCount <= 0);
+                if (invalid)
+                {
+                    errors.Add(
+                        "Tower '" + tower.id +
+                        "' has invalid level balance at level " +
+                        (index + 1) + ".");
+                }
+
+                result[index] =
+                    new CompiledTowerLevelBalance
+                    {
+                        UpgradeCost =
+                            Math.Max(0, level.upgradeCost),
+                        UnlockedSlots =
+                            Math.Max(
+                                1,
+                                Math.Min(
+                                    tower.slotCount,
+                                    level.unlockedSlots)),
+                        ComputeCapacity =
+                            Math.Max(1, level.computeCapacity),
+                        CooldownTicks =
+                            Math.Max(0, level.cooldownTicks),
+                        RangeMilli =
+                            Math.Max(0, level.rangeMilli),
+                        SelectorRadiusMilli =
+                            Math.Max(
+                                0,
+                                level.selectorRadiusMilli),
+                        TargetLimit =
+                            Math.Max(1, level.targetLimit),
+                        PerTargetCooldownTicks =
+                            Math.Max(
+                                0,
+                                level.perTargetCooldownTicks),
+                        VolleyCount =
+                            Math.Max(0, level.volleyCount)
+                    };
             }
 
             return result;

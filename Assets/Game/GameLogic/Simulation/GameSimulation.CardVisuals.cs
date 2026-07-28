@@ -1,3 +1,4 @@
+using RuleforgeTD.GameLogic.Content;
 using RuleforgeTD.GameLogic.Core;
 
 namespace RuleforgeTD.GameLogic.Simulation
@@ -21,6 +22,20 @@ namespace RuleforgeTD.GameLogic.Simulation
             }
 
             projectile.VisualFlags |=
+                GetCardVisualFlag(stableCardId);
+        }
+
+        internal void MarkEnemyCardVisual(
+            EntityId enemyId,
+            string stableCardId)
+        {
+            EnemyState enemy = FindEnemy(enemyId);
+            if (enemy == null || !enemy.Alive)
+            {
+                return;
+            }
+
+            enemy.VisualFlags |=
                 GetCardVisualFlag(stableCardId);
         }
 
@@ -92,6 +107,109 @@ namespace RuleforgeTD.GameLogic.Simulation
                 case "lifesteal":
                     return ProjectileEffectVisualFlags.Lifesteal;
                 case "fear":
+                    return ProjectileEffectVisualFlags.Fear;
+                default:
+                    return ProjectileEffectVisualFlags.None;
+            }
+        }
+
+        internal ProjectileEffectVisualFlags
+            GetProjectileImpactVisualFlags(
+                ProjectileState projectile)
+        {
+            if (projectile == null)
+            {
+                return ProjectileEffectVisualFlags.None;
+            }
+
+            return projectile.VisualFlags |
+                GetCommonProjectileVisualFlags(projectile) |
+                GetProjectileUncommonEffectFlags(projectile.Id);
+        }
+
+        internal static ProjectileEffectVisualFlags
+            GetEnemyDeathVisualFlags(EnemyState enemy)
+        {
+            if (enemy == null)
+            {
+                return ProjectileEffectVisualFlags.None;
+            }
+
+            ProjectileEffectVisualFlags result =
+                enemy.VisualFlags;
+            for (int i = 0; i < enemy.Statuses.Count; i++)
+            {
+                StatusInstance status = enemy.Statuses[i];
+                if (status == null ||
+                    status.Stacks <= 0 ||
+                    status.RemainingTicks <= 0)
+                {
+                    continue;
+                }
+
+                result |= GetStatusVisualFlag(status.Type);
+            }
+
+            return result;
+        }
+
+        private static ProjectileEffectVisualFlags
+            GetStatusVisualFlag(StatusType type)
+        {
+            switch (type)
+            {
+                case StatusType.Burn:
+                    return ProjectileEffectVisualFlags.Burn;
+                case StatusType.Poison:
+                    return ProjectileEffectVisualFlags.Poison;
+                case StatusType.Slow:
+                    return ProjectileEffectVisualFlags.Slow;
+                case StatusType.Mark:
+                    return ProjectileEffectVisualFlags.Mark;
+                case StatusType.Pierced:
+                    return ProjectileEffectVisualFlags.Pierce;
+                case StatusType.Stun:
+                    return ProjectileEffectVisualFlags.Stun;
+                case StatusType.Ricochet:
+                    return ProjectileEffectVisualFlags.Ricochet;
+                case StatusType.Bleed:
+                    return ProjectileEffectVisualFlags.Bleed;
+                case StatusType.HomingPriority:
+                    return ProjectileEffectVisualFlags.Homing;
+                case StatusType.Delay:
+                    return ProjectileEffectVisualFlags.Delay;
+                case StatusType.Curse:
+                    return ProjectileEffectVisualFlags.Curse;
+                case StatusType.Bind:
+                    return ProjectileEffectVisualFlags.Bind;
+                case StatusType.Airborne:
+                    return ProjectileEffectVisualFlags.Airborne;
+                case StatusType.Shock:
+                    return ProjectileEffectVisualFlags.Shock;
+                case StatusType.Chill:
+                case StatusType.Frozen:
+                case StatusType.FreezeImmunity:
+                    return ProjectileEffectVisualFlags.Freeze;
+                case StatusType.Afterimage:
+                    return ProjectileEffectVisualFlags.Afterimage;
+                case StatusType.Pulse:
+                    return ProjectileEffectVisualFlags.Pulse;
+                case StatusType.Magnet:
+                    return ProjectileEffectVisualFlags.Magnet;
+                case StatusType.Reflect:
+                    return ProjectileEffectVisualFlags.Reflect;
+                case StatusType.Contagion:
+                    return ProjectileEffectVisualFlags.Contagion;
+                case StatusType.Seal:
+                    return ProjectileEffectVisualFlags.Seal;
+                case StatusType.Corrosion:
+                    return ProjectileEffectVisualFlags.Corrosion;
+                case StatusType.Orbit:
+                    return ProjectileEffectVisualFlags.Orbit;
+                case StatusType.Lifesteal:
+                    return ProjectileEffectVisualFlags.Lifesteal;
+                case StatusType.Fear:
+                case StatusType.FearHaste:
                     return ProjectileEffectVisualFlags.Fear;
                 default:
                     return ProjectileEffectVisualFlags.None;

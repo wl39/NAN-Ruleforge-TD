@@ -157,6 +157,19 @@ namespace RuleforgeTD.GameLogic.Content
     /// Trigger + SubjectTypeMode + Selector가 카드 문장의 앞부분을 만들고,
     /// 나머지 값은 슬롯 제한과 기본 전투 성능을 정의한다.
     /// </summary>
+    public sealed class CompiledTowerLevelBalance
+    {
+        public int UpgradeCost { get; internal set; }
+        public int UnlockedSlots { get; internal set; }
+        public int ComputeCapacity { get; internal set; }
+        public int CooldownTicks { get; internal set; }
+        public int RangeMilli { get; internal set; }
+        public int SelectorRadiusMilli { get; internal set; }
+        public int TargetLimit { get; internal set; }
+        public int PerTargetCooldownTicks { get; internal set; }
+        public int VolleyCount { get; internal set; }
+    }
+
     public sealed class CompiledTowerDefinition
     {
         /// <summary>컴파일된 타워 배열을 빠르게 조회하는 정수 ID다.</summary>
@@ -182,6 +195,12 @@ namespace RuleforgeTD.GameLogic.Content
 
         /// <summary>장착 카드 ComputeCost 합의 상한이다.</summary>
         public int ComputeCapacity { get; internal set; }
+
+        /// <summary>첫 무료 타워 이후의 기본 건설비다.</summary>
+        public int ConstructionCost { get; internal set; }
+
+        /// <summary>같은 타워 정의 한 기당 추가되는 건설비 basis point다.</summary>
+        public int DuplicateCostStepBps { get; internal set; }
 
         /// <summary>재발동 대기시간의 정수 틱 수다.</summary>
         public int CooldownTicks { get; internal set; }
@@ -209,6 +228,32 @@ namespace RuleforgeTD.GameLogic.Content
 
         /// <summary>같은 적에 대한 재발동 금지 시간의 틱 수다.</summary>
         public int PerTargetCooldownTicks { get; internal set; }
+
+        private CompiledTowerLevelBalance[] levels =
+            Array.Empty<CompiledTowerLevelBalance>();
+
+        public CompiledTowerLevelBalance GetLevel(int towerLevel)
+        {
+            if (levels.Length == 0)
+            {
+                return null;
+            }
+
+            int index = Math.Max(
+                0,
+                Math.Min(levels.Length - 1, towerLevel - 1));
+            return levels[index];
+        }
+
+        internal CompiledTowerLevelBalance[] LevelsInternal
+        {
+            get { return levels; }
+            set
+            {
+                levels = value ??
+                    Array.Empty<CompiledTowerLevelBalance>();
+            }
+        }
     }
 
     /// <summary>

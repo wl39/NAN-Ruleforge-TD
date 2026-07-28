@@ -500,9 +500,13 @@ namespace RuleforgeTD.GameLogic.Simulation
             {
                 CompiledTowerDefinition tower =
                     content.GetTower(towers[i].DefinitionId);
+                CompiledTowerLevelBalance maximumLevel =
+                    tower.GetLevel(7);
                 if (card.SlotCost <= tower.SlotCount &&
                     card.ComputeCost <=
-                        tower.ComputeCapacity)
+                        (maximumLevel == null
+                            ? tower.ComputeCapacity
+                            : maximumLevel.ComputeCapacity))
                 {
                     return true;
                 }

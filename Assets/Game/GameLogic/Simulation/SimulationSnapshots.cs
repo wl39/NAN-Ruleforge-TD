@@ -132,7 +132,8 @@ namespace RuleforgeTD.GameLogic.Simulation
             int subjectId,
             int sourceId,
             int value,
-            string contentId)
+            string contentId,
+            uint effectVisualFlags = 0u)
         {
             Tick = tick;
             Type = type;
@@ -140,6 +141,7 @@ namespace RuleforgeTD.GameLogic.Simulation
             SourceId = sourceId;
             Value = value;
             ContentId = contentId ?? string.Empty;
+            EffectVisualFlags = effectVisualFlags;
         }
 
         /// <summary>사건이 확정된 0 기반 시뮬레이션 틱이다.</summary>
@@ -159,6 +161,12 @@ namespace RuleforgeTD.GameLogic.Simulation
 
         /// <summary>카드·적·진단 코드 등 선택적 안정 문자열 ID다.</summary>
         public string ContentId { get; }
+
+        /// <summary>
+        /// 적중 또는 사망 시점에 확정된 카드 VFX 플래그 비트다.
+        /// 화면 계층이 이미 소멸한 탄환이나 초기화된 적 상태를 다시 추측하지 않게 한다.
+        /// </summary>
+        public uint EffectVisualFlags { get; }
     }
 
     /// <summary>

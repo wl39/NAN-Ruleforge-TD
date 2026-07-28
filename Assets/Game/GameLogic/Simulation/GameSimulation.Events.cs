@@ -535,6 +535,16 @@ namespace RuleforgeTD.GameLogic.Simulation
                     frame.SubjectId,
                     card.StableId);
             }
+            else
+            {
+                // 적 해석 카드도 실행 순간의 정체성을 누적한다. 이 비트는
+                // 타워에서 즉시 재생하지 않고 해당 적의 사망 표현 이벤트에
+                // 실어 보내므로, 분열·폭발처럼 지속 상태가 아닌 카드도
+                // 사망 위치에서 정확한 VFX를 낼 수 있다.
+                MarkEnemyCardVisual(
+                    frame.SubjectId,
+                    card.StableId);
+            }
 
             EffectExecutionOutcome outcome = EffectExecutionOutcome.Continue();
             // 한 카드 안의 효과 노드는 데이터에 컴파일된 순서대로 실행된다.

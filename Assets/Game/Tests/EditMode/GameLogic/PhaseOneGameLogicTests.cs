@@ -341,6 +341,10 @@ namespace RuleforgeTD.Tests.EditMode.GameLogic
 
             int towerId =
                 simulation.GetSnapshot().Towers[0].Id;
+            AssertAccepted(
+                simulation.Submit(
+                    GameCommand.GrantDebugGold(1000)),
+                "fund tower volley upgrades");
             for (int level = 2; level <= 6; level++)
             {
                 AssertAccepted(
@@ -684,7 +688,7 @@ namespace RuleforgeTD.Tests.EditMode.GameLogic
                         Array.Empty<string>();
                     source.run.startingCards =
                         new[] { "stun", "stun", "stun", "stun" };
-                    source.run.startingGold = 300;
+                    source.run.startingGold = 500;
                     source.run.pathPointXMilli =
                         new[] { 0, 100000 };
                     source.run.pathPointYMilli =
@@ -863,6 +867,98 @@ namespace RuleforgeTD.Tests.EditMode.GameLogic
         }
 
         [Test]
+        public void DeathEngine_UsesLowerBasePriceAndDuplicateMarkup()
+        {
+            CompiledContent fundedContent = CompileCustomized(
+                source => source.run.startingGold = 175);
+            var simulation = new GameSimulation();
+            simulation.Initialize(fundedContent, 521UL);
+            AssertAccepted(
+                simulation.Submit(
+                    GameCommand.ChooseStartingTower("ballista")),
+                "choose starting tower");
+            AssertAccepted(
+                simulation.Submit(
+                    GameCommand.PlaceTower("ballista", 0)),
+                "place free starting tower");
+
+            Assert.That(
+                simulation.GetTowerConstructionCost(
+                    "death_engine"),
+                Is.EqualTo(70));
+            AssertAccepted(
+                simulation.Submit(
+                    GameCommand.PlaceTower(
+                        "death_engine",
+                        1)),
+                "place first death engine");
+            Assert.That(
+                simulation.GetTowerConstructionCost(
+                    "death_engine"),
+                Is.EqualTo(105));
+            AssertAccepted(
+                simulation.Submit(
+                    GameCommand.PlaceTower(
+                        "death_engine",
+                        2)),
+                "place duplicate death engine");
+            Assert.That(
+                simulation.GetSnapshot().Gold,
+                Is.Zero);
+        }
+
+        [Test]
+        public void TowerUpgrade_RejectsWithoutGoldAndChargesNextLevelCost()
+        {
+            CompiledContent fundedContent = CompileCustomized(
+                source => source.run.startingGold = 99);
+            var simulation = new GameSimulation();
+            simulation.Initialize(fundedContent, 522UL);
+            AssertAccepted(
+                simulation.Submit(
+                    GameCommand.ChooseStartingTower("ballista")),
+                "choose starting tower");
+            AssertAccepted(
+                simulation.Submit(
+                    GameCommand.PlaceTower("ballista", 0)),
+                "place free starting tower");
+
+            int towerId =
+                simulation.GetSnapshot().Towers[0].Id;
+            Assert.That(
+                simulation.GetTowerUpgradeCost(towerId),
+                Is.EqualTo(100));
+            ulong beforeFailure = simulation.ComputeStateHash();
+            CommandResult rejected = simulation.Submit(
+                GameCommand.UpgradeTower(towerId));
+            Assert.That(rejected.Accepted, Is.False);
+            Assert.That(
+                rejected.Error,
+                Is.EqualTo(CommandError.InsufficientGold));
+            Assert.That(
+                simulation.ComputeStateHash(),
+                Is.EqualTo(beforeFailure));
+
+            AssertAccepted(
+                simulation.Submit(
+                    GameCommand.GrantDebugGold(1)),
+                "fund exact upgrade price");
+            AssertAccepted(
+                simulation.Submit(
+                    GameCommand.UpgradeTower(towerId)),
+                "upgrade ballista to level two");
+            SimulationSnapshot upgraded =
+                simulation.GetSnapshot();
+            Assert.That(upgraded.Gold, Is.Zero);
+            Assert.That(
+                upgraded.Towers[0].Level,
+                Is.EqualTo(2));
+            Assert.That(
+                simulation.GetTowerUpgradeCost(towerId),
+                Is.EqualTo(60));
+        }
+
+        [Test]
         public void TowerLevels_UnlockOneTwoAndThreeCardSlots()
         {
             var simulation = new GameSimulation();
@@ -880,8 +976,8 @@ namespace RuleforgeTD.Tests.EditMode.GameLogic
                 simulation.GetSnapshot().Towers[0];
             Assert.That(tower.Level, Is.EqualTo(1));
             Assert.That(
-                GameSimulation.GetTowerCardCapacityForLevel(
-                    tower.Level),
+                simulation.GetTowerUnlockedSlotCount(
+                    tower.Id),
                 Is.EqualTo(1));
 
             int split = FindCardInstanceId(simulation, "split");
@@ -904,6 +1000,10 @@ namespace RuleforgeTD.Tests.EditMode.GameLogic
                 lockedSecondSlot.Error,
                 Is.EqualTo(CommandError.SlotOutOfRange));
 
+            AssertAccepted(
+                simulation.Submit(
+                    GameCommand.GrantDebugGold(1000)),
+                "fund slot unlock upgrades");
             for (int level = 2; level <= 4; level++)
             {
                 AssertAccepted(
@@ -915,8 +1015,8 @@ namespace RuleforgeTD.Tests.EditMode.GameLogic
             tower = simulation.GetSnapshot().Towers[0];
             Assert.That(tower.Level, Is.EqualTo(4));
             Assert.That(
-                GameSimulation.GetTowerCardCapacityForLevel(
-                    tower.Level),
+                simulation.GetTowerUnlockedSlotCount(
+                    tower.Id),
                 Is.EqualTo(2));
             AssertAccepted(
                 simulation.Submit(
@@ -943,11 +1043,15 @@ namespace RuleforgeTD.Tests.EditMode.GameLogic
                 simulation.Submit(
                     GameCommand.UpgradeTower(tower.Id)),
                 "upgrade to level six");
+            AssertAccepted(
+                simulation.Submit(
+                    GameCommand.UpgradeTower(tower.Id)),
+                "upgrade to level seven");
             tower = simulation.GetSnapshot().Towers[0];
-            Assert.That(tower.Level, Is.EqualTo(6));
+            Assert.That(tower.Level, Is.EqualTo(7));
             Assert.That(
-                GameSimulation.GetTowerCardCapacityForLevel(
-                    tower.Level),
+                simulation.GetTowerUnlockedSlotCount(
+                    tower.Id),
                 Is.EqualTo(3));
             AssertAccepted(
                 simulation.Submit(
@@ -1088,6 +1192,19 @@ namespace RuleforgeTD.Tests.EditMode.GameLogic
 
             for (int level = 2; level <= 4; level++)
             {
+                int upgradeCost =
+                    simulation.GetTowerUpgradeCost(
+                        loadout.Towers[0].Id);
+                if (simulation.GetSnapshot().Gold <
+                    upgradeCost)
+                {
+                    AssertAccepted(
+                        simulation.Submit(
+                            GameCommand.GrantDebugGold(
+                                upgradeCost -
+                                simulation.GetSnapshot().Gold)),
+                        "fund card-pack slot upgrade");
+                }
                 AssertAccepted(
                     simulation.Submit(
                         GameCommand.UpgradeTower(
@@ -1558,7 +1675,7 @@ namespace RuleforgeTD.Tests.EditMode.GameLogic
                     Array.Empty<string>();
                 source.run.startingCards =
                     new[] { "split", "split" };
-                source.run.startingGold = 100;
+                source.run.startingGold = 120;
                 source.run.buildSpotXMilli[0] = 1000;
                 source.run.buildSpotYMilli[0] = 0;
                 source.run.buildSpotXMilli[1] = 5000;
@@ -2712,7 +2829,84 @@ namespace RuleforgeTD.Tests.EditMode.GameLogic
             Action<ContentCatalogDto> configure)
         {
             ContentCatalogDto source = LoadPhaseOneDto();
+            int towerCount = source.towers.Length;
+            var compute = new int[towerCount];
+            var cooldown = new int[towerCount];
+            var range = new int[towerCount];
+            var selectorRadius = new int[towerCount];
+            var targetLimit = new int[towerCount];
+            var perTargetCooldown = new int[towerCount];
+            for (int index = 0; index < towerCount; index++)
+            {
+                TowerDefinitionDto tower = source.towers[index];
+                compute[index] = tower.computeCapacity;
+                cooldown[index] = tower.cooldownTicks;
+                range[index] = tower.rangeMilli;
+                selectorRadius[index] =
+                    tower.selectorRadiusMilli;
+                targetLimit[index] = tower.targetLimit;
+                perTargetCooldown[index] =
+                    tower.perTargetCooldownTicks;
+            }
+
             configure(source);
+            // Mechanics tests historically customize the top-level prototype.
+            // Mirror only fields changed by the test into every level so the
+            // new level-balance table does not invalidate those fixtures.
+            for (int index = 0;
+                 index < source.towers.Length &&
+                 index < towerCount;
+                 index++)
+            {
+                TowerDefinitionDto tower = source.towers[index];
+                if (tower.levels == null)
+                {
+                    continue;
+                }
+
+                for (int levelIndex = 0;
+                     levelIndex < tower.levels.Length;
+                     levelIndex++)
+                {
+                    TowerLevelBalanceDto level =
+                        tower.levels[levelIndex];
+                    if (level == null)
+                    {
+                        continue;
+                    }
+
+                    if (tower.computeCapacity != compute[index])
+                    {
+                        level.computeCapacity =
+                            tower.computeCapacity;
+                    }
+                    if (tower.cooldownTicks != cooldown[index])
+                    {
+                        level.cooldownTicks =
+                            tower.cooldownTicks;
+                    }
+                    if (tower.rangeMilli != range[index])
+                    {
+                        level.rangeMilli = tower.rangeMilli;
+                    }
+                    if (tower.selectorRadiusMilli !=
+                        selectorRadius[index])
+                    {
+                        level.selectorRadiusMilli =
+                            tower.selectorRadiusMilli;
+                    }
+                    if (tower.targetLimit != targetLimit[index])
+                    {
+                        level.targetLimit = tower.targetLimit;
+                    }
+                    if (tower.perTargetCooldownTicks !=
+                        perTargetCooldown[index])
+                    {
+                        level.perTargetCooldownTicks =
+                            tower.perTargetCooldownTicks;
+                    }
+                }
+            }
             return Compile(source);
         }
 
@@ -3083,15 +3277,28 @@ namespace RuleforgeTD.Tests.EditMode.GameLogic
                     simulation.GetSnapshot(),
                     towerInstanceId);
                 int capacity =
-                    GameSimulation
-                        .GetTowerCardCapacityForLevel(
-                            tower.Level);
+                    simulation.GetTowerUnlockedSlotCount(
+                        tower.Id);
                 if (capacity >=
                     orderedCardStableIds.Length)
                 {
                     break;
                 }
 
+                int upgradeCost =
+                    simulation.GetTowerUpgradeCost(
+                        towerInstanceId);
+                int missingGold =
+                    upgradeCost -
+                    simulation.GetSnapshot().Gold;
+                if (missingGold > 0)
+                {
+                    AssertAccepted(
+                        simulation.Submit(
+                            GameCommand.GrantDebugGold(
+                                missingGold)),
+                        "fund tower for requested program");
+                }
                 AssertAccepted(
                     simulation.Submit(
                         GameCommand.UpgradeTower(

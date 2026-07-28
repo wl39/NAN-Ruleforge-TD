@@ -247,6 +247,7 @@ namespace RuleforgeTD.GameLogic.Simulation
                 SizeMultiplierBps = splitSizeMultiplierBps,
                 AreaDamageTakenBps = original.AreaDamageTakenBps,
                 SingleDamageTakenBps = original.SingleDamageTakenBps,
+                VisualFlags = original.VisualFlags,
                 RewardBudget = childReward,
                 WaveProgressBudget = childProgress,
                 CardPackProgressBudget =
@@ -1653,6 +1654,8 @@ namespace RuleforgeTD.GameLogic.Simulation
                 return;
             }
 
+            ProjectileEffectVisualFlags deathVisualFlags =
+                GetEnemyDeathVisualFlags(enemy);
             HandleUncommonEnemyDeath(
                 enemy,
                 gameEvent);
@@ -1732,7 +1735,8 @@ namespace RuleforgeTD.GameLogic.Simulation
                 enemy.Id.Value,
                 gameEvent.SourceEntityId.Value,
                 enemy.RewardBudget,
-                content.GetEnemy(enemy.DefinitionId).StableId);
+                content.GetEnemy(enemy.DefinitionId).StableId,
+                (uint)deathVisualFlags);
         }
 
         /// <summary>
@@ -1757,12 +1761,14 @@ namespace RuleforgeTD.GameLogic.Simulation
             {
                 TowerState tower = towers[towerIndex];
                 CompiledTowerDefinition definition = content.GetTower(tower.DefinitionId);
+                CompiledTowerLevelBalance level =
+                    GetTowerLevelBalance(tower);
                 if (definition.Trigger != TowerTrigger.EnemyDied ||
                     tower.Program.Length == 0 ||
                     !PathModel.IsWithin(
                         tower.Position,
                         deadEnemy.Position,
-                        definition.RangeMilli))
+                        level.RangeMilli))
                 {
                     continue;
                 }
@@ -1770,7 +1776,7 @@ namespace RuleforgeTD.GameLogic.Simulation
                 var candidates = new List<EnemyState>();
                 spatialIndex.Query(
                     deadEnemy.Position,
-                    definition.SelectorRadiusMilli,
+                    level.SelectorRadiusMilli,
                     spatialScratch);
                 for (int enemyIndex = 0; enemyIndex < spatialScratch.Count; enemyIndex++)
                 {
@@ -1779,7 +1785,7 @@ namespace RuleforgeTD.GameLogic.Simulation
                         PathModel.IsWithin(
                             deadEnemy.Position,
                             candidate.Position,
-                            definition.SelectorRadiusMilli))
+                            level.SelectorRadiusMilli))
                     {
                         candidates.Add(candidate);
                     }
@@ -1791,7 +1797,9 @@ namespace RuleforgeTD.GameLogic.Simulation
                         left,
                         right));
 
-                int count = Math.Min(definition.TargetLimit, candidates.Count);
+                int count = Math.Min(
+                    level.TargetLimit,
+                    candidates.Count);
                 for (int i = 0; i < count; i++)
                 {
                     // 각 대상 발동은 고유 ActivationId를 가지지만 최초 사망의 RootChain과 부모 이벤트는 공유한다.

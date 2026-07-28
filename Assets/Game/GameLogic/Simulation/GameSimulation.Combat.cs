@@ -181,6 +181,8 @@ namespace RuleforgeTD.GameLogic.Simulation
             TowerState tower,
             CompiledTowerDefinition definition)
         {
+            CompiledTowerLevelBalance level =
+                GetTowerLevelBalance(tower);
             bool cooldownWasActive =
                 tower.CooldownRemaining > 0;
             if (cooldownWasActive)
@@ -209,14 +211,16 @@ namespace RuleforgeTD.GameLogic.Simulation
             }
 
             // 선택 규칙은 표식 우선, 거리, 경로 진행도, EntityId 순으로 고정되어 동률도 결정적이다.
-            EnemyState target = SelectTowerTarget(tower.Position, definition.RangeMilli);
+            EnemyState target = SelectTowerTarget(
+                tower.Position,
+                level.RangeMilli);
             if (target == null)
             {
                 return;
             }
 
             tower.CooldownRemaining =
-                Math.Max(1, definition.CooldownTicks);
+                Math.Max(1, level.CooldownTicks);
             tower.PendingAttackTargetId = target.Id;
             tower.AttackWindupRemaining =
                 definition.AttackWindupTicks;
@@ -241,6 +245,8 @@ namespace RuleforgeTD.GameLogic.Simulation
             TowerState tower,
             CompiledTowerDefinition definition)
         {
+            CompiledTowerLevelBalance level =
+                GetTowerLevelBalance(tower);
             EntityId targetId =
                 tower.PendingAttackTargetId;
             tower.PendingAttackTargetId =
@@ -255,7 +261,7 @@ namespace RuleforgeTD.GameLogic.Simulation
                 // 시작된 쿨다운은 유지해 공격 속도가 비정상적으로 빨라지지 않는다.
                 target = SelectTowerTarget(
                     tower.Position,
-                    definition.RangeMilli);
+                    level.RangeMilli);
                 if (target == null)
                 {
                     return;
@@ -264,9 +270,9 @@ namespace RuleforgeTD.GameLogic.Simulation
 
             SelectDistinctTowerTargets(
                 tower.Position,
-                definition.RangeMilli,
+                level.RangeMilli,
                 target,
-                GetArcherCountForTowerLevel(tower.Level),
+                level.VolleyCount,
                 towerVolleyTargetScratch);
             for (int targetIndex = 0;
                  targetIndex <
@@ -325,13 +331,21 @@ namespace RuleforgeTD.GameLogic.Simulation
             TowerState tower,
             CompiledTowerDefinition definition)
         {
+            CompiledTowerLevelBalance level =
+                GetTowerLevelBalance(tower);
             var currentlyInside = new List<int>();
-            spatialIndex.Query(tower.Position, definition.RangeMilli, spatialScratch);
+            spatialIndex.Query(
+                tower.Position,
+                level.RangeMilli,
+                spatialScratch);
             for (int i = 0; i < spatialScratch.Count; i++)
             {
                 EnemyState enemy = FindEnemy(spatialScratch[i]);
                 if (!enemy.Alive ||
-                    !PathModel.IsWithin(tower.Position, enemy.Position, definition.RangeMilli))
+                    !PathModel.IsWithin(
+                        tower.Position,
+                        enemy.Position,
+                        level.RangeMilli))
                 {
                     continue;
                 }
@@ -344,7 +358,8 @@ namespace RuleforgeTD.GameLogic.Simulation
                     out long lastTriggered);
                 bool cooldownReady =
                     !tower.LastTargetTriggerTick.ContainsKey(enemy.Id.Value) ||
-                    tick - lastTriggered >= definition.PerTargetCooldownTicks;
+                    tick - lastTriggered >=
+                        level.PerTargetCooldownTicks;
                 int firstEnemyCard =
                     FindFirstProgramIndex(
                         tower,
@@ -662,7 +677,10 @@ namespace RuleforgeTD.GameLogic.Simulation
                 PresentationEventType.ProjectileHit,
                 target.Id.Value,
                 projectile.Id.Value,
-                (int)Math.Min(int.MaxValue, damage));
+                (int)Math.Min(int.MaxValue, damage),
+                effectVisualFlags:
+                    (uint)GetProjectileImpactVisualFlags(
+                        projectile));
 
             // 함정·귀환·공전은 적중 뒤 탄환 생존을 직접 인수한다. 그 밖의 탄환은
             // 도탄을 먼저 시도한 뒤 기존 관통/소멸 규칙으로 진행한다.
@@ -891,17 +909,6 @@ namespace RuleforgeTD.GameLogic.Simulation
 
                 output.Add(next);
             }
-        }
-
-        private static int GetArcherCountForTowerLevel(
-            int towerLevel)
-        {
-            if (towerLevel <= 1)
-            {
-                return 1;
-            }
-
-            return towerLevel <= 5 ? 2 : 3;
         }
 
         /// <summary>

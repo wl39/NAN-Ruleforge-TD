@@ -270,6 +270,7 @@ namespace RuleforgeTD.GameLogic.Simulation
         public int SizeMultiplierBps = 10000;
         public int AreaDamageTakenBps = 10000;
         public int SingleDamageTakenBps = 10000;
+        public ProjectileEffectVisualFlags VisualFlags;
 
         // 이 분열 가지에 현재 배정된 골드와 웨이브 기여도.
         public int RewardBudget;

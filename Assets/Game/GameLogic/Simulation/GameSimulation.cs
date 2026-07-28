@@ -885,6 +885,7 @@ namespace RuleforgeTD.GameLogic.Simulation
                 hash.Add(enemy.SizeMultiplierBps);
                 hash.Add(enemy.AreaDamageTakenBps);
                 hash.Add(enemy.SingleDamageTakenBps);
+                hash.Add((uint)enemy.VisualFlags);
                 hash.Add(enemy.RewardBudget);
                 hash.Add(enemy.WaveProgressBudget);
                 hash.Add(enemy.CardPackProgressBudget);
@@ -1408,7 +1409,8 @@ namespace RuleforgeTD.GameLogic.Simulation
             int subjectId = -1,
             int sourceId = -1,
             int value = 0,
-            string contentId = null)
+            string contentId = null,
+            uint effectVisualFlags = 0u)
         {
             var presentationEvent = new SimulationPresentationEvent(
                 tick,
@@ -1416,7 +1418,8 @@ namespace RuleforgeTD.GameLogic.Simulation
                 subjectId,
                 sourceId,
                 value,
-                contentId);
+                contentId,
+                effectVisualFlags);
             if (presentationEventCount < presentationEvents.Length)
             {
                 // 아직 빈 칸이 있으면 논리적 꼬리 위치에 이어 쓴다.

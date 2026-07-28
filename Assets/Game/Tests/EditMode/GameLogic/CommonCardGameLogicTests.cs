@@ -36,6 +36,55 @@ namespace RuleforgeTD.Tests.EditMode.GameLogic
         }
 
         [Test]
+        public void
+            ImpactAndDeathVisualFlagsCaptureAppliedCardIdentity()
+        {
+            EnemyState enemy = CreateEnemy(
+                7,
+                1000,
+                0,
+                1000);
+            GetPrivateField<List<EnemyState>>(
+                simulation,
+                "enemies").Add(enemy);
+            simulation.MarkEnemyCardVisual(
+                enemy.Id,
+                "explode");
+            enemy.Statuses.Add(new StatusInstance
+            {
+                InstanceId = 91,
+                Type = StatusType.Burn,
+                Stacks = 1,
+                RemainingTicks = 30
+            });
+
+            ProjectileEffectVisualFlags deathFlags =
+                GameSimulation.GetEnemyDeathVisualFlags(enemy);
+            Assert.That(
+                deathFlags.HasFlag(
+                    ProjectileEffectVisualFlags.Explode),
+                Is.True);
+            Assert.That(
+                deathFlags.HasFlag(
+                    ProjectileEffectVisualFlags.Burn),
+                Is.True);
+
+            var projectile = new ProjectileState
+            {
+                Id = new EntityId(8),
+                SourceTowerId = new TowerId(1),
+                VisualFlags =
+                    ProjectileEffectVisualFlags.Split |
+                    ProjectileEffectVisualFlags.Poison,
+                Alive = true
+            };
+            Assert.That(
+                simulation.GetProjectileImpactVisualFlags(
+                    projectile),
+                Is.EqualTo(projectile.VisualFlags));
+        }
+
+        [Test]
         public void Ricochet_RedirectsToNearestUnhitEnemy_AndUsesGlobalCap()
         {
             List<EnemyState> enemies =

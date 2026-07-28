@@ -147,8 +147,10 @@ namespace RuleforgeTD.GameLogic.Simulation
                     }
             }
 
+            CompiledTowerDefinition definition =
+                content.GetTower(definitionId);
             int constructionCost =
-                towers.Count == 0 ? 0 : run.TowerConstructionCost;
+                GetTowerConstructionCost(definitionId);
             if (gold < constructionCost)
             {
                 return CommandResult.Reject(
@@ -157,7 +159,6 @@ namespace RuleforgeTD.GameLogic.Simulation
             }
 
             // 정의에서 슬롯 수를 읽어 런 전용 타워 상태를 만든다.
-            CompiledTowerDefinition definition = content.GetTower(definitionId);
             var tower = new TowerState
             {
                 Id = new TowerId(nextTowerId++),
@@ -221,8 +222,7 @@ namespace RuleforgeTD.GameLogic.Simulation
         }
 
         /// <summary>
-        /// Stage 01 타워의 레벨을 한 단계 올려 카드 슬롯을 개방한다.
-        /// 현재 프로토타입에서는 업그레이드 비용을 별도로 부과하지 않는다.
+        /// Stage 01 타워의 레벨을 한 단계 올리고 해당 단계의 골드를 지불한다.
         /// </summary>
         private CommandResult UpgradeTower(int towerInstanceId)
         {
@@ -251,6 +251,23 @@ namespace RuleforgeTD.GameLogic.Simulation
                     "Tower is already at maximum level.");
             }
 
+            int upgradeCost =
+                GetTowerUpgradeCost(towerInstanceId);
+            if (upgradeCost < 0)
+            {
+                return CommandResult.Reject(
+                    CommandError.InvalidTarget,
+                    "Tower upgrade data is unavailable.");
+            }
+
+            if (gold < upgradeCost)
+            {
+                return CommandResult.Reject(
+                    CommandError.InsufficientGold,
+                    "Not enough gold to upgrade this tower.");
+            }
+
+            gold = checked(gold - upgradeCost);
             tower.Level++;
             AddPresentation(
                 PresentationEventType.TowerUpgraded,
@@ -359,9 +376,8 @@ namespace RuleforgeTD.GameLogic.Simulation
                     "Tower instance does not exist.");
             }
 
-            int unlockedSlots = Math.Min(
-                tower.CardSubjectTypes.Length,
-                GetTowerCardCapacityForLevel(tower.Level));
+            int unlockedSlots =
+                GetTowerUnlockedSlotCount(tower);
             if (slotIndex < 0 || slotIndex >= unlockedSlots)
             {
                 return CommandResult.Reject(
@@ -427,9 +443,8 @@ namespace RuleforgeTD.GameLogic.Simulation
             }
 
             CompiledCardDefinition definition = content.GetCard(card.DefinitionId);
-            int unlockedSlotCount = Math.Min(
-                tower.CardInstanceIds.Length,
-                GetTowerCardCapacityForLevel(tower.Level));
+            int unlockedSlotCount =
+                GetTowerUnlockedSlotCount(tower);
 
             // 슬롯 비용이 2인 카드는 시작 칸과 바로 다음 칸을 함께 차지한다.
             if (slotIndex < 0 ||
@@ -457,8 +472,8 @@ namespace RuleforgeTD.GameLogic.Simulation
 
             // excludedCardInstanceId를 넘겨 이동 중인 카드의 기존 비용이 두 번 합산되지 않게 한다.
             int currentCompute = ComputeTowerCost(tower, cardInstanceId);
-            CompiledTowerDefinition towerDefinition = content.GetTower(tower.DefinitionId);
-            if (currentCompute + definition.ComputeCost > towerDefinition.ComputeCapacity)
+            if (currentCompute + definition.ComputeCost >
+                GetTowerLevelBalance(tower).ComputeCapacity)
             {
                 return CommandResult.Reject(
                     CommandError.ComputeCapacityExceeded,
@@ -513,6 +528,132 @@ namespace RuleforgeTD.GameLogic.Simulation
             }
 
             return clampedLevel <= 5 ? 2 : 3;
+        }
+
+        /// <summary>
+        /// 현재 런에서 이 타워를 다음 건설 지점에 놓을 때 지불할 가격이다.
+        /// 첫 타워는 무료이고, 이후에는 같은 종류의 기존 타워 수만큼 중복 할증한다.
+        /// </summary>
+        public int GetTowerConstructionCost(string stableId)
+        {
+            return content.TryGetTowerId(
+                    stableId,
+                    out TowerDefinitionId definitionId)
+                ? GetTowerConstructionCost(definitionId)
+                : -1;
+        }
+
+        /// <summary>다음 레벨 업그레이드 가격이며 최대 레벨이나 잘못된 ID는 -1이다.</summary>
+        public int GetTowerUpgradeCost(int towerInstanceId)
+        {
+            TowerState tower =
+                FindTower(new TowerId(towerInstanceId));
+            if (tower == null || tower.Level >= 7)
+            {
+                return -1;
+            }
+
+            CompiledTowerLevelBalance nextLevel =
+                content.GetTower(tower.DefinitionId)
+                    .GetLevel(tower.Level + 1);
+            return nextLevel == null
+                ? -1
+                : nextLevel.UpgradeCost;
+        }
+
+        /// <summary>현재 레벨에 열린 카드 슬롯 수다.</summary>
+        public int GetTowerUnlockedSlotCount(int towerInstanceId)
+        {
+            TowerState tower =
+                FindTower(new TowerId(towerInstanceId));
+            return tower == null
+                ? 0
+                : GetTowerUnlockedSlotCount(tower);
+        }
+
+        /// <summary>현재 레벨의 타워 사거리를 milli 단위로 반환한다.</summary>
+        public int GetTowerRangeMilli(int towerInstanceId)
+        {
+            TowerState tower =
+                FindTower(new TowerId(towerInstanceId));
+            return tower == null
+                ? 0
+                : GetTowerLevelBalance(tower).RangeMilli;
+        }
+
+        private int GetTowerConstructionCost(
+            TowerDefinitionId definitionId)
+        {
+            if (towers.Count == 0)
+            {
+                return 0;
+            }
+
+            CompiledTowerDefinition definition =
+                content.GetTower(definitionId);
+            int sameTypeCount = 0;
+            for (int index = 0; index < towers.Count; index++)
+            {
+                if (towers[index].DefinitionId.Value ==
+                    definitionId.Value)
+                {
+                    sameTypeCount++;
+                }
+            }
+
+            long multiplierBps =
+                10_000L +
+                (long)definition.DuplicateCostStepBps *
+                sameTypeCount;
+            long scaled =
+                (long)definition.ConstructionCost *
+                multiplierBps;
+            long roundedUp = (scaled + 9_999L) / 10_000L;
+            return (int)Math.Min(int.MaxValue, roundedUp);
+        }
+
+        private CompiledTowerLevelBalance GetTowerLevelBalance(
+            TowerState tower)
+        {
+            CompiledTowerDefinition definition =
+                content.GetTower(tower.DefinitionId);
+            CompiledTowerLevelBalance level =
+                definition.GetLevel(tower.Level);
+            if (level != null)
+            {
+                return level;
+            }
+
+            // 구형 콘텐츠를 읽을 때만 사용하는 안전망이다.
+            return new CompiledTowerLevelBalance
+            {
+                UnlockedSlots = Math.Min(
+                    definition.SlotCount,
+                    GetTowerCardCapacityForLevel(tower.Level)),
+                ComputeCapacity = definition.ComputeCapacity,
+                CooldownTicks = definition.CooldownTicks,
+                RangeMilli = definition.RangeMilli,
+                SelectorRadiusMilli =
+                    definition.SelectorRadiusMilli,
+                TargetLimit = definition.TargetLimit,
+                PerTargetCooldownTicks =
+                    definition.PerTargetCooldownTicks,
+                VolleyCount =
+                    definition.Trigger == TowerTrigger.Attack
+                        ? tower.Level <= 1
+                            ? 1
+                            : tower.Level <= 5
+                                ? 2
+                                : 3
+                        : 0
+            };
+        }
+
+        private int GetTowerUnlockedSlotCount(TowerState tower)
+        {
+            return Math.Min(
+                tower.CardInstanceIds.Length,
+                GetTowerLevelBalance(tower).UnlockedSlots);
         }
 
         /// <summary>
@@ -615,9 +756,7 @@ namespace RuleforgeTD.GameLogic.Simulation
             TowerState tower = FindTower(new TowerId(towerInstanceId));
             int unlockedSlotCount = tower == null
                 ? 0
-                : Math.Min(
-                    tower.CardInstanceIds.Length,
-                    GetTowerCardCapacityForLevel(tower.Level));
+                : GetTowerUnlockedSlotCount(tower);
             if (tower == null ||
                 fromSlot < 0 ||
                 toSlot < 0 ||
@@ -1277,17 +1416,20 @@ namespace RuleforgeTD.GameLogic.Simulation
         /// </remarks>
         private bool CanFitCard(TowerState tower, CompiledCardDefinition card)
         {
-            CompiledTowerDefinition definition = content.GetTower(tower.DefinitionId);
+            CompiledTowerLevelBalance level =
+                GetTowerLevelBalance(tower);
 
             // 연산력은 빈 슬롯 수와 별개의 제한이므로 먼저 저렴하게 검사한다.
             if (ComputeTowerCost(tower, -1) + card.ComputeCost >
-                definition.ComputeCapacity)
+                level.ComputeCapacity)
             {
                 return false;
             }
 
+            int unlockedSlotCount =
+                GetTowerUnlockedSlotCount(tower);
             for (int slot = 0;
-                slot + card.SlotCost <= tower.CardInstanceIds.Length;
+                slot + card.SlotCost <= unlockedSlotCount;
                  slot++)
             {
                 // -3은 실제 카드 ID가 아닌 임시 검사 표식이다.

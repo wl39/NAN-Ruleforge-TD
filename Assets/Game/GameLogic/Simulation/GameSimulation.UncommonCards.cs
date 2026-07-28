@@ -1860,6 +1860,7 @@ namespace RuleforgeTD.GameLogic.Simulation
                     original.AreaDamageTakenBps,
                 SingleDamageTakenBps =
                     original.SingleDamageTakenBps,
+                VisualFlags = original.VisualFlags,
                 RewardBudget = 0,
                 WaveProgressBudget = 0,
                 CardPackProgressBudget = 0,

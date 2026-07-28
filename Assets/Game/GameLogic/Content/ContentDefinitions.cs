@@ -407,6 +407,24 @@ namespace RuleforgeTD.GameLogic.Content
     }
 
     /// <summary>
+    /// 타워 한 레벨의 절대 밸런스 값이다. 이전 레벨과의 차이가 아니라
+    /// 해당 레벨에서 실제로 사용할 수치를 기록해 데이터 수정 시 누적 오차를 막는다.
+    /// </summary>
+    [Serializable]
+    public sealed class TowerLevelBalanceDto
+    {
+        public int upgradeCost;
+        public int unlockedSlots;
+        public int computeCapacity;
+        public int cooldownTicks;
+        public int rangeMilli;
+        public int selectorRadiusMilli;
+        public int targetLimit;
+        public int perTargetCooldownTicks;
+        public int volleyCount;
+    }
+
+    /// <summary>
     /// JSON 타워 정의다. 타워는 "언제, 누구에게, 어떤 카드를 실행하는가"라는
     /// 문장의 앞부분과 기본 전투 수치를 제공한다.
     /// </summary>
@@ -433,6 +451,18 @@ namespace RuleforgeTD.GameLogic.Content
 
         /// <summary>장착 카드 computeCost 합계의 최대값이다.</summary>
         public int computeCapacity;
+
+        /// <summary>첫 무료 타워 이후 이 타워 정의를 처음 건설할 때의 골드 비용이다.</summary>
+        public int constructionCost;
+
+        /// <summary>
+        /// 같은 정의의 타워가 이미 하나 있을 때마다 건설비에 더할 basis point다.
+        /// 5000이면 두 번째 150%, 세 번째 200%가 된다.
+        /// </summary>
+        public int duplicateCostStepBps;
+
+        /// <summary>레벨 1~7의 비용·슬롯·전투 수치다.</summary>
+        public TowerLevelBalanceDto[] levels;
 
         /// <summary>타워가 다시 발동하기까지 기다리는 정수 틱 수다.</summary>
         public int cooldownTicks;
