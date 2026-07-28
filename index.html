@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <meta
+      name="viewport"
+      content="width=device-width,height=device-height,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>Ruleforge TD</title>
+    <style>
+      html, body {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+        background: #414c2d;
+        overscroll-behavior: none;
+        touch-action: none;
+        -webkit-user-select: none;
+        user-select: none;
+      }
+
+      #unity-container,
+      #unity-canvas {
+        position: fixed;
+        inset: 0;
+        width: 100vw;
+        height: 100vh;
+        width: 100dvw;
+        height: 100dvh;
+      }
+
+      #unity-canvas {
+        display: block;
+        background: #231F20;
+        outline: none;
+        touch-action: none;
+      }
+
+      #unity-loading {
+        position: fixed;
+        left: 50%;
+        top: 50%;
+        width: min(360px, 70vw);
+        transform: translate(-50%, -50%);
+        color: #f4e2b0;
+        font: 700 16px sans-serif;
+        text-align: center;
+        pointer-events: none;
+      }
+
+      #unity-progress {
+        height: 8px;
+        margin-top: 12px;
+        overflow: hidden;
+        border-radius: 999px;
+        background: rgba(0, 0, 0, 0.25);
+      }
+
+      #unity-progress-fill {
+        width: 0;
+        height: 100%;
+        background: #cf7a31;
+      }
+
+      #unity-warning {
+        position: fixed;
+        z-index: 10;
+        left: 50%;
+        top: 12px;
+        max-width: min(720px, 90vw);
+        transform: translateX(-50%);
+        font: 600 14px sans-serif;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="unity-container">
+      <canvas
+        id="unity-canvas"
+        width=1280
+        height=720
+        tabindex="-1"></canvas>
+      <div id="unity-loading">
+        Ruleforge TD 불러오는 중
+        <div id="unity-progress">
+          <div id="unity-progress-fill"></div>
+        </div>
+      </div>
+      <div id="unity-warning"></div>
+    </div>
+    <script>
+      const canvas = document.querySelector("#unity-canvas");
+      const loading = document.querySelector("#unity-loading");
+      const progressFill = document.querySelector("#unity-progress-fill");
+      const warning = document.querySelector("#unity-warning");
+      let unityInstance = null;
+
+      function showBanner(message, type) {
+        const item = document.createElement("div");
+        item.textContent = message;
+        item.style.cssText =
+          "margin:4px;padding:8px 12px;border-radius:6px;color:#fff;" +
+          (type === "error"
+            ? "background:#a7352f;"
+            : "background:#806a2b;");
+        warning.appendChild(item);
+        if (type !== "error") {
+          setTimeout(() => item.remove(), 5000);
+        }
+      }
+
+      canvas.addEventListener("pointerdown", () => canvas.focus());
+      canvas.addEventListener("contextmenu", event => {
+        event.preventDefault();
+        if (!unityInstance) {
+          return;
+        }
+
+        const bounds = canvas.getBoundingClientRect();
+        if (bounds.width <= 0 || bounds.height <= 0) {
+          return;
+        }
+
+        const normalizedX =
+          (event.clientX - bounds.left) / bounds.width;
+        const normalizedY =
+          (event.clientY - bounds.top) / bounds.height;
+        unityInstance.SendMessage(
+          "StageOneCardRightClickBridge",
+          "HandleWebGLRightClick",
+          normalizedX.toFixed(6) + "," +
+            normalizedY.toFixed(6));
+      });
+      canvas.addEventListener(
+        "touchmove",
+        event => event.preventDefault(),
+        { passive: false });
+
+      const buildUrl = "Build";
+      const loaderUrl = buildUrl + "/Stage01.loader.js";
+      const config = {
+        dataUrl: buildUrl + "/Stage01.data",
+        frameworkUrl: buildUrl + "/Stage01.framework.js",
+        codeUrl: buildUrl + "/Stage01.wasm",
+        streamingAssetsUrl: "StreamingAssets",
+        companyName: "Ruleforge",
+        productName: "Ruleforge TD",
+        productVersion: "0.1.0",
+        devicePixelRatio: Math.min(window.devicePixelRatio || 1, 2),
+        showBanner
+      };
+
+      const script = document.createElement("script");
+      script.src = loaderUrl;
+      script.onload = () => {
+        createUnityInstance(canvas, config, progress => {
+          progressFill.style.width = (progress * 100) + "%";
+        }).then(instance => {
+          unityInstance = instance;
+          loading.remove();
+          canvas.focus();
+        }).catch(message => {
+          loading.textContent = message;
+        });
+      };
+      document.body.appendChild(script);
+    </script>
+  </body>
+</html>
