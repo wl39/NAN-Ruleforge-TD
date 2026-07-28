@@ -1,0 +1,109 @@
+name: Build and deploy Unity WebGL
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build Stage 01
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    outputs:
+      unity_credentials_ready: ${{ steps.unity_credentials.outputs.ready }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Check Unity credentials
+        id: unity_credentials
+        shell: bash
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        run: |
+          if [[ -n "$UNITY_LICENSE" &&
+                -n "$UNITY_EMAIL" &&
+                -n "$UNITY_PASSWORD" ]]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "ready=false" >> "$GITHUB_OUTPUT"
+          echo "::warning::Unity deployment skipped. Add UNITY_LICENSE, UNITY_EMAIL, and UNITY_PASSWORD as repository Actions secrets."
+
+      - name: Cache Unity Library
+        if: steps.unity_credentials.outputs.ready == 'true'
+        uses: actions/cache@v4
+        with:
+          path: Library
+          key: Library-WebGL-${{ runner.os }}-${{ hashFiles('Assets/**', 'Packages/**', 'ProjectSettings/**') }}
+          restore-keys: |
+            Library-WebGL-${{ runner.os }}-
+            Library-WebGL-
+
+      - name: Build Stage 01 WebGL
+        if: steps.unity_credentials.outputs.ready == 'true'
+        uses: game-ci/unity-builder@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          unityVersion: auto
+          targetPlatform: WebGL
+          buildMethod: >-
+            RuleforgeTD.Editor.AssetImport.CraftPixFieldTilemapAssetBuilder.BuildWebGLFromCommandLine
+          allowDirtyBuild: true
+
+      - name: Validate Pages payload
+        if: steps.unity_credentials.outputs.ready == 'true'
+        shell: bash
+        run: |
+          build_path="Builds/WebGL/Stage01"
+          test -s "$build_path/index.html"
+          test -s "$build_path/Build/Stage01.loader.js"
+          test -s "$build_path/Build/Stage01.framework.js"
+          test -s "$build_path/Build/Stage01.data"
+          test -s "$build_path/Build/Stage01.wasm"
+          touch "$build_path/.nojekyll"
+
+      - name: Configure GitHub Pages
+        if: steps.unity_credentials.outputs.ready == 'true'
+        uses: actions/configure-pages@v5
+
+      - name: Upload GitHub Pages artifact
+        if: steps.unity_credentials.outputs.ready == 'true'
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: Builds/WebGL/Stage01
+          retention-days: 1
+          include-hidden-files: true
+
+  deploy:
+    name: Deploy GitHub Pages
+    if: needs.build.outputs.unity_credentials_ready == 'true'
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
