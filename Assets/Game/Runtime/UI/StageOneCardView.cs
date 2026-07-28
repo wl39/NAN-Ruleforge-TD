@@ -2,6 +2,7 @@ using System.Globalization;
 using RuleforgeTD.GameLogic.Content;
 using RuleforgeTD.GameLogic.Core;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 namespace RuleforgeTD.UI
@@ -13,8 +14,12 @@ namespace RuleforgeTD.UI
     /// </summary>
     [DisallowMultipleComponent]
     [RequireComponent(typeof(RectTransform), typeof(Image), typeof(Button))]
-    public sealed class StageOneCardView : MonoBehaviour
+    public sealed class StageOneCardView :
+        MonoBehaviour,
+        IPointerDownHandler
     {
+        private const float PointerToggleDebounceSeconds = 0.15f;
+
         public static readonly Color ProjectileBodyColor =
             new Color32(172, 86, 35, 248);
         public static readonly Color EnemyBodyColor =
@@ -78,8 +83,14 @@ namespace RuleforgeTD.UI
         private StageOneCardDisplay display;
         private CardTier tier = CardTier.Common;
         private SubjectType subjectType = SubjectType.Projectile;
+        private SubjectType configuredSubjectType =
+            SubjectType.Projectile;
         private string customPlaceholderSymbol;
         private bool built;
+        private bool hasConfiguredDisplay;
+        private bool interpretationPreviewOverridden;
+        private float lastPointerToggleTime =
+            float.NegativeInfinity;
 
         public Button Button => button;
         public Image BorderImage => borderImage;
@@ -114,6 +125,23 @@ namespace RuleforgeTD.UI
         private void Awake()
         {
             BuildInterface();
+            StageOneCardRightClickBridge.EnsureExists();
+        }
+
+        private void Update()
+        {
+#if UNITY_WEBGL && !UNITY_EDITOR
+            return;
+#else
+            if (!Input.GetMouseButtonDown(1) ||
+                !isActiveAndEnabled ||
+                !display.IsValid)
+            {
+                return;
+            }
+
+            TryToggleAtScreenPosition(Input.mousePosition);
+#endif
         }
 
         public static StageOneCardView CreateRuntime(
@@ -149,11 +177,27 @@ namespace RuleforgeTD.UI
             bool interactable = true)
         {
             BuildInterface();
+            SubjectType normalizedTarget =
+                NormalizeTarget(targetType);
+            bool preserveInterpretationPreview =
+                hasConfiguredDisplay &&
+                interpretationPreviewOverridden &&
+                display.StableId == cardDisplay.StableId &&
+                configuredSubjectType == normalizedTarget;
             display = cardDisplay;
+            configuredSubjectType = normalizedTarget;
+            hasConfiguredDisplay = true;
             nameText.text = display.Name;
-            descriptionText.text = display.Description;
             SetTier(cardTier);
-            SetTarget(targetType);
+            if (!preserveInterpretationPreview)
+            {
+                interpretationPreviewOverridden = false;
+                SetTarget(normalizedTarget);
+            }
+            else
+            {
+                SetTarget(subjectType);
+            }
             SetArtwork(artwork);
             SetEquipped(equipped, equippedBadgeLabel);
             SetInteractable(interactable);
@@ -196,11 +240,41 @@ namespace RuleforgeTD.UI
         public void SetTarget(SubjectType targetType)
         {
             BuildInterface();
-            subjectType =
-                targetType == SubjectType.Enemy
-                    ? SubjectType.Enemy
-                    : SubjectType.Projectile;
+            subjectType = NormalizeTarget(targetType);
             bodyImage.color = GetTargetBodyColor(subjectType);
+            RefreshDescription();
+        }
+
+        public void ToggleInterpretation()
+        {
+            if (!isActiveAndEnabled || !display.IsValid)
+            {
+                return;
+            }
+
+            SetTarget(
+                subjectType == SubjectType.Enemy
+                    ? SubjectType.Projectile
+                    : SubjectType.Enemy);
+            interpretationPreviewOverridden =
+                subjectType != configuredSubjectType;
+        }
+
+        public void OnPointerDown(PointerEventData eventData)
+        {
+            if (eventData == null ||
+                eventData.button !=
+                    PointerEventData.InputButton.Right)
+            {
+                return;
+            }
+
+#if UNITY_WEBGL && !UNITY_EDITOR
+            eventData.Use();
+#else
+            ToggleInterpretationFromPointer();
+            eventData.Use();
+#endif
         }
 
         public void SetArtwork(Sprite artwork)
@@ -285,6 +359,14 @@ namespace RuleforgeTD.UI
                 : ProjectileBodyColor;
         }
 
+        private static SubjectType NormalizeTarget(
+            SubjectType targetType)
+        {
+            return targetType == SubjectType.Enemy
+                ? SubjectType.Enemy
+                : SubjectType.Projectile;
+        }
+
         public static Color GetTierColor(CardTier cardTier)
         {
             switch (NormalizeTier(cardTier))
@@ -305,6 +387,67 @@ namespace RuleforgeTD.UI
         public static string GetTierLabel(CardTier cardTier)
         {
             return "T" + (int)NormalizeTier(cardTier);
+        }
+
+        private void RefreshDescription()
+        {
+            if (descriptionText == null)
+            {
+                return;
+            }
+
+            string contextualDescription =
+                display.GetDescription(subjectType);
+            descriptionText.text =
+                string.IsNullOrWhiteSpace(contextualDescription)
+                    ? display.Description
+                    : contextualDescription;
+        }
+
+        private void ToggleInterpretationFromPointer()
+        {
+            float now = Time.unscaledTime;
+            if (now - lastPointerToggleTime <
+                PointerToggleDebounceSeconds)
+            {
+                return;
+            }
+
+            lastPointerToggleTime = now;
+            ToggleInterpretation();
+        }
+
+        internal bool TryToggleAtScreenPosition(
+            Vector2 screenPosition)
+        {
+            RectTransform rectTransform =
+                transform as RectTransform;
+            if (!isActiveAndEnabled ||
+                !display.IsValid ||
+                rectTransform == null ||
+                !RectTransformUtility.RectangleContainsScreenPoint(
+                    rectTransform,
+                    screenPosition,
+                    ResolveEventCamera()))
+            {
+                return false;
+            }
+
+            ToggleInterpretationFromPointer();
+            return true;
+        }
+
+        private Camera ResolveEventCamera()
+        {
+            Canvas owningCanvas = GetComponentInParent<Canvas>();
+            if (owningCanvas == null ||
+                owningCanvas.renderMode ==
+                    RenderMode.ScreenSpaceOverlay)
+            {
+                return null;
+            }
+
+            return owningCanvas.worldCamera;
         }
 
         private void BuildInterface()
@@ -637,6 +780,101 @@ namespace RuleforgeTD.UI
             rect.pivot = Vector2.one;
             rect.anchoredPosition = anchoredPosition;
             rect.sizeDelta = size;
+        }
+    }
+
+    [UnityEngine.Scripting.Preserve]
+    internal sealed class StageOneCardRightClickBridge :
+        MonoBehaviour
+    {
+        public const string ReceiverName =
+            "StageOneCardRightClickBridge";
+
+        private static StageOneCardRightClickBridge instance;
+
+        public static void EnsureExists()
+        {
+            if (instance != null)
+            {
+                return;
+            }
+
+            GameObject existing = GameObject.Find(ReceiverName);
+            if (existing != null)
+            {
+                instance = existing.GetComponent<
+                    StageOneCardRightClickBridge>();
+            }
+
+            if (instance != null)
+            {
+                return;
+            }
+
+            var host = new GameObject(
+                ReceiverName,
+                typeof(StageOneCardRightClickBridge));
+            instance = host.GetComponent<
+                StageOneCardRightClickBridge>();
+        }
+
+        [UnityEngine.Scripting.Preserve]
+        public void HandleWebGLRightClick(string payload)
+        {
+            if (!TryParseNormalizedPosition(
+                    payload,
+                    out Vector2 normalizedPosition))
+            {
+                return;
+            }
+
+            var screenPosition = new Vector2(
+                normalizedPosition.x * Screen.width,
+                (1f - normalizedPosition.y) *
+                Screen.height);
+            StageOneCardView[] cards =
+                FindObjectsOfType<StageOneCardView>();
+            for (int i = 0; i < cards.Length; i++)
+            {
+                if (cards[i].TryToggleAtScreenPosition(
+                        screenPosition))
+                {
+                    return;
+                }
+            }
+        }
+
+        private static bool TryParseNormalizedPosition(
+            string payload,
+            out Vector2 normalizedPosition)
+        {
+            normalizedPosition = Vector2.zero;
+            if (string.IsNullOrWhiteSpace(payload))
+            {
+                return false;
+            }
+
+            string[] parts = payload.Split(',');
+            if (parts.Length != 2 ||
+                !float.TryParse(
+                    parts[0],
+                    NumberStyles.Float,
+                    CultureInfo.InvariantCulture,
+                    out float x) ||
+                !float.TryParse(
+                    parts[1],
+                    NumberStyles.Float,
+                    CultureInfo.InvariantCulture,
+                    out float y))
+            {
+                return false;
+            }
+
+            normalizedPosition =
+                new Vector2(
+                    Mathf.Clamp01(x),
+                    Mathf.Clamp01(y));
+            return true;
         }
     }
 }

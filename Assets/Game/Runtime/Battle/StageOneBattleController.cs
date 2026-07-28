@@ -98,10 +98,6 @@ namespace RuleforgeTD.Battle
             new Vector3[3];
         private readonly int[] towerAimEnemyIds =
             new int[3];
-        private readonly List<SimulationPresentationEvent>
-            pendingCardEffectEvents =
-                new List<SimulationPresentationEvent>(128);
-
         private GameSimulation simulation;
         private CompiledContent content;
         private SimulationSnapshot snapshot;
@@ -569,6 +565,32 @@ namespace RuleforgeTD.Battle
             pendingBuildPointIndex = -1;
         }
 
+        private void HandleBackgroundClicked(Vector2 screenPosition)
+        {
+            if (towerBlueprintOpen ||
+                hud == null ||
+                hud.IsRewardVisible)
+            {
+                return;
+            }
+
+            bool hadTowerContext = selectedTowerId >= 0;
+            bool hadBuildPicker =
+                pendingBuildPointIndex >= 0 ||
+                (towerBuildPickerView != null &&
+                 towerBuildPickerView.IsVisible);
+            if (!hadTowerContext && !hadBuildPicker)
+            {
+                return;
+            }
+
+            HideTowerBuildPicker();
+            selectedTowerId = -1;
+            selectedTowerSlot = 0;
+            RefreshTowerSelectionIndicators();
+            RefreshTowerActionView();
+        }
+
         private void HandleTowerClicked(TowerSelectionView selection)
         {
             if (selection != null)
@@ -576,6 +598,32 @@ namespace RuleforgeTD.Battle
                 HideTowerBuildPicker();
                 SelectTowerContext(selection.TowerId);
             }
+        }
+
+        private void HandleRewardVisibilityChanged(bool visible)
+        {
+            // The reward chooser is a modal boundary even though it lives on
+            // the HUD canvas. Do not let a tower context from the previous
+            // combat remain alive behind it: that separate canvas can keep
+            // blocking the first world click after the reward closes.
+            if (visible)
+            {
+                HideTowerBuildPicker();
+                selectedTowerId = -1;
+                selectedTowerSlot = 0;
+            }
+
+            foreach (TowerSelectionView selection in
+                     towerSelectionViews.Values)
+            {
+                if (selection != null)
+                {
+                    selection.ResetPointerClickSequence();
+                }
+            }
+
+            RefreshTowerSelectionIndicators();
+            RefreshTowerActionView();
         }
 
         private void HandleTowerDoubleClicked(
@@ -635,14 +683,10 @@ namespace RuleforgeTD.Battle
             RefreshTowerActionView();
             pendingBuildPointIndex =
                 site.BuildPointIndex;
-            int constructionCost =
-                snapshot.Towers.Length == 0
-                    ? 0
-                    : snapshot.TowerConstructionCost;
             towerBuildPickerView.Show(
                 site,
                 towerBuildOptions,
-                constructionCost);
+                snapshot.Gold);
             hud.SetStatus("status.choose_tower");
             return true;
         }
@@ -650,6 +694,13 @@ namespace RuleforgeTD.Battle
         private void AddTowerBuildOption(
             CompiledTowerDefinition definition)
         {
+            int constructionCost = simulation == null
+                ? definition.ConstructionCost
+                : simulation.GetTowerConstructionCost(
+                    definition.StableId);
+            constructionCost = Mathf.Max(
+                0,
+                constructionCost);
             towerBuildOptions.Add(
                 new StageOneTowerBuildOption(
                     definition.StableId,
@@ -658,7 +709,9 @@ namespace RuleforgeTD.Battle
                     textCatalog.GetTowerDescription(
                         definition.StableId),
                     definition.SubjectTypeMode ==
-                        SubjectTypeMode.Enemy));
+                        SubjectTypeMode.Enemy,
+                    constructionCost,
+                    snapshot.Gold >= constructionCost));
         }
 
         private void HideTowerBuildPicker()
@@ -719,10 +772,8 @@ namespace RuleforgeTD.Battle
                 return;
             }
 
-            int unlocked = Math.Min(
-                tower.CardInstanceIds.Length,
-                GameSimulation.GetTowerCardCapacityForLevel(
-                    tower.Level));
+            int unlocked =
+                ResolveTowerUnlockedSlotCount(tower);
             if (slotIndex < 0 || slotIndex >= unlocked)
             {
                 return;
@@ -739,10 +790,7 @@ namespace RuleforgeTD.Battle
                 FindTowerById(selectedTowerId);
             int unlockedSlotCount = tower.Id < 0
                 ? 0
-                : Math.Min(
-                    tower.CardInstanceIds.Length,
-                    GameSimulation.GetTowerCardCapacityForLevel(
-                        tower.Level));
+                : ResolveTowerUnlockedSlotCount(tower);
             if (slotIndex < 0 ||
                 slotIndex >= unlockedSlotCount)
             {
@@ -863,10 +911,7 @@ namespace RuleforgeTD.Battle
                 FindCardById(cardInstanceId);
             int unlockedSlotCount = tower.Id < 0
                 ? 0
-                : Math.Min(
-                    tower.CardInstanceIds.Length,
-                    GameSimulation.GetTowerCardCapacityForLevel(
-                        tower.Level));
+                : ResolveTowerUnlockedSlotCount(tower);
             if (tower.Id < 0 ||
                 card.Id < 0 ||
                 slotIndex < 0 ||
@@ -1148,6 +1193,9 @@ namespace RuleforgeTD.Battle
                         CommandError.CombatLoadoutLocked
                         ? "status.loadout_locked"
                         : result.Error ==
+                            CommandError.InsufficientGold
+                            ? "status.insufficient_gold"
+                        : result.Error ==
                             CommandError.SlotOccupied
                             ? "status.slot_occupied"
                             : "status.loadout_failed_format",
@@ -1349,19 +1397,14 @@ namespace RuleforgeTD.Battle
             for (int i = 0; i < events.Count; i++)
             {
                 SimulationPresentationEvent item = events[i];
-                if (pendingCardEffectEvents.Count < 256 &&
-                    !string.IsNullOrEmpty(item.ContentId) &&
-                    StageOneCardEffectPalette.TryGetStyle(
-                        item.ContentId,
-                        out _))
-                {
-                    pendingCardEffectEvents.Add(item);
-                }
                 if (item.Type == PresentationEventType.EnemyDied &&
                     enemyViews.TryGetValue(
                         item.SubjectId,
                         out StageOneEnemyView enemy))
                 {
+                    cardEffectVfx?.PlayFlagSet(
+                        item.EffectVisualFlags,
+                        enemy);
                     enemy.BeginDeath();
                 }
                 else if (
@@ -1375,6 +1418,9 @@ namespace RuleforgeTD.Battle
                         out StageOneEnemyView hitEnemy))
                 {
                     projectile.PrepareImpact(hitEnemy);
+                    cardEffectVfx?.PlayFlagSet(
+                        item.EffectVisualFlags,
+                        hitEnemy);
                 }
                 else if (
                     item.Type ==
@@ -1441,76 +1487,6 @@ namespace RuleforgeTD.Battle
             ReconcileHazards();
             AimTowers();
             RefreshHud();
-            PlayPendingCardEffectEvents();
-        }
-
-        private void PlayPendingCardEffectEvents()
-        {
-            if (cardEffectVfx == null)
-            {
-                pendingCardEffectEvents.Clear();
-                return;
-            }
-
-            for (int i = 0;
-                 i < pendingCardEffectEvents.Count;
-                 i++)
-            {
-                SimulationPresentationEvent item =
-                    pendingCardEffectEvents[i];
-                bool hasSubject = TryResolveEffectPosition(
-                    item.SubjectId,
-                    out Vector3 subjectPosition);
-                bool hasSource = TryResolveEffectPosition(
-                    item.SourceId,
-                    out Vector3 sourcePosition);
-                cardEffectVfx.PlayEvent(
-                    item,
-                    subjectPosition,
-                    hasSubject,
-                    sourcePosition,
-                    hasSource);
-            }
-
-            pendingCardEffectEvents.Clear();
-        }
-
-        private bool TryResolveEffectPosition(
-            int id,
-            out Vector3 position)
-        {
-            if (id >= 0 &&
-                enemyViews.TryGetValue(
-                    id,
-                    out StageOneEnemyView enemy) &&
-                enemy != null)
-            {
-                position = enemy.WorldImpactCenter;
-                return true;
-            }
-
-            if (id >= 0 &&
-                projectileViews.TryGetValue(
-                    id,
-                    out StageOneProjectileView projectile) &&
-                projectile != null)
-            {
-                position = projectile.transform.position;
-                return true;
-            }
-
-            if (id >= 0 &&
-                towerObjects.TryGetValue(
-                    id,
-                    out GameObject tower) &&
-                tower != null)
-            {
-                position = tower.transform.position;
-                return true;
-            }
-
-            position = Vector3.zero;
-            return false;
         }
 
         private void ReconcileHazards()
@@ -2328,10 +2304,8 @@ namespace RuleforgeTD.Battle
                 return;
             }
 
-            int unlockedSlotCount = Math.Min(
-                tower.CardInstanceIds.Length,
-                GameSimulation.GetTowerCardCapacityForLevel(
-                    tower.Level));
+            int unlockedSlotCount =
+                ResolveTowerUnlockedSlotCount(tower);
             selectedTowerSlot = Mathf.Clamp(
                 selectedTowerSlot,
                 0,
@@ -2368,6 +2342,8 @@ namespace RuleforgeTD.Battle
                         card.TowerId == tower.Id));
             }
 
+            int upgradeCost =
+                simulation.GetTowerUpgradeCost(tower.Id);
             loadoutView.Show(
                 textCatalog.GetTowerName(
                     tower.DefinitionId),
@@ -2377,7 +2353,10 @@ namespace RuleforgeTD.Battle
                 tower.CardInstanceIds,
                 loadoutCards,
                 selectedTowerSlot,
-                IsLoadoutEditable());
+                IsLoadoutEditable(),
+                upgradeCost,
+                upgradeCost >= 0 &&
+                snapshot.Gold >= upgradeCost);
             loadoutView.SetTowerPreview(
                 towerObjects.TryGetValue(
                     tower.Id,
@@ -2407,15 +2386,49 @@ namespace RuleforgeTD.Battle
                 return;
             }
 
+            int upgradeCost =
+                simulation.GetTowerUpgradeCost(tower.Id);
+            bool canUpgrade =
+                IsLoadoutEditable() &&
+                tower.Level < 7 &&
+                upgradeCost >= 0;
             towerActionView.Show(
                 selection,
-                IsLoadoutEditable() &&
-                tower.Level < 7);
+                canUpgrade,
+                upgradeCost,
+                upgradeCost >= 0 &&
+                snapshot.Gold >= upgradeCost);
+        }
+
+        private int ResolveTowerUnlockedSlotCount(
+            in TowerSnapshot tower)
+        {
+            if (tower.Id < 0)
+            {
+                return 0;
+            }
+
+            int unlocked = simulation == null
+                ? GameSimulation.GetTowerCardCapacityForLevel(
+                    tower.Level)
+                : simulation.GetTowerUnlockedSlotCount(
+                    tower.Id);
+            return Math.Min(
+                tower.CardInstanceIds.Length,
+                unlocked);
         }
 
         private float ResolveTowerAttackRangeWorld(
             in TowerSnapshot tower)
         {
+            if (simulation != null && tower.Id >= 0)
+            {
+                return Mathf.Max(
+                    0f,
+                    simulation.GetTowerRangeMilli(tower.Id) /
+                    1000f);
+            }
+
             if (content == null ||
                 !content.TryGetTowerId(
                     tower.DefinitionId,
@@ -2605,6 +2618,8 @@ namespace RuleforgeTD.Battle
             hud.PlayRequested += HandlePlayRequested;
             hud.SpeedSelected += HandleSpeedSelected;
             hud.RewardChoiceRequested += HandleRewardChoice;
+            hud.RewardVisibilityChanged +=
+                HandleRewardVisibilityChanged;
             loadoutView.SlotRequested +=
                 HandleTowerSlotRequested;
             loadoutView.SlotUnequipRequested +=
@@ -2627,6 +2642,12 @@ namespace RuleforgeTD.Battle
                 HandleTowerBuildRequested;
             towerBuildPickerView.CloseRequested +=
                 HandleTowerBuildPickerClosed;
+            if (cameraController != null)
+            {
+                cameraController.BackgroundClicked +=
+                    HandleBackgroundClicked;
+            }
+
             for (int i = 0; i < stageMap.BuildSiteCount; i++)
             {
                 stageMap.GetBuildSite(i).Clicked +=
@@ -2641,6 +2662,8 @@ namespace RuleforgeTD.Battle
                 hud.PlayRequested -= HandlePlayRequested;
                 hud.SpeedSelected -= HandleSpeedSelected;
                 hud.RewardChoiceRequested -= HandleRewardChoice;
+                hud.RewardVisibilityChanged -=
+                    HandleRewardVisibilityChanged;
             }
 
             if (loadoutView != null)
@@ -2675,6 +2698,12 @@ namespace RuleforgeTD.Battle
                     HandleTowerBuildRequested;
                 towerBuildPickerView.CloseRequested -=
                     HandleTowerBuildPickerClosed;
+            }
+
+            if (cameraController != null)
+            {
+                cameraController.BackgroundClicked -=
+                    HandleBackgroundClicked;
             }
 
             foreach (TowerSelectionView selection in

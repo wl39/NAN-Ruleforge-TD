@@ -54,8 +54,6 @@ namespace RuleforgeTD.UI
 
         private static readonly Color BlueprintRaised =
             new Color32(22, 58, 91, 248);
-        private static readonly Color NeutralCardBodyColor =
-            new Color32(31, 62, 83, 248);
         private static readonly Color BlueprintLine =
             new Color32(91, 157, 192, 180);
         private static readonly Color ButtonColor =
@@ -286,7 +284,9 @@ namespace RuleforgeTD.UI
             int[] slotCardInstanceIds,
             IReadOnlyList<StageOneLoadoutCard> cards,
             int activeSlot,
-            bool canEdit)
+            bool canEdit,
+            int upgradeCost = -1,
+            bool canAffordUpgrade = true)
         {
             var subjects = new SubjectType[MaximumSlots];
             for (int slot = 0; slot < subjects.Length; slot++)
@@ -302,7 +302,9 @@ namespace RuleforgeTD.UI
                 slotCardInstanceIds,
                 cards,
                 activeSlot,
-                canEdit);
+                canEdit,
+                upgradeCost,
+                canAffordUpgrade);
         }
 
         /// <summary>
@@ -318,7 +320,9 @@ namespace RuleforgeTD.UI
             int[] slotCardInstanceIds,
             IReadOnlyList<StageOneLoadoutCard> cards,
             int activeSlot,
-            bool canEdit)
+            bool canEdit,
+            int upgradeCost = -1,
+            bool canAffordUpgrade = true)
         {
             BuildInterface();
             bool alreadyOpen = IsVisible;
@@ -355,10 +359,17 @@ namespace RuleforgeTD.UI
             inventoryTitleText.text =
                 catalog.Get("tower_panel.inventory");
 
-            upgradeButton.interactable = editable && level < 7;
+            upgradeButton.interactable =
+                editable &&
+                level < 7 &&
+                canAffordUpgrade;
             upgradeLabel.text = level >= 7
                 ? catalog.Get("tower_panel.max_level")
-                : catalog.Get("tower_panel.level_up");
+                : upgradeCost >= 0
+                    ? catalog.Format(
+                        "tower_panel.level_up_cost_format",
+                        upgradeCost)
+                    : catalog.Get("tower_panel.level_up");
             ApplySelectedSubjectVisuals();
 
             RefreshSlots(
@@ -1444,17 +1455,19 @@ namespace RuleforgeTD.UI
                         ? slotSubjectTypes[
                             visibleCardSlotIndices[i]]
                         : subjectType;
-                string targetLabel =
-                    catalog.Get(
-                        cardSubjectType == SubjectType.Enemy
-                            ? "tower_panel.enemy"
-                            : "tower_panel.projectile");
+                string projectileTargetLabel =
+                    catalog.Get("tower_panel.projectile");
+                string enemyTargetLabel =
+                    catalog.Get("tower_panel.enemy");
                 var contextualDisplay =
                     new StageOneCardDisplay(
                         card.Display.StableId,
                         card.Display.Name,
-                        targetLabel + " · " +
-                        card.Display.Description,
+                        projectileTargetLabel + " · " +
+                        card.Display.ProjectileDescription,
+                        enemyTargetLabel + " · " +
+                        card.Display.EnemyDescription,
+                        cardSubjectType == SubjectType.Enemy,
                         card.Display.Tier);
                 CardTier tier = (CardTier)Mathf.Clamp(
                     card.Display.Tier,
@@ -1474,8 +1487,6 @@ namespace RuleforgeTD.UI
                                 "tower_panel.move_badge")
                             : null,
                     editable);
-                cardViews[i].BodyImage.color =
-                    NeutralCardBodyColor;
                 cardViews[i].SetPlaceholderSymbol(
                     GetCardSymbol(
                         card.Display.StableId));

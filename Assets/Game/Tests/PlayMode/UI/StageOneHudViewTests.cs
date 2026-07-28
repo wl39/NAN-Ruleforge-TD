@@ -120,6 +120,12 @@ namespace RuleforgeTD.Tests.PlayMode.UI
             Assert.That(display.StableId, Is.EqualTo("poison"));
             Assert.That(display.Name, Is.EqualTo("중독"));
             Assert.That(display.Description, Does.Contain("중독"));
+            Assert.That(
+                display.ProjectileDescription,
+                Does.Contain("중독"));
+            Assert.That(
+                display.EnemyDescription,
+                Does.Contain("독 피해"));
 
             Object.DestroyImmediate(asset);
         }
@@ -284,6 +290,32 @@ namespace RuleforgeTD.Tests.PlayMode.UI
                 hud.GetRewardChoiceCard(1).BodyImage.color,
                 Is.EqualTo(
                     StageOneCardView.ProjectileBodyColor));
+            hud.GetRewardChoiceCard(1).OnPointerDown(
+                new PointerEventData(EventSystem.current)
+                {
+                    button =
+                        PointerEventData.InputButton.Right
+                });
+            Assert.That(
+                hud.GetRewardChoiceCard(1).SubjectType,
+                Is.EqualTo(SubjectType.Enemy));
+            Assert.That(
+                hud.GetRewardChoiceCard(1).DescriptionText.text,
+                Does.Contain("지속 화염 피해"));
+            Assert.That(
+                hud.GetRewardChoiceCard(1).BodyImage.color,
+                Is.EqualTo(StageOneCardView.EnemyBodyColor));
+            hud.ShowRewardChoices(new[]
+            {
+                catalog.GetCardDisplay("split"),
+                catalog.GetCardDisplay("burn"),
+                catalog.GetCardDisplay("poison")
+            });
+            Assert.That(
+                hud.GetRewardChoiceCard(1).SubjectType,
+                Is.EqualTo(SubjectType.Enemy),
+                "A presentation refresh must preserve the " +
+                "right-click interpretation preview.");
             Button secondChoice = hud.GetRewardChoiceButton(1);
             Assert.That(secondChoice.interactable, Is.True);
             secondChoice.onClick.Invoke();
@@ -311,6 +343,18 @@ namespace RuleforgeTD.Tests.PlayMode.UI
         public IEnumerator
             CardView_UsesTargetAndTierVisualsAndDropSlotsForwardCards()
         {
+            EventSystem eventSystem =
+                Object.FindObjectOfType<EventSystem>();
+            bool createdEventSystem = eventSystem == null;
+            if (createdEventSystem)
+            {
+                eventSystem = new GameObject(
+                    "Card View Test Event System",
+                    typeof(EventSystem),
+                    typeof(StandaloneInputModule))
+                    .GetComponent<EventSystem>();
+            }
+
             var canvasHost = new GameObject(
                 "Card UI Test Canvas",
                 typeof(RectTransform),
@@ -324,7 +368,9 @@ namespace RuleforgeTD.Tests.PlayMode.UI
                 new StageOneCardDisplay(
                     "test",
                     "시험 카드",
+                    "탄환에 강한 효과를 적용합니다.",
                     "적에게 강한 효과를 적용합니다.",
+                    true,
                     5),
                 CardTier.Mythic,
                 SubjectType.Enemy,
@@ -342,6 +388,31 @@ namespace RuleforgeTD.Tests.PlayMode.UI
                 Is.EqualTo(StageOneCardView.EnemyBodyColor));
             Assert.That(card.TierBadgeText.text, Is.EqualTo("T5"));
             Assert.That(card.EquippedBadgeRoot.activeSelf, Is.True);
+
+            card.OnPointerDown(
+                new PointerEventData(eventSystem)
+                {
+                    button =
+                        PointerEventData.InputButton.Left
+                });
+            Assert.That(
+                card.SubjectType,
+                Is.EqualTo(SubjectType.Enemy));
+            card.OnPointerDown(
+                new PointerEventData(eventSystem)
+                {
+                    button =
+                        PointerEventData.InputButton.Right
+                });
+            Assert.That(
+                card.SubjectType,
+                Is.EqualTo(SubjectType.Projectile));
+            Assert.That(
+                card.DescriptionText.text,
+                Does.Contain("탄환에"));
+            Assert.That(
+                card.BodyImage.color,
+                Is.EqualTo(StageOneCardView.ProjectileBodyColor));
 
             var tierColors = new HashSet<Color>();
             for (int tier = 1; tier <= 5; tier++)
@@ -379,6 +450,11 @@ namespace RuleforgeTD.Tests.PlayMode.UI
             Assert.That(droppedSlot, Is.EqualTo(2));
 
             Object.Destroy(canvasHost);
+            if (createdEventSystem)
+            {
+                Object.Destroy(eventSystem.gameObject);
+            }
+
             yield return null;
         }
 
@@ -877,16 +953,21 @@ namespace RuleforgeTD.Tests.PlayMode.UI
                 };
             view.SlotUnequipRequested += slot =>
                 unequippedSlot = slot;
-            Color neutralCardBody =
-                view.GetCardView(0).BodyImage.color;
             Assert.That(
-                neutralCardBody,
-                Is.Not.EqualTo(
+                view.GetCardView(0).BodyImage.color,
+                Is.EqualTo(
                     StageOneCardView.ProjectileBodyColor));
+            view.GetCardView(0).ToggleInterpretation();
             Assert.That(
-                neutralCardBody,
-                Is.Not.EqualTo(
+                view.GetCardView(0).BodyImage.color,
+                Is.EqualTo(
                     StageOneCardView.EnemyBodyColor));
+            Assert.That(
+                view.GetCardView(0).DescriptionText.text,
+                Does.Contain("적에게 적용"));
+            Assert.That(
+                view.GetCardView(0).DescriptionText.text,
+                Does.Contain("두 개체"));
             view.GetSlotEnemyButton(2).onClick.Invoke();
             Assert.That(requestedSlot, Is.EqualTo(2));
             Assert.That(
@@ -900,7 +981,7 @@ namespace RuleforgeTD.Tests.PlayMode.UI
                 Is.EqualTo(SubjectType.Projectile));
             Assert.That(
                 view.GetCardView(0).BodyImage.color,
-                Is.EqualTo(neutralCardBody));
+                Is.EqualTo(StageOneCardView.EnemyBodyColor));
             Assert.That(
                 view.SettingsTintImage.color,
                 Is.EqualTo(Color.clear));

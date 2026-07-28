@@ -89,6 +89,7 @@ namespace RuleforgeTD.Battle
     public static class StageOneCardEffectPalette
     {
         public const int StyleCount = 32;
+        public const float StandardEffectDuration = 0.56f;
 
         private static readonly StageOneCardEffectStyle[] Styles =
         {
@@ -97,34 +98,34 @@ namespace RuleforgeTD.Battle
             // 투사체 표시 플래그가 함께 사용한다.
             Style(
                 "split",
-                94, 238, 216,
-                214, 255, 247,
+                120, 214, 255,
+                214, 245, 255,
                 StageOneCardEffectShape.Branch,
-                0.38f, 0.66f, 0.065f, 0.34f),
+                0.24f, 0.66f, 0.065f, 0.34f),
             Style(
                 "pierce",
                 214, 232, 255,
                 72, 173, 255,
                 StageOneCardEffectShape.Lance,
-                0.32f, 0.74f, 0.055f, 0.08f),
+                0.44f, 0.74f, 0.055f, 0.08f),
             Style(
                 "burn",
                 255, 92, 30,
                 255, 220, 72,
                 StageOneCardEffectShape.Flame,
-                0.46f, 0.68f, 0.075f, 0.34f),
+                0.62f, 0.68f, 0.075f, 0.34f),
             Style(
                 "slow",
                 92, 174, 255,
                 220, 244, 255,
                 StageOneCardEffectShape.Hourglass,
-                0.48f, 0.62f, 0.065f, 0.12f),
+                0.68f, 0.66f, 0.065f, 0.12f),
             Style(
                 "explode",
                 255, 126, 32,
                 255, 238, 128,
                 StageOneCardEffectShape.Blast,
-                0.36f, 0.92f, 0.09f, 0.16f),
+                0.62f, 0.92f, 0.09f, 0.16f),
             Style(
                 "knockback",
                 236, 202, 132,
@@ -148,7 +149,7 @@ namespace RuleforgeTD.Battle
                 91, 222, 72,
                 200, 255, 105,
                 StageOneCardEffectShape.Toxic,
-                0.52f, 0.66f, 0.075f, 0.16f),
+                0.70f, 0.66f, 0.075f, 0.20f),
             Style(
                 "enlarge",
                 244, 151, 66,
@@ -218,7 +219,7 @@ namespace RuleforgeTD.Battle
                 112, 211, 255,
                 245, 252, 255,
                 StageOneCardEffectShape.Launch,
-                0.54f, 0.72f, 0.07f, 0.92f),
+                0.70f, 0.72f, 0.07f, 0.92f),
             Style(
                 "shock",
                 255, 226, 65,
@@ -248,7 +249,7 @@ namespace RuleforgeTD.Battle
                 60, 104, 220,
                 120, 237, 255,
                 StageOneCardEffectShape.Vortex,
-                0.52f, 0.82f, 0.065f, 0.16f),
+                0.68f, 0.82f, 0.065f, 0.16f),
             Style(
                 "reflect",
                 206, 222, 240,
@@ -351,6 +352,7 @@ namespace RuleforgeTD.Battle
             AddAlias(result, "Delay", "delay");
             AddAlias(result, "Curse", "curse");
             AddAlias(result, "Bind", "bind");
+            AddAlias(result, "Blind", "bind");
             AddAlias(result, "Airborne", "airborne");
             AddAlias(result, "Shock", "shock");
             AddAlias(result, "Chill", "freeze");
@@ -404,6 +406,9 @@ namespace RuleforgeTD.Battle
             float width,
             float motionHeight)
         {
+            // Individual legacy timings remain beside their visual tuning
+            // values, but runtime playback is intentionally normalized.
+            duration = StandardEffectDuration;
             return new StageOneCardEffectStyle(
                 id,
                 new Color32(
@@ -417,7 +422,7 @@ namespace RuleforgeTD.Battle
                     secondaryB,
                     255),
                 shape,
-                duration,
+                StandardEffectDuration,
                 radius,
                 width,
                 motionHeight);

@@ -24,6 +24,8 @@ namespace RuleforgeTD.Battle
             new Color32(239, 61, 54, 196);
 
         private BoxCollider2D hitArea;
+        private SpriteRenderer[] hitRenderers =
+            Array.Empty<SpriteRenderer>();
         private Transform selectionMarkerRoot;
         private Material selectionMarkerMaterial;
         private Transform attackRangeRoot;
@@ -66,6 +68,8 @@ namespace RuleforgeTD.Battle
         {
             TowerId = towerId;
             attackRangeWorld = Mathf.Max(0f, rangeWorld);
+            hitRenderers =
+                GetComponentsInChildren<SpriteRenderer>(true);
             EnsureHitArea();
             RefreshHitArea();
             if (attackRangeRoot != null)
@@ -209,6 +213,23 @@ namespace RuleforgeTD.Battle
             RefreshAttackRange();
         }
 
+        private void LateUpdate()
+        {
+            if (hitArea == null)
+            {
+                return;
+            }
+
+            // Construction and idle frames realign their visible base after
+            // the tower is instantiated. Keep the physics target attached to
+            // the rendered tower instead of preserving the first animation
+            // frame's bounds above or below it.
+            if (RefreshHitArea() && selected)
+            {
+                RefreshSelectionMarker();
+            }
+        }
+
         private void EnsureHitArea()
         {
             hitArea = GetComponent<BoxCollider2D>();
@@ -220,34 +241,76 @@ namespace RuleforgeTD.Battle
             hitArea.isTrigger = true;
         }
 
-        private void RefreshHitArea()
+        private bool RefreshHitArea()
         {
-            SpriteRenderer[] renderers =
-                GetComponentsInChildren<SpriteRenderer>(true);
-            if (renderers.Length == 0)
+            if (hitRenderers == null ||
+                hitRenderers.Length == 0)
             {
-                hitArea.offset = new Vector2(0f, 0.7f);
-                hitArea.size = new Vector2(1.2f, 1.8f);
-                return;
+                hitRenderers =
+                    GetComponentsInChildren<SpriteRenderer>(true);
             }
 
-            Bounds worldBounds = renderers[0].bounds;
-            for (int i = 1; i < renderers.Length; i++)
+            bool hasVisibleRenderer = false;
+            Bounds worldBounds = default(Bounds);
+            for (int i = 0; i < hitRenderers.Length; i++)
             {
-                worldBounds.Encapsulate(renderers[i].bounds);
+                SpriteRenderer renderer = hitRenderers[i];
+                if (renderer == null ||
+                    !renderer.enabled ||
+                    !renderer.gameObject.activeInHierarchy ||
+                    renderer.sprite == null)
+                {
+                    continue;
+                }
+
+                if (!hasVisibleRenderer)
+                {
+                    worldBounds = renderer.bounds;
+                    hasVisibleRenderer = true;
+                }
+                else
+                {
+                    worldBounds.Encapsulate(renderer.bounds);
+                }
+            }
+
+            Vector2 offset;
+            Vector2 size;
+            if (!hasVisibleRenderer)
+            {
+                offset = new Vector2(0f, 0.7f);
+                size = new Vector2(1.2f, 1.8f);
+                return ApplyHitArea(offset, size);
             }
 
             Vector3 localMin =
                 transform.InverseTransformPoint(worldBounds.min);
             Vector3 localMax =
                 transform.InverseTransformPoint(worldBounds.max);
-            Vector2 size = new Vector2(
+            size = new Vector2(
                 Mathf.Max(0.8f, localMax.x - localMin.x),
                 Mathf.Max(1.2f, localMax.y - localMin.y));
-            hitArea.offset = new Vector2(
+            offset = new Vector2(
                 (localMin.x + localMax.x) * 0.5f,
                 (localMin.y + localMax.y) * 0.5f);
+            return ApplyHitArea(offset, size);
+        }
+
+        private bool ApplyHitArea(
+            Vector2 offset,
+            Vector2 size)
+        {
+            if (Vector2.SqrMagnitude(
+                    hitArea.offset - offset) <= 0.000001f &&
+                Vector2.SqrMagnitude(
+                    hitArea.size - size) <= 0.000001f)
+            {
+                return false;
+            }
+
+            hitArea.offset = offset;
             hitArea.size = size;
+            return true;
         }
 
         private void EnsureSelectionMarker()

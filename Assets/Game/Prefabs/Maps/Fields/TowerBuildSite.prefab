@@ -148,4 +148,5 @@ MonoBehaviour:
   availableSprite: {fileID: 21300000, guid: beb37b3c54cd1471d94fc27e7e96259f, type: 3}
   lockedSprite: {fileID: 21300000, guid: 95168367c7ca647caa56e43d0c8d9cfb, type: 3}
   targetRenderer: {fileID: 6786051578147555193}
+  inputCollider: {fileID: 1842821727516882992}
   state: 1

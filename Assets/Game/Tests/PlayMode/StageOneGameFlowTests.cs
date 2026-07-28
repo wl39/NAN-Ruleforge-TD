@@ -143,6 +143,12 @@ namespace RuleforgeTD.Tests.PlayMode
                 buildPicker.GetOptionId(1),
                 Is.EqualTo("mutation_obelisk"));
             Assert.That(
+                buildPicker.GetOptionCost(0),
+                Is.Zero);
+            Assert.That(
+                buildPicker.GetOptionCost(1),
+                Is.Zero);
+            Assert.That(
                 buildPicker.PanelRoot.parent.GetComponent<
                     StageOneSafeAreaFitter>(),
                 Is.Not.Null);
@@ -359,23 +365,38 @@ namespace RuleforgeTD.Tests.PlayMode
                         ArcherUnitAnimationBehaviour.Idle));
             }
 
+            KeyCode[] towerFundingSequence =
+            {
+                KeyCode.UpArrow,
+                KeyCode.UpArrow,
+                KeyCode.DownArrow,
+                KeyCode.DownArrow,
+                KeyCode.LeftArrow,
+                KeyCode.RightArrow,
+                KeyCode.LeftArrow,
+                KeyCode.RightArrow,
+                KeyCode.B,
+                KeyCode.A
+            };
+            for (int index = 0;
+                 index < towerFundingSequence.Length;
+                 index++)
+            {
+                controller.ProcessKonamiKey(
+                    towerFundingSequence[index]);
+            }
+
             Assert.That(controller.SelectTower(tower.Id), Is.True);
             Assert.That(controller.IsTowerBlueprintOpen, Is.True);
             Assert.That(controller.IsPaused, Is.True);
             Assert.That(controller.Hud.IsVisible, Is.False);
             Assert.That(controller.Hud.HudCanvas.enabled, Is.False);
 
-            Color neutralInventoryCardColor =
+            Assert.That(
                 controller.LoadoutView.GetCardView(0)
-                    .BodyImage.color;
-            Assert.That(
-                neutralInventoryCardColor,
-                Is.Not.EqualTo(
+                    .BodyImage.color,
+                Is.EqualTo(
                     StageOneCardView.ProjectileBodyColor));
-            Assert.That(
-                neutralInventoryCardColor,
-                Is.Not.EqualTo(
-                    StageOneCardView.EnemyBodyColor));
             Assert.That(
                 controller.LoadoutView.GetCardView(0)
                     .TierBadgeText.text,
@@ -446,8 +467,10 @@ namespace RuleforgeTD.Tests.PlayMode
                 .onClick.Invoke();
             controller.LoadoutView.UpgradeButton
                 .onClick.Invoke();
+            controller.LoadoutView.UpgradeButton
+                .onClick.Invoke();
             tower = controller.CurrentSnapshot.Towers[0];
-            Assert.That(tower.Level, Is.EqualTo(6));
+            Assert.That(tower.Level, Is.EqualTo(7));
             Assert.That(
                 controller.LoadoutView.GetSlotButton(2)
                     .interactable,
@@ -470,12 +493,14 @@ namespace RuleforgeTD.Tests.PlayMode
             Assert.That(
                 controller.LoadoutView.GetCardView(0)
                     .BodyImage.color,
-                Is.EqualTo(neutralInventoryCardColor),
+                Is.EqualTo(
+                    StageOneCardView.ProjectileBodyColor),
                 "Changing slot 3 must not recolor slot 1.");
             Assert.That(
                 controller.LoadoutView.GetCardView(3)
                     .BodyImage.color,
-                Is.EqualTo(neutralInventoryCardColor));
+                Is.EqualTo(
+                    StageOneCardView.EnemyBodyColor));
             Assert.That(
                 controller.LoadoutView.GetCardView(3)
                     .DescriptionText.text,
@@ -495,7 +520,8 @@ namespace RuleforgeTD.Tests.PlayMode
             Assert.That(
                 controller.LoadoutView.GetCardView(3)
                     .BodyImage.color,
-                Is.EqualTo(neutralInventoryCardColor));
+                Is.EqualTo(
+                    StageOneCardView.ProjectileBodyColor));
 
             Assert.That(
                 controller.CameraController,
@@ -871,6 +897,30 @@ namespace RuleforgeTD.Tests.PlayMode
                     picker.GetOptionId(0),
                     picker.GetOptionId(1)
                 });
+            for (int option = 0;
+                 option < picker.OptionCount;
+                 option++)
+            {
+                if (picker.GetOptionId(option) ==
+                    "mutation_obelisk")
+                {
+                    Assert.That(
+                        picker.GetOptionCost(option),
+                        Is.EqualTo(120));
+                }
+                else if (picker.GetOptionId(option) ==
+                    "death_engine")
+                {
+                    Assert.That(
+                        picker.GetOptionCost(option),
+                        Is.EqualTo(70));
+                }
+
+                Assert.That(
+                    picker.GetOptionButton(option)
+                        .interactable,
+                    Is.False);
+            }
             Assert.That(
                 controller.CurrentSnapshot.Towers.Length,
                 Is.EqualTo(1),

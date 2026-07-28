@@ -94,6 +94,7 @@
       const loading = document.querySelector("#unity-loading");
       const progressFill = document.querySelector("#unity-progress-fill");
       const warning = document.querySelector("#unity-warning");
+      let unityInstance = null;
 
       function showBanner(message, type) {
         const item = document.createElement("div");
@@ -110,7 +111,27 @@
       }
 
       canvas.addEventListener("pointerdown", () => canvas.focus());
-      canvas.addEventListener("contextmenu", event => event.preventDefault());
+      canvas.addEventListener("contextmenu", event => {
+        event.preventDefault();
+        if (!unityInstance) {
+          return;
+        }
+
+        const bounds = canvas.getBoundingClientRect();
+        if (bounds.width <= 0 || bounds.height <= 0) {
+          return;
+        }
+
+        const normalizedX =
+          (event.clientX - bounds.left) / bounds.width;
+        const normalizedY =
+          (event.clientY - bounds.top) / bounds.height;
+        unityInstance.SendMessage(
+          "StageOneCardRightClickBridge",
+          "HandleWebGLRightClick",
+          normalizedX.toFixed(6) + "," +
+            normalizedY.toFixed(6));
+      });
       canvas.addEventListener(
         "touchmove",
         event => event.preventDefault(),
@@ -146,7 +167,8 @@
       script.onload = () => {
         createUnityInstance(canvas, config, progress => {
           progressFill.style.width = (progress * 100) + "%";
-        }).then(() => {
+        }).then(instance => {
+          unityInstance = instance;
           loading.remove();
           canvas.focus();
         }).catch(message => {

@@ -141,6 +141,7 @@ namespace RuleforgeTD.UI
         public event Action<float> SpeedSelected;
         public event Action SpeedRequested;
         public event Action<int> RewardChoiceRequested;
+        public event Action<bool> RewardVisibilityChanged;
 
         public Canvas HudCanvas => hudCanvas;
         public Text HudText => hudText;
@@ -387,6 +388,7 @@ namespace RuleforgeTD.UI
 
         public void ShowRewardChoices(IReadOnlyList<string> cardIds)
         {
+            bool wasVisible = IsRewardVisible;
             rewardDisplaysAreExplicit = false;
             visibleRewardChoiceCount = Mathf.Min(
                 RewardChoiceCapacity,
@@ -408,11 +410,17 @@ namespace RuleforgeTD.UI
             {
                 rewardOverlay.SetActive(true);
             }
+
+            if (!wasVisible && IsRewardVisible)
+            {
+                RewardVisibilityChanged?.Invoke(true);
+            }
         }
 
         public void ShowRewardChoices(
             IReadOnlyList<StageOneCardDisplay> cards)
         {
+            bool wasVisible = IsRewardVisible;
             rewardDisplaysAreExplicit = true;
             visibleRewardChoiceCount = Mathf.Min(
                 RewardChoiceCapacity,
@@ -432,10 +440,16 @@ namespace RuleforgeTD.UI
             {
                 rewardOverlay.SetActive(true);
             }
+
+            if (!wasVisible && IsRewardVisible)
+            {
+                RewardVisibilityChanged?.Invoke(true);
+            }
         }
 
         public void HideRewardChoices()
         {
+            bool wasVisible = IsRewardVisible;
             visibleRewardChoiceCount = 0;
             Array.Clear(rewardCardIds, 0, rewardCardIds.Length);
             Array.Clear(
@@ -446,6 +460,11 @@ namespace RuleforgeTD.UI
             if (rewardOverlay != null)
             {
                 rewardOverlay.SetActive(false);
+            }
+
+            if (wasVisible && !IsRewardVisible)
+            {
+                RewardVisibilityChanged?.Invoke(false);
             }
         }
 

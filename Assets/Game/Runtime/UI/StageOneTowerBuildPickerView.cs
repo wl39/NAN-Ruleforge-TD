@@ -12,18 +12,24 @@ namespace RuleforgeTD.UI
             string definitionId,
             string name,
             string description,
-            bool targetsEnemies)
+            bool targetsEnemies,
+            int cost,
+            bool canAfford)
         {
             DefinitionId = definitionId ?? string.Empty;
             Name = name ?? string.Empty;
             Description = description ?? string.Empty;
             TargetsEnemies = targetsEnemies;
+            Cost = Math.Max(0, cost);
+            CanAfford = canAfford;
         }
 
         public string DefinitionId { get; }
         public string Name { get; }
         public string Description { get; }
         public bool TargetsEnemies { get; }
+        public int Cost { get; }
+        public bool CanAfford { get; }
     }
 
     /// <summary>
@@ -52,11 +58,17 @@ namespace RuleforgeTD.UI
             new Color32(255, 245, 215, 255);
         private static readonly Color MutedTextColor =
             new Color32(204, 218, 220, 255);
+        private static readonly Color PriceTextColor =
+            new Color32(255, 224, 116, 255);
+        private static readonly Color UnaffordableTextColor =
+            new Color32(255, 145, 135, 255);
 
         private readonly List<Button> optionButtons =
             new List<Button>(4);
         private readonly List<string> optionIds =
             new List<string>(4);
+        private readonly List<int> optionCosts =
+            new List<int>(4);
         private readonly List<GameObject> optionObjects =
             new List<GameObject>(4);
 
@@ -158,10 +170,18 @@ namespace RuleforgeTD.UI
                 : string.Empty;
         }
 
+        public int GetOptionCost(int optionIndex)
+        {
+            return optionIndex >= 0 &&
+                   optionIndex < optionCosts.Count
+                ? optionCosts[optionIndex]
+                : -1;
+        }
+
         public void Show(
             TowerBuildSiteView buildSite,
             IReadOnlyList<StageOneTowerBuildOption> options,
-            int constructionCost)
+            int currentGold)
         {
             BuildInterface();
             ClearOptions();
@@ -178,11 +198,9 @@ namespace RuleforgeTD.UI
             visible = target != null && optionCount > 0;
             titleLabel.text =
                 catalog.Get("tower_build.title");
-            costLabel.text = constructionCost <= 0
-                ? catalog.Get("tower_build.free")
-                : catalog.Format(
-                    "tower_build.cost_format",
-                    constructionCost);
+            costLabel.text = catalog.Format(
+                "tower_build.gold_format",
+                Math.Max(0, currentGold));
             panelRoot.sizeDelta = new Vector2(
                 PanelWidth,
                 HeaderHeight +
@@ -421,6 +439,13 @@ namespace RuleforgeTD.UI
             Color optionColor = option.TargetsEnemies
                 ? EnemyColor
                 : ProjectileColor;
+            if (!option.CanAfford)
+            {
+                optionColor = Color.Lerp(
+                    optionColor,
+                    new Color32(65, 68, 72, 255),
+                    0.62f);
+            }
             Button button = CreateButton(
                 "Build " + option.DefinitionId,
                 panelRoot,
@@ -449,8 +474,31 @@ namespace RuleforgeTD.UI
             nameRect.anchorMax = new Vector2(1f, 1f);
             nameRect.pivot = new Vector2(0.5f, 1f);
             nameRect.offsetMin = new Vector2(14f, -35f);
-            nameRect.offsetMax = new Vector2(-14f, -6f);
+            nameRect.offsetMax = new Vector2(-100f, -6f);
             nameLabel.text = option.Name;
+
+            Text priceLabel = CreateText(
+                "Price",
+                buttonRect,
+                16,
+                FontStyle.Bold,
+                option.CanAfford
+                    ? PriceTextColor
+                    : UnaffordableTextColor,
+                TextAnchor.MiddleRight);
+            RectTransform priceRect =
+                priceLabel.rectTransform;
+            priceRect.anchorMin = new Vector2(1f, 1f);
+            priceRect.anchorMax = new Vector2(1f, 1f);
+            priceRect.pivot = new Vector2(1f, 1f);
+            priceRect.anchoredPosition =
+                new Vector2(-14f, -6f);
+            priceRect.sizeDelta = new Vector2(84f, 29f);
+            priceLabel.text = option.Cost <= 0
+                ? catalog.Get("tower_build.option_free")
+                : catalog.Format(
+                    "tower_build.option_cost_format",
+                    option.Cost);
 
             Text descriptionLabel = CreateText(
                 "Description",
@@ -474,8 +522,10 @@ namespace RuleforgeTD.UI
             string definitionId = option.DefinitionId;
             button.onClick.AddListener(
                 () => HandleOptionClicked(definitionId));
+            button.interactable = option.CanAfford;
             optionButtons.Add(button);
             optionIds.Add(definitionId);
+            optionCosts.Add(option.Cost);
             optionObjects.Add(button.gameObject);
         }
 
@@ -561,6 +611,7 @@ namespace RuleforgeTD.UI
 
             optionButtons.Clear();
             optionIds.Clear();
+            optionCosts.Clear();
             optionObjects.Clear();
         }
 

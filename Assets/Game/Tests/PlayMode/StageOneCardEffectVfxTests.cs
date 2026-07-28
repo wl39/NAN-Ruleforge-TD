@@ -65,6 +65,14 @@ namespace RuleforgeTD.Tests.PlayMode
                     ExpectedCardIds[i]);
                 Assert.That(style.Id, Is.EqualTo(ExpectedCardIds[i]));
                 Assert.That(style.Duration, Is.GreaterThan(0f));
+                Assert.That(
+                    style.Duration,
+                    Is.EqualTo(
+                        StageOneCardEffectPalette
+                            .StandardEffectDuration)
+                        .Within(0.0001f),
+                    ExpectedCardIds[i] +
+                    " must use the shared VFX duration.");
                 Assert.That(style.Radius, Is.GreaterThan(0f));
                 Assert.That(style.Width, Is.GreaterThan(0f));
                 shapes.Add(style.Shape);
@@ -130,6 +138,13 @@ namespace RuleforgeTD.Tests.PlayMode
                 maximum - minimum,
                 Is.LessThan(0.08f),
                 "Bind should read as neutral gray, not a coloured debuff.");
+
+            Assert.That(
+                StageOneCardEffectPalette.TryGetStyle(
+                    "blind",
+                    out StageOneCardEffectStyle blind),
+                Is.True);
+            Assert.That(blind.Id, Is.EqualTo("bind"));
         }
 
         [UnityTest]
@@ -199,7 +214,7 @@ namespace RuleforgeTD.Tests.PlayMode
                             .DefaultPoolCapacity),
                     "Overflow must reuse a bounded slot.");
 
-                yield return new WaitForSecondsRealtime(0.75f);
+                yield return new WaitForSecondsRealtime(1.05f);
 
                 Assert.That(view.ActiveEffectCount, Is.Zero);
             }
@@ -207,6 +222,581 @@ namespace RuleforgeTD.Tests.PlayMode
             {
                 Object.DestroyImmediate(host);
             }
+        }
+
+        [UnityTest]
+        public IEnumerator
+            ProceduralPool_SplitUsesSixPixelSparksAndNoBranchLine()
+        {
+            var host = new GameObject(
+                "Split VFX Pool Test",
+                typeof(StageOneCardEffectVfxView));
+            try
+            {
+                StageOneCardEffectVfxView view =
+                    host.GetComponent<
+                        StageOneCardEffectVfxView>();
+                view.InitializeNow(16);
+
+                Assert.That(
+                    view.Play(
+                        "split",
+                        new Vector3(2f, 3f, 0f)),
+                    Is.True);
+                yield return null;
+
+                SpriteRenderer[] sparks =
+                    host.GetComponentsInChildren<
+                        SpriteRenderer>(true);
+                int visibleSparks = 0;
+                for (int i = 0; i < sparks.Length; i++)
+                {
+                    if (sparks[i].enabled)
+                    {
+                        visibleSparks++;
+                    }
+                }
+
+                Assert.That(
+                    visibleSparks,
+                    Is.EqualTo(6),
+                    "Split must match the six-spark Archer showcase burst.");
+
+                LineRenderer[] lines =
+                    host.GetComponentsInChildren<
+                        LineRenderer>(true);
+                for (int i = 0; i < lines.Length; i++)
+                {
+                    Assert.That(
+                        lines[i].enabled,
+                        Is.False,
+                        "The old connected Y-branch must not render behind " +
+                        "the split sparks.");
+                }
+
+                yield return new WaitForSecondsRealtime(0.60f);
+                Assert.That(view.ActiveEffectCount, Is.Zero);
+            }
+            finally
+            {
+                Object.DestroyImmediate(host);
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator
+            ProceduralPool_NonSplitEffectsUseBoundedPixelMeshes()
+        {
+            var host = new GameObject(
+                "Pixel VFX Pool Test",
+                typeof(StageOneCardEffectVfxView));
+            try
+            {
+                StageOneCardEffectVfxView view =
+                    host.GetComponent<
+                        StageOneCardEffectVfxView>();
+                view.InitializeNow(16);
+
+                Assert.That(
+                    view.Play(
+                        "explode",
+                        new Vector3(1.13f, 2.29f, 0f)),
+                    Is.True);
+                yield return null;
+
+                Assert.That(
+                    view.ActivePixelBlockCount,
+                    Is.GreaterThan(8));
+                Assert.That(
+                    view.ActivePixelBlockCount,
+                    Is.LessThanOrEqualTo(
+                        StageOneCardEffectVfxView
+                            .MaximumPixelBlocks));
+
+                LineRenderer[] lines =
+                    host.GetComponentsInChildren<
+                        LineRenderer>(true);
+                for (int i = 0; i < lines.Length; i++)
+                {
+                    Assert.That(
+                        lines[i].enabled,
+                        Is.False,
+                        "Smooth lines must stay disabled in pixel VFX mode.");
+                }
+
+                MeshFilter[] meshes =
+                    host.GetComponentsInChildren<
+                        MeshFilter>(true);
+                int visiblePixelMeshes = 0;
+                for (int i = 0; i < meshes.Length; i++)
+                {
+                    if (meshes[i].sharedMesh != null &&
+                        meshes[i].sharedMesh.vertexCount > 0)
+                    {
+                        visiblePixelMeshes++;
+                        Assert.That(
+                            meshes[i].sharedMesh.vertexCount % 4,
+                            Is.Zero,
+                            "Every visible pixel must be one quad.");
+                    }
+                }
+
+                Assert.That(visiblePixelMeshes, Is.EqualTo(1));
+            }
+            finally
+            {
+                Object.DestroyImmediate(host);
+            }
+        }
+
+        [Test]
+        public void
+            ProceduralPool_SemanticCommonEffectsBuildDetailedPixelIcons()
+        {
+            var host = new GameObject(
+                "Semantic Common VFX Test",
+                typeof(StageOneCardEffectVfxView));
+            try
+            {
+                StageOneCardEffectVfxView view =
+                    host.GetComponent<
+                        StageOneCardEffectVfxView>();
+                view.InitializeNow(16);
+
+                AssertSemanticPixelEffect(
+                    view,
+                    "pierce",
+                    0.22f,
+                    12);
+                AssertSemanticPixelEffect(
+                    view,
+                    "burn",
+                    0.31f,
+                    24);
+                AssertSemanticPixelEffect(
+                    view,
+                    "slow",
+                    0.34f,
+                    28);
+                AssertSemanticPixelEffect(
+                    view,
+                    "poison",
+                    0.35f,
+                    28);
+                AssertSemanticPixelEffect(
+                    view,
+                    "explode",
+                    0.31f,
+                    36);
+                AssertSemanticPixelEffect(
+                    view,
+                    "bleed",
+                    0.28f,
+                    24);
+                AssertSemanticPixelEffect(
+                    view,
+                    "stun",
+                    0.28f,
+                    20);
+                AssertSemanticPixelEffect(
+                    view,
+                    "blind",
+                    0.30f,
+                    32);
+
+                LineRenderer[] lines =
+                    host.GetComponentsInChildren<
+                        LineRenderer>(true);
+                for (int i = 0; i < lines.Length; i++)
+                {
+                    Assert.That(
+                        lines[i].enabled,
+                        Is.False,
+                        "Semantic pixel icons must not fall back to " +
+                        "smooth line rendering.");
+                }
+            }
+            finally
+            {
+                Object.DestroyImmediate(host);
+            }
+        }
+
+        [Test]
+        public void
+            ProceduralPool_SemanticMotionConvergesBuildsAndContracts()
+        {
+            var host = new GameObject(
+                "Semantic Motion Direction Test",
+                typeof(StageOneCardEffectVfxView));
+            try
+            {
+                StageOneCardEffectVfxView view =
+                    host.GetComponent<
+                        StageOneCardEffectVfxView>();
+                view.InitializeNow(16);
+
+                Assert.That(
+                    view.Play("magnet", Vector3.zero),
+                    Is.True);
+                view.SetManualPreviewTime(0.08f);
+                Bounds magnetOuterBounds =
+                    GetActivePixelBounds(host);
+                view.SetManualPreviewTime(0.46f);
+                Bounds magnetCenterBounds =
+                    GetActivePixelBounds(host);
+                Assert.That(
+                    magnetCenterBounds.size.x,
+                    Is.LessThan(
+                        magnetOuterBounds.size.x -
+                        StageOneCardEffectVfxView.PixelWorldSize * 4f),
+                    "Magnet circles must converge toward one centre.");
+
+                view.StopAll();
+                Assert.That(
+                    view.Play("airborne", Vector3.zero),
+                    Is.True);
+                view.SetManualPreviewTime(0.08f);
+                Bounds airborneBaseBounds =
+                    GetActivePixelBounds(host);
+                view.SetManualPreviewTime(0.42f);
+                Bounds airborneWhirlwindBounds =
+                    GetActivePixelBounds(host);
+                Assert.That(
+                    airborneWhirlwindBounds.max.y,
+                    Is.GreaterThan(
+                        airborneBaseBounds.max.y +
+                        StageOneCardEffectVfxView.PixelWorldSize * 4f),
+                    "Airborne must build a whirlwind from bottom to top.");
+
+                view.StopAll();
+                Assert.That(
+                    view.Play("corrosion", Vector3.zero),
+                    Is.True);
+                view.SetManualPreviewTime(0.04f);
+                Bounds corrosionOuterBounds =
+                    GetActivePixelBounds(host);
+                view.SetManualPreviewTime(0.46f);
+                Bounds corrosionInnerBounds =
+                    GetActivePixelBounds(host);
+                Assert.That(
+                    corrosionInnerBounds.size.x,
+                    Is.LessThan(
+                        corrosionOuterBounds.size.x -
+                        StageOneCardEffectVfxView.PixelWorldSize * 4f),
+                    "Corrosion must contract instead of expanding.");
+            }
+            finally
+            {
+                Object.DestroyImmediate(host);
+            }
+        }
+
+        [Test]
+        public void
+            ProceduralPool_BleedIsDiagonalAndBlindCompletesRedCross()
+        {
+            var host = new GameObject(
+                "Diagonal Wound And Blind Cross Test",
+                typeof(StageOneCardEffectVfxView));
+            try
+            {
+                StageOneCardEffectVfxView view =
+                    host.GetComponent<
+                        StageOneCardEffectVfxView>();
+                view.InitializeNow(16);
+
+                Assert.That(
+                    view.Play("bleed", Vector3.zero),
+                    Is.True);
+                view.SetManualPreviewTime(0.34f);
+                Mesh bleedMesh = GetActivePixelMesh(host);
+                Assert.That(
+                    HasPixelCenter(
+                        bleedMesh,
+                        position =>
+                            position.x < -0.18f &&
+                            position.y > 0.18f),
+                    Is.True,
+                    "Bleed must begin in the upper-left quadrant.");
+                Assert.That(
+                    HasPixelCenter(
+                        bleedMesh,
+                        position =>
+                            position.x > 0.18f &&
+                            position.y < -0.18f),
+                    Is.True,
+                    "Bleed must end in the lower-right quadrant.");
+                Vector3[] bleedVertices = bleedMesh.vertices;
+                Vector3 bleedDirection =
+                    new Vector3(1f, -1f, 0f).normalized;
+                Vector3 bleedNormal =
+                    new Vector3(1f, 1f, 0f).normalized;
+                float minimumAlong = float.PositiveInfinity;
+                float maximumAlong = float.NegativeInfinity;
+                float minimumAcross = float.PositiveInfinity;
+                float maximumAcross = float.NegativeInfinity;
+                for (int vertex = 0;
+                     vertex + 3 < bleedVertices.Length;
+                     vertex += 4)
+                {
+                    Vector3 center =
+                        (bleedVertices[vertex] +
+                         bleedVertices[vertex + 1] +
+                         bleedVertices[vertex + 2] +
+                         bleedVertices[vertex + 3]) *
+                        0.25f;
+                    float along =
+                        Vector3.Dot(center, bleedDirection);
+                    float across =
+                        Vector3.Dot(center, bleedNormal);
+                    minimumAlong = Mathf.Min(minimumAlong, along);
+                    maximumAlong = Mathf.Max(maximumAlong, along);
+                    minimumAcross = Mathf.Min(minimumAcross, across);
+                    maximumAcross = Mathf.Max(maximumAcross, across);
+                }
+
+                Assert.That(
+                    maximumAlong - minimumAlong,
+                    Is.GreaterThan(
+                        (maximumAcross - minimumAcross) * 1.8f),
+                    "Bleed must read as a long diagonal cut, not a vertical opening.");
+
+                view.StopAll();
+                Assert.That(
+                    view.Play("blind", Vector3.zero),
+                    Is.True);
+                view.SetManualPreviewTime(0.36f);
+                Mesh blindMesh = GetActivePixelMesh(host);
+                Vector3[] vertices = blindMesh.vertices;
+                Color32[] colors = blindMesh.colors32;
+                int upperRightRedCrossPixels = 0;
+                for (int vertex = 0;
+                     vertex + 3 < vertices.Length;
+                     vertex += 4)
+                {
+                    Vector3 center =
+                        (vertices[vertex] +
+                         vertices[vertex + 1] +
+                         vertices[vertex + 2] +
+                         vertices[vertex + 3]) *
+                        0.25f;
+                    Color32 color = colors[vertex];
+                    if (center.x > 0.16f &&
+                        center.y > 0.10f &&
+                        color.r > color.g + 60)
+                    {
+                        upperRightRedCrossPixels++;
+                    }
+                }
+
+                Assert.That(
+                    upperRightRedCrossPixels,
+                    Is.GreaterThanOrEqualTo(3),
+                    "Blind must retain the full red upper-right arm.");
+            }
+            finally
+            {
+                Object.DestroyImmediate(host);
+            }
+        }
+
+        [Test]
+        public void
+            FlagPlayback_FollowsHitEnemyAndIgnoresEmptyFlags()
+        {
+            var host = new GameObject(
+                "Attached Flag VFX Test",
+                typeof(StageOneCardEffectVfxView));
+            var enemyObject = new GameObject(
+                "Attached VFX Enemy",
+                typeof(SpriteRenderer),
+                typeof(StageOneEnemyView));
+            try
+            {
+                StageOneCardEffectVfxView view =
+                    host.GetComponent<
+                        StageOneCardEffectVfxView>();
+                view.InitializeNow(16);
+                StageOneEnemyView enemy =
+                    enemyObject.GetComponent<StageOneEnemyView>();
+                enemyObject.transform.position =
+                    new Vector3(2f, 3f, 0f);
+                enemy.Configure(27, "raider", 1f);
+
+                Assert.That(
+                    view.PlayFlagSet(
+                        (uint)ProjectileEffectVisualFlags.Bleed,
+                        enemy),
+                    Is.EqualTo(1));
+                view.SetManualPreviewTime(0.28f);
+                Bounds initialBounds =
+                    GetActivePixelBounds(host);
+
+                enemyObject.transform.position +=
+                    new Vector3(3f, 2f, 0f);
+                view.SetManualPreviewTime(0.28f);
+                Bounds movedBounds =
+                    GetActivePixelBounds(host);
+
+                Assert.That(
+                    movedBounds.center.x - initialBounds.center.x,
+                    Is.EqualTo(3f).Within(0.001f));
+                Assert.That(
+                    movedBounds.center.y - initialBounds.center.y,
+                    Is.EqualTo(2f).Within(0.001f));
+                int activeBeforeEmptyFlags =
+                    view.ActiveEffectCount;
+                Assert.That(
+                    view.PlayFlagSet(0u, enemy),
+                    Is.Zero);
+                Assert.That(
+                    view.ActiveEffectCount,
+                    Is.EqualTo(activeBeforeEmptyFlags));
+            }
+            finally
+            {
+                Object.DestroyImmediate(enemyObject);
+                Object.DestroyImmediate(host);
+            }
+        }
+
+        [Test]
+        public void
+            Playback_NormalizesSizeExceptSplitAndLifesteal()
+        {
+            var host = new GameObject(
+                "Normalized VFX Size Test",
+                typeof(StageOneCardEffectVfxView));
+            try
+            {
+                StageOneCardEffectVfxView view =
+                    host.GetComponent<
+                        StageOneCardEffectVfxView>();
+                view.InitializeNow(16);
+
+                for (int i = 0; i < ExpectedCardIds.Length; i++)
+                {
+                    string effectId = ExpectedCardIds[i];
+                    view.StopAll();
+                    Assert.That(
+                        view.Play(effectId, Vector3.zero),
+                        Is.True,
+                        effectId);
+                    Assert.That(
+                        StageOneCardEffectPalette.TryGetStyle(
+                            effectId,
+                            out StageOneCardEffectStyle sourceStyle),
+                        Is.True);
+                    float expectedRadius =
+                        effectId == "split" ||
+                        effectId == "lifesteal"
+                            ? sourceStyle.Radius
+                            : StageOneCardEffectVfxView
+                                .StandardPlaybackRadius;
+                    Assert.That(
+                        view.LastPlayedRadius,
+                        Is.EqualTo(expectedRadius)
+                            .Within(0.0001f),
+                        effectId);
+                }
+            }
+            finally
+            {
+                Object.DestroyImmediate(host);
+            }
+        }
+
+        [Test]
+        public void
+            PresentationEvent_PreservesImpactAndDeathFlagBits()
+        {
+            const uint expectedFlags =
+                (uint)(
+                    ProjectileEffectVisualFlags.Burn |
+                    ProjectileEffectVisualFlags.Poison);
+            var item = new SimulationPresentationEvent(
+                12,
+                PresentationEventType.ProjectileHit,
+                7,
+                4,
+                100,
+                string.Empty,
+                expectedFlags);
+
+            Assert.That(
+                item.EffectVisualFlags,
+                Is.EqualTo(expectedFlags));
+        }
+
+        private static bool HasPixelCenter(
+            Mesh mesh,
+            System.Predicate<Vector3> predicate)
+        {
+            Vector3[] vertices = mesh.vertices;
+            for (int vertex = 0;
+                 vertex + 3 < vertices.Length;
+                 vertex += 4)
+            {
+                Vector3 center =
+                    (vertices[vertex] +
+                     vertices[vertex + 1] +
+                     vertices[vertex + 2] +
+                     vertices[vertex + 3]) *
+                    0.25f;
+                if (predicate(center))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static Mesh GetActivePixelMesh(GameObject host)
+        {
+            MeshFilter[] meshes =
+                host.GetComponentsInChildren<MeshFilter>(true);
+            for (int i = 0; i < meshes.Length; i++)
+            {
+                Mesh mesh = meshes[i].sharedMesh;
+                if (mesh != null && mesh.vertexCount > 0)
+                {
+                    return mesh;
+                }
+            }
+
+            Assert.Fail("Expected an active pixel mesh.");
+            return null;
+        }
+
+        private static Bounds GetActivePixelBounds(
+            GameObject host)
+        {
+            return GetActivePixelMesh(host).bounds;
+        }
+
+        private static void AssertSemanticPixelEffect(
+            StageOneCardEffectVfxView view,
+            string effectId,
+            float previewTime,
+            int minimumPixelBlockCount)
+        {
+            view.StopAll();
+            Assert.That(
+                view.Play(effectId, Vector3.zero),
+                Is.True,
+                effectId);
+            view.SetManualPreviewTime(previewTime);
+            Assert.That(
+                view.ActivePixelBlockCount,
+                Is.GreaterThanOrEqualTo(minimumPixelBlockCount),
+                effectId + " should render a readable pixel silhouette.");
+            Assert.That(
+                view.ActivePixelBlockCount,
+                Is.LessThanOrEqualTo(
+                    StageOneCardEffectVfxView.MaximumPixelBlocks),
+                effectId + " must remain inside the WebGL block budget.");
         }
 
         [UnityTest]

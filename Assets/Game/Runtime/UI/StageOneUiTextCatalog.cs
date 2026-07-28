@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using RuleforgeTD.GameLogic.Core;
 using UnityEngine;
 
 namespace RuleforgeTD.UI
@@ -15,14 +16,44 @@ namespace RuleforgeTD.UI
             StableId = stableId ?? string.Empty;
             Name = name ?? string.Empty;
             Description = description ?? string.Empty;
+            ProjectileDescription = Description;
+            EnemyDescription = Description;
+            Tier = Math.Max(1, Math.Min(5, tier));
+        }
+
+        public StageOneCardDisplay(
+            string stableId,
+            string name,
+            string projectileDescription,
+            string enemyDescription,
+            bool useEnemyInterpretation,
+            int tier = 1)
+        {
+            StableId = stableId ?? string.Empty;
+            Name = name ?? string.Empty;
+            ProjectileDescription =
+                projectileDescription ?? string.Empty;
+            EnemyDescription = enemyDescription ?? string.Empty;
+            Description = useEnemyInterpretation
+                ? EnemyDescription
+                : ProjectileDescription;
             Tier = Math.Max(1, Math.Min(5, tier));
         }
 
         public string StableId { get; }
         public string Name { get; }
         public string Description { get; }
+        public string ProjectileDescription { get; }
+        public string EnemyDescription { get; }
         public int Tier { get; }
         public bool IsValid => !string.IsNullOrWhiteSpace(StableId);
+
+        public string GetDescription(SubjectType targetType)
+        {
+            return targetType == SubjectType.Enemy
+                ? EnemyDescription
+                : ProjectileDescription;
+        }
     }
 
     /// <summary>
@@ -158,9 +189,9 @@ namespace RuleforgeTD.UI
             return new StageOneCardDisplay(
                 cardId,
                 GetCardName(cardId),
-                useEnemyInterpretation
-                    ? GetCardEnemyDescription(cardId)
-                    : GetCardProjectileDescription(cardId),
+                GetCardProjectileDescription(cardId),
+                GetCardEnemyDescription(cardId),
+                useEnemyInterpretation,
                 tier);
         }
 

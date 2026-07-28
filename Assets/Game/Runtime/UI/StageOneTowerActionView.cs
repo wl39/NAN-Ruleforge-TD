@@ -44,6 +44,8 @@ namespace RuleforgeTD.UI
         private bool visible;
         private bool built;
         private bool placedOnLeft;
+        private int currentUpgradeCost;
+        private bool currentUpgradeIsMaximum;
 
         public event Action UpgradeRequested;
         public event Action CardsRequested;
@@ -123,17 +125,29 @@ namespace RuleforgeTD.UI
             TowerSelectionView tower,
             bool canUpgrade)
         {
+            Show(tower, canUpgrade, 0, true);
+        }
+
+        public void Show(
+            TowerSelectionView tower,
+            bool canUpgrade,
+            int upgradeCost,
+            bool canAfford)
+        {
             BuildInterface();
             target = tower;
             visible = target != null;
+            currentUpgradeCost = Math.Max(0, upgradeCost);
+            currentUpgradeIsMaximum = upgradeCost < 0;
             panelRoot.gameObject.SetActive(visible);
             upgradeButton.interactable =
-                visible && canUpgrade;
+                visible && canUpgrade && canAfford;
             SetButtonColor(
                 upgradeButton,
                 upgradeButton.interactable
                     ? UpgradeColor
                     : DisabledColor);
+            RefreshText();
             cardsButton.interactable = visible;
             if (visible)
             {
@@ -409,8 +423,13 @@ namespace RuleforgeTD.UI
                 return;
             }
 
-            upgradeLabel.text =
-                catalog.Get("tower_action.upgrade");
+            upgradeLabel.text = currentUpgradeIsMaximum
+                ? catalog.Get("tower_panel.max_level")
+                : currentUpgradeCost > 0
+                    ? catalog.Format(
+                        "tower_action.upgrade_cost_format",
+                        currentUpgradeCost)
+                    : catalog.Get("tower_action.upgrade");
             cardsLabel.text =
                 catalog.Get("tower_action.cards");
         }

@@ -118,6 +118,18 @@
       "value": "건설 비용 · 골드 {0}"
     },
     {
+      "key": "tower_build.gold_format",
+      "value": "보유 골드 · {0}G"
+    },
+    {
+      "key": "tower_build.option_free",
+      "value": "무료"
+    },
+    {
+      "key": "tower_build.option_cost_format",
+      "value": "{0}G"
+    },
+    {
       "key": "status.build",
       "value": "빈 건설 슬롯을 눌러 타워를 설치할 수 있습니다."
     },
@@ -171,7 +183,7 @@
     },
     {
       "key": "status.insufficient_gold",
-      "value": "타워를 설치할 골드가 부족합니다."
+      "value": "골드가 부족합니다."
     },
     {
       "key": "status.reward",
@@ -196,6 +208,10 @@
     {
       "key": "tower_panel.level_up",
       "value": "레벨 올리기"
+    },
+    {
+      "key": "tower_panel.level_up_cost_format",
+      "value": "레벨 올리기 · {0}G"
     },
     {
       "key": "tower_panel.max_level",
@@ -408,6 +424,10 @@
     {
       "key": "tower_action.upgrade",
       "value": "타워 업그레이드"
+    },
+    {
+      "key": "tower_action.upgrade_cost_format",
+      "value": "타워 업그레이드 · {0}G"
     },
     {
       "key": "tower_action.cards",

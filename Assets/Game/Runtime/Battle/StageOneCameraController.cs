@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using RuleforgeTD.Maps;
 using UnityEngine;
@@ -51,6 +52,7 @@ namespace RuleforgeTD.Battle
         public bool IsPanning => panning;
         public bool IsPinching => pinching;
         public bool IsInitialized => initialized;
+        public event Action<Vector2> BackgroundClicked;
         public static bool ShouldSuppressWorldClick =>
             Time.frameCount <= suppressWorldClickUntilFrame ||
             IsAnyPointerOverUi();
@@ -255,6 +257,18 @@ namespace RuleforgeTD.Battle
                 {
                     MarkWorldClickSuppressed();
                 }
+                else if (released &&
+                         activeMouseButton == 0 &&
+                         pointerCandidate &&
+                         Vector2.Distance(
+                             pointerStartScreen,
+                             pointerScreen) <
+                         DragThresholdPixels)
+                {
+                    RequestBackgroundClick(
+                        pointerScreen,
+                        MousePointerId);
+                }
 
                 ResetMousePan();
             }
@@ -335,6 +349,17 @@ namespace RuleforgeTD.Battle
                 if (panning)
                 {
                     MarkWorldClickSuppressed();
+                }
+                else if (touch.phase == TouchPhase.Ended &&
+                         pointerCandidate &&
+                         Vector2.Distance(
+                             pointerStartScreen,
+                             touch.position) <
+                         DragThresholdPixels)
+                {
+                    RequestBackgroundClick(
+                        touch.position,
+                        touch.fingerId);
                 }
 
                 activeTouchFingerId = -1;
@@ -493,6 +518,65 @@ namespace RuleforgeTD.Battle
                     return IsScreenPointOverUi(
                         touch.position,
                         fingerId);
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Emits a click-away request only for an unoccupied part of the
+        /// battlefield. UI, towers, and build sites keep ownership of their
+        /// clicks, while terrain and other non-interactive world visuals are
+        /// treated as background.
+        /// </summary>
+        public bool RequestBackgroundClick(Vector2 screenPosition)
+        {
+            return RequestBackgroundClick(
+                screenPosition,
+                MousePointerId);
+        }
+
+        private bool RequestBackgroundClick(
+            Vector2 screenPosition,
+            int pointerId)
+        {
+            if (!Application.isPlaying ||
+                !initialized ||
+                targetCamera == null ||
+                IsScreenPointOverUi(screenPosition, pointerId) ||
+                IsInteractiveWorldTarget(screenPosition))
+            {
+                return false;
+            }
+
+            BackgroundClicked?.Invoke(screenPosition);
+            return true;
+        }
+
+        private bool IsInteractiveWorldTarget(
+            Vector2 screenPosition)
+        {
+            Vector3 worldPosition =
+                targetCamera.ScreenToWorldPoint(screenPosition);
+            Collider2D[] hits =
+                Physics2D.OverlapPointAll(worldPosition);
+            for (int hitIndex = 0;
+                 hitIndex < hits.Length;
+                 hitIndex++)
+            {
+                Collider2D hit = hits[hitIndex];
+                if (hit == null)
+                {
+                    continue;
+                }
+
+                if (hit.GetComponentInParent<TowerSelectionView>() !=
+                        null ||
+                    hit.GetComponentInParent<TowerBuildSiteView>() !=
+                        null)
+                {
+                    return true;
                 }
             }
 
