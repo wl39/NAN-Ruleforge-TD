@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "difficultyId": "easy",
-  "baseContentHash": "22796887E869E39D",
+  "baseContentHash": "9E4C4058CB2045F8",
   "description": "Novice onboarding overlay with generous build freedom and a fixed fast-runner leakage budget that preserves a visible base-health margin.",
   "modifiers": {
     "startingGold": 600,

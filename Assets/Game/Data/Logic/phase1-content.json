@@ -1,5 +1,5 @@
 {
-  "version": 9,
+  "version": 11,
   "cards": [
     {
       "id": "split",
@@ -342,7 +342,7 @@
       "projectileEffects": [
         {
           "operation": "ConfigureProjectileRicochet",
-          "amount": 1,
+          "amount": 2,
           "amount2": 8500,
           "radiusMilli": 3000
         }

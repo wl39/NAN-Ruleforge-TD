@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "difficultyId": "medium",
-  "baseContentHash": "22796887E869E39D",
+  "baseContentHash": "9E4C4058CB2045F8",
   "description": "Intermediate overlay with a reachable early economy for measured standalone-card play while preserving meaningful novice failure pressure.",
   "modifiers": {
     "startingGold": 150,

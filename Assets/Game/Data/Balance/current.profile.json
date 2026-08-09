@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "difficultyId": "current",
-  "baseContentHash": "22796887E869E39D",
+  "baseContentHash": "9E4C4058CB2045F8",
   "description": "Identity overlay that preserves the authoritative phase1-content.json behavior.",
   "modifiers": {
     "startingGold": 0,

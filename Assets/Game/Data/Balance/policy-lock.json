@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "frozenAtUtc": "2026-08-09T12:12:58Z",
+  "frozenAtUtc": "2026-08-09T13:04:11Z",
   "hashAlgorithm": "SHA-256",
   "policyVersions": {
     "adversarial-random": "1.0.0",
@@ -17,10 +17,10 @@
   },
   "files": {
     "Assets/Game/Data/Balance/balance-targets.json": "ccd6bb0aa834b9f57683bc0c64b91eed1057bce383fddea24a6b71e055911bde",
-    "Assets/Game/Data/Balance/current.profile.json": "9c1e280adaa8c6e75a6f7c75463c83aa8f42ca50867d14b75316b3d2817c8587",
-    "Assets/Game/Data/Balance/easy.profile.json": "880b72ae0b9b6f9da3287f8432ef9c01ba55cf35410ec430d26aeaa3262232d2",
-    "Assets/Game/Data/Balance/hard.profile.json": "a6c96e4fb6ac5cc22eb1f3e4d6053943de869fcd08a4f56f5e3ac44349eb1e52",
-    "Assets/Game/Data/Balance/medium.profile.json": "cb18b07d21cc5423c73174a3c7831010613ded4c06e6e2e2a27f42d11990eae9",
+    "Assets/Game/Data/Balance/current.profile.json": "bc8a2ec00ddccc887118d1797852d64303bc4a21c18af27ac8e1c844aae8dcd7",
+    "Assets/Game/Data/Balance/easy.profile.json": "ecb28449163301b4487e6a2fd949b68a670e6c9eff09a77f59196e2ed5f9558d",
+    "Assets/Game/Data/Balance/hard.profile.json": "fcbac8f92e0bb48e45c9bfa1947e7589161d8c6d8d48a19f8f7c15a4ce2b4bf5",
+    "Assets/Game/Data/Balance/medium.profile.json": "2424573041badd4ebadc67c3736642a091a482c6cb87c7080e4eae3561528e16",
     "Assets/Game/Data/Balance/seed-sets.json": "41956e0ae5e655af10a9d9882a4c3858faf2f4bcb2d9c7a13b4d89a4709f70aa",
     "Tools/Ruleforge.BalanceCli/Policies/DeterministicPolicies.cs": "9fcb41f8d9779dde89a76f7c414f3f1cfe3b806d4d705b5899831406b040ae0c",
     "Tools/Ruleforge.BalanceCli/Policies/PolicyContracts.cs": "797d24bcc7601fe0f0e4bbd14f5bbeaec9badc57dfcbab339715aae537d9f30d",

@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using RuleforgeTD.Battle;
+using RuleforgeTD.GameLogic.Content;
 using RuleforgeTD.Maps;
 using RuleforgeTD.Rendering;
 using UnityEditor;
@@ -22,7 +23,7 @@ namespace RuleforgeTD.Editor.AssetImport
     /// </summary>
     public static class StageTwoFieldMapBuilder
     {
-        internal const int FirstWaveEnemyCount = 30;
+        internal const int FirstWaveEnemyCount = 35;
         internal const int FirstWaveIntervalTicks = 12;
 
         public const string StageTwoScenePath =
@@ -39,6 +40,52 @@ namespace RuleforgeTD.Editor.AssetImport
             "mark",
             "poison",
             "corrosion"
+        };
+
+        private static readonly WaveDefinitionDto[] WaveOverrides =
+        {
+            Wave(2,
+                Spawn("raider", 26, 0, 12),
+                Spawn("armored_knight", 3, 20, 68, "ironclad"),
+                Spawn("runner", 14, 24, 14),
+                Spawn("armored_knight", 12, 60, 43)),
+            Wave(3,
+                Spawn("raider", 5, 0, 38),
+                Spawn("runner", 5, 24, 36),
+                Spawn("armored_knight", 5, 60, 77),
+                Spawn("boss_guardian", 1, 180, 1)),
+            Wave(4,
+                Spawn("armored_knight", 9, 0, 37),
+                Spawn("raider", 26, 12, 12),
+                Spawn("raider", 3, 70, 85, "giant"),
+                Spawn("runner", 14, 45, 14)),
+            Wave(5,
+                Spawn("runner", 29, 0, 8),
+                Spawn("runner", 5, 36, 51, "rusher"),
+                Spawn("raider", 15, 30, 15),
+                Spawn("armored_knight", 7, 55, 48),
+                Spawn("elite_golem", 6, 190, 60)),
+            Wave(6,
+                Spawn("raider", 6, 0, 41),
+                Spawn("runner", 6, 24, 37),
+                Spawn("armored_knight", 5, 60, 81),
+                Spawn("boss_summoner", 1, 210, 1)),
+            Wave(7,
+                Spawn("elite_golem", 5, 0, 115),
+                Spawn("runner", 25, 24, 9),
+                Spawn("raider", 21, 35, 14),
+                Spawn("armored_knight", 8, 60, 41),
+                Spawn("armored_knight", 5, 85, 85, "barrier")),
+            Wave(8,
+                Spawn("raider", 31, 0, 8),
+                Spawn("runner", 30, 8, 8),
+                Spawn("armored_knight", 9, 45, 41),
+                Spawn("elite_golem", 6, 180, 68)),
+            Wave(9,
+                Spawn("raider", 6, 0, 44),
+                Spawn("runner", 7, 24, 39),
+                Spawn("armored_knight", 6, 75, 89),
+                Spawn("boss_time_walker", 1, 230, 1))
         };
 
         private const string TerrainTileRoot =
@@ -197,7 +244,38 @@ namespace RuleforgeTD.Editor.AssetImport
                 BuildSpotUnlockCosts,
                 StartingCardIds,
                 FirstWaveEnemyCount,
-                FirstWaveIntervalTicks);
+                FirstWaveIntervalTicks,
+                WaveOverrides);
+        }
+
+        private static WaveDefinitionDto Wave(
+            int waveNumber,
+            params WaveSpawnDto[] spawns)
+        {
+            return new WaveDefinitionDto
+            {
+                id = "wave_" + waveNumber,
+                spawns = spawns
+            };
+        }
+
+        private static WaveSpawnDto Spawn(
+            string enemyId,
+            int count,
+            int firstSpawnTick,
+            int intervalTicks,
+            params string[] eliteTraitIds)
+        {
+            return new WaveSpawnDto
+            {
+                enemyId = enemyId,
+                count = count,
+                firstSpawnTick = firstSpawnTick,
+                intervalTicks = intervalTicks,
+                eliteTraitIds = eliteTraitIds.Length > 0
+                    ? eliteTraitIds
+                    : null
+            };
         }
 
         private static void CreateStageTwoCatalog()

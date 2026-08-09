@@ -19,8 +19,8 @@
 | 스테이지 | 전장 정체성 | 시작 카드 | 빌드 학습 목표 |
 | --- | --- | --- | --- |
 | Stage01 | 짧은 기본 굴절 경로 | `split`, `burn`, `explode`, `poison` | 생성, 화상, 폭발, 지속 피해 입문 |
-| Stage02 | 세로로 긴 12회전 오르막 | `pierce`, `mark`, `poison`, `corrosion` | 방어 무시, 표식, 중독, 방어 파괴 |
-| Stage03 | 가로로 긴 다리 행군 경로 | `ricochet`, `bleed`, `knockback`, `shock` | 연쇄 타격, 이동 출혈, 밀치기, 감전 |
+| Stage02 | 세로로 긴 12회전 오르막 | `pierce`, `mark`, `poison`, `corrosion` | 철갑·중장갑 86기 대응, 방어 무시·파괴 |
+| Stage03 | 가로로 긴 다리 행군 경로 | `ricochet`, `bleed`, `knockback`, `shock` | Raider·Runner 406기 군집의 연쇄 타격·제어 |
 
 Stage03은 Stage02 씬을 최종 결과로 복사하지 않는다. 공유 Fields 에셋과 검증 파이프라인은 재사용하되 다음 권위 데이터를 별도로 가진다.
 
@@ -29,6 +29,8 @@ Stage03은 Stage02 씬을 최종 결과로 복사하지 않는다. 공유 Fields
 - Stage03 전용 경로와 12개 건설 지점
 - Stage03 전용 가로형 지형 타일 배치와 장식 스펙
 - Stage03 전용 시뮬레이션 시드
+
+예약 스폰 총량은 Stage01 398기, Stage02 398기, Stage03 452기다. Stage02는 Armored Knight 69기와 Elite Golem 17기로 단단한 적 비중을 높이고, Stage03은 Raider 215기와 Runner 191기로 빠른 군집 비중을 높인다. 세 스테이지 모두 첫 웨이브 Raider 35기는 유지하므로 개막 무누수·100골드 회귀 기준은 바뀌지 않는다.
 
 ## 3. 시작 카드 UI 설계
 

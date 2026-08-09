@@ -3,6 +3,7 @@ using System;
 using System.IO;
 using System.Linq;
 using RuleforgeTD.Battle;
+using RuleforgeTD.GameLogic.Content;
 using RuleforgeTD.Maps;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -20,7 +21,7 @@ namespace RuleforgeTD.Editor.AssetImport
     /// </summary>
     public static class StageThreeFieldMapBuilder
     {
-        internal const int FirstWaveEnemyCount = 24;
+        internal const int FirstWaveEnemyCount = 35;
         internal const int FirstWaveIntervalTicks = 30;
 
         public const string StageThreeScenePath =
@@ -37,6 +38,52 @@ namespace RuleforgeTD.Editor.AssetImport
             "bleed",
             "knockback",
             "shock"
+        };
+
+        private static readonly WaveDefinitionDto[] WaveOverrides =
+        {
+            Wave(2,
+                Spawn("raider", 32, 0, 12),
+                Spawn("armored_knight", 2, 20, 68, "ironclad"),
+                Spawn("runner", 23, 24, 14),
+                Spawn("armored_knight", 5, 60, 43)),
+            Wave(3,
+                Spawn("raider", 8, 0, 38),
+                Spawn("runner", 9, 24, 36),
+                Spawn("armored_knight", 2, 60, 77),
+                Spawn("boss_guardian", 1, 180, 1)),
+            Wave(4,
+                Spawn("armored_knight", 5, 0, 37),
+                Spawn("raider", 34, 12, 12),
+                Spawn("raider", 3, 70, 85, "giant"),
+                Spawn("runner", 18, 45, 14)),
+            Wave(5,
+                Spawn("runner", 40, 0, 8),
+                Spawn("runner", 6, 36, 51, "rusher"),
+                Spawn("raider", 18, 30, 15),
+                Spawn("armored_knight", 4, 55, 48),
+                Spawn("elite_golem", 4, 190, 60)),
+            Wave(6,
+                Spawn("raider", 9, 0, 41),
+                Spawn("runner", 9, 24, 37),
+                Spawn("armored_knight", 2, 60, 81),
+                Spawn("boss_summoner", 1, 210, 1)),
+            Wave(7,
+                Spawn("elite_golem", 3, 0, 115),
+                Spawn("runner", 36, 24, 9),
+                Spawn("raider", 26, 35, 14),
+                Spawn("armored_knight", 5, 60, 41),
+                Spawn("armored_knight", 3, 85, 85, "barrier")),
+            Wave(8,
+                Spawn("raider", 41, 0, 8),
+                Spawn("runner", 39, 8, 8),
+                Spawn("armored_knight", 4, 45, 41),
+                Spawn("elite_golem", 2, 180, 68)),
+            Wave(9,
+                Spawn("raider", 9, 0, 44),
+                Spawn("runner", 11, 24, 39),
+                Spawn("armored_knight", 2, 75, 89),
+                Spawn("boss_time_walker", 1, 230, 1))
         };
 
         private const int MapMinX = -4;
@@ -119,7 +166,8 @@ namespace RuleforgeTD.Editor.AssetImport
                 BuildSpotUnlockCosts,
                 StartingCardIds,
                 FirstWaveEnemyCount,
-                FirstWaveIntervalTicks);
+                FirstWaveIntervalTicks,
+                WaveOverrides);
             StageOnePresentationCatalog catalog =
                 StageTwoFieldMapBuilder.CreateStageCatalog(
                     StageThreeCatalogPath,
@@ -142,6 +190,36 @@ namespace RuleforgeTD.Editor.AssetImport
                 StageThreeScenePath +
                 " seed=" +
                 StageThreeSeed);
+        }
+
+        private static WaveDefinitionDto Wave(
+            int waveNumber,
+            params WaveSpawnDto[] spawns)
+        {
+            return new WaveDefinitionDto
+            {
+                id = "wave_" + waveNumber,
+                spawns = spawns
+            };
+        }
+
+        private static WaveSpawnDto Spawn(
+            string enemyId,
+            int count,
+            int firstSpawnTick,
+            int intervalTicks,
+            params string[] eliteTraitIds)
+        {
+            return new WaveSpawnDto
+            {
+                enemyId = enemyId,
+                count = count,
+                firstSpawnTick = firstSpawnTick,
+                intervalTicks = intervalTicks,
+                eliteTraitIds = eliteTraitIds.Length > 0
+                    ? eliteTraitIds
+                    : null
+            };
         }
 
         public static void ValidateStageThreeFromCommandLine()

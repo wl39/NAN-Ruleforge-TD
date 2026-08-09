@@ -21,11 +21,16 @@ namespace RuleforgeTD.Tests.EditMode.GameLogic
             "Assets/Game/Data/Logic/stage03-content.json",
             "Stage 03")]
         [Timeout(30000)]
-        public void FirstWave_HasAtLeastTwoZeroLeakStarterCardOptions(
+        public void FirstWave_KeepsSwarmAndFundsASecondBallista(
             string contentPath,
             string stageLabel)
         {
             CompiledContent content = LoadContent(contentPath);
+            Assert.That(
+                content.GetWave(0).TotalSpawnCount,
+                Is.EqualTo(35),
+                stageLabel +
+                " wave 1 must preserve the 35-enemy swarm.");
             var viableCards = new HashSet<string>();
             var report = new StringBuilder();
 
@@ -39,6 +44,8 @@ namespace RuleforgeTD.Tests.EditMode.GameLogic
                 int bestSpotIndex = -1;
                 int bestKillCount = -1;
                 int bestLeakCount = int.MaxValue;
+                int bestGold = 0;
+                int bestSecondBallistaCost = 0;
                 int zeroLeakSpotCount = 0;
 
                 for (int spotIndex = 0;
@@ -57,9 +64,13 @@ namespace RuleforgeTD.Tests.EditMode.GameLogic
                         bestSpotIndex = spotIndex;
                         bestKillCount = result.KillCount;
                         bestLeakCount = result.LeakCount;
+                        bestGold = result.Gold;
+                        bestSecondBallistaCost =
+                            result.SecondBallistaCost;
                     }
                     if (result.BaseHealth == content.Run.BaseHealth &&
-                        result.Phase != RunPhase.Defeat)
+                        result.Phase != RunPhase.Defeat &&
+                        result.CanBuildSecondBallista)
                     {
                         zeroLeakSpotCount++;
                     }
@@ -78,6 +89,10 @@ namespace RuleforgeTD.Tests.EditMode.GameLogic
                     .Append(bestKillCount)
                     .Append(", leaks before end=")
                     .Append(bestLeakCount)
+                    .Append(", gold=")
+                    .Append(bestGold)
+                    .Append("/")
+                    .Append(bestSecondBallistaCost)
                     .Append(", zero-leak spots=")
                     .Append(zeroLeakSpotCount)
                     .AppendLine();
@@ -90,7 +105,7 @@ namespace RuleforgeTD.Tests.EditMode.GameLogic
                 stageLabel +
                 " must let at least two different starting cards clear " +
                 "wave 1 with one free level-1 ballista, no bonus gold, " +
-                "and no leaks.\n" +
+                "no leaks, and enough earned gold for a second ballista.\n" +
                 report);
         }
 
@@ -162,11 +177,16 @@ namespace RuleforgeTD.Tests.EditMode.GameLogic
                 "First wave exceeded the simulation step budget for " +
                 cardStableId + " at spot " + buildSpotIndex + ".");
             snapshot = simulation.GetSnapshot();
+            TowerConstructionQuote secondBallista =
+                simulation.GetTowerConstructionQuote("ballista");
             return new FirstWaveResult(
                 snapshot.BaseHealth,
                 snapshot.Phase,
                 killCount,
-                leakCount);
+                leakCount,
+                snapshot.Gold,
+                secondBallista.Cost,
+                secondBallista.CanConstruct);
         }
 
         private static int FindOwnedCardInstance(
@@ -221,18 +241,27 @@ namespace RuleforgeTD.Tests.EditMode.GameLogic
                 int baseHealth,
                 RunPhase phase,
                 int killCount,
-                int leakCount)
+                int leakCount,
+                int gold,
+                int secondBallistaCost,
+                bool canBuildSecondBallista)
             {
                 BaseHealth = baseHealth;
                 Phase = phase;
                 KillCount = killCount;
                 LeakCount = leakCount;
+                Gold = gold;
+                SecondBallistaCost = secondBallistaCost;
+                CanBuildSecondBallista = canBuildSecondBallista;
             }
 
             public int BaseHealth { get; }
             public RunPhase Phase { get; }
             public int KillCount { get; }
             public int LeakCount { get; }
+            public int Gold { get; }
+            public int SecondBallistaCost { get; }
+            public bool CanBuildSecondBallista { get; }
         }
     }
 }

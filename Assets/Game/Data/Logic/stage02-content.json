@@ -1,5 +1,5 @@
 {
-  "version": 9,
+  "version": 11,
   "cards": [
     {
       "id": "split",
@@ -342,7 +342,7 @@
       "projectileEffects": [
         {
           "operation": "ConfigureProjectileRicochet",
-          "amount": 1,
+          "amount": 2,
           "amount2": 8500,
           "radiusMilli": 3000
         }
@@ -1949,26 +1949,26 @@
       "id": "wave_1",
       "archetype": "Swarm",
       "spawns": [
-        {"enemyId": "raider", "count": 30, "firstSpawnTick": 0, "intervalTicks": 12}
+        {"enemyId": "raider", "count": 35, "firstSpawnTick": 0, "intervalTicks": 12}
       ]
     },
     {
       "id": "wave_2",
       "archetype": "EliteMix",
       "spawns": [
-        {"enemyId": "raider", "count": 28, "firstSpawnTick": 0, "intervalTicks": 12},
+        {"enemyId": "raider", "count": 26, "firstSpawnTick": 0, "intervalTicks": 12},
         {"enemyId": "armored_knight", "count": 3, "firstSpawnTick": 20, "intervalTicks": 68, "eliteTraitIds": ["ironclad"]},
-        {"enemyId": "runner", "count": 17, "firstSpawnTick": 24, "intervalTicks": 14},
-        {"enemyId": "armored_knight", "count": 7, "firstSpawnTick": 60, "intervalTicks": 43}
+        {"enemyId": "runner", "count": 14, "firstSpawnTick": 24, "intervalTicks": 14},
+        {"enemyId": "armored_knight", "count": 12, "firstSpawnTick": 60, "intervalTicks": 43}
       ]
     },
     {
       "id": "wave_3",
       "archetype": "Containment",
       "spawns": [
-        {"enemyId": "raider", "count": 6, "firstSpawnTick": 0, "intervalTicks": 38},
-        {"enemyId": "runner", "count": 6, "firstSpawnTick": 24, "intervalTicks": 36},
-        {"enemyId": "armored_knight", "count": 3, "firstSpawnTick": 60, "intervalTicks": 77},
+        {"enemyId": "raider", "count": 5, "firstSpawnTick": 0, "intervalTicks": 38},
+        {"enemyId": "runner", "count": 5, "firstSpawnTick": 24, "intervalTicks": 36},
+        {"enemyId": "armored_knight", "count": 5, "firstSpawnTick": 60, "intervalTicks": 77},
         {"enemyId": "boss_guardian", "count": 1, "firstSpawnTick": 180, "intervalTicks": 1}
       ]
     },
@@ -1976,8 +1976,8 @@
       "id": "wave_4",
       "archetype": "HeavyEscort",
       "spawns": [
-        {"enemyId": "armored_knight", "count": 7, "firstSpawnTick": 0, "intervalTicks": 37},
-        {"enemyId": "raider", "count": 28, "firstSpawnTick": 12, "intervalTicks": 12},
+        {"enemyId": "armored_knight", "count": 9, "firstSpawnTick": 0, "intervalTicks": 37},
+        {"enemyId": "raider", "count": 26, "firstSpawnTick": 12, "intervalTicks": 12},
         {"enemyId": "raider", "count": 3, "firstSpawnTick": 70, "intervalTicks": 85, "eliteTraitIds": ["giant"]},
         {"enemyId": "runner", "count": 14, "firstSpawnTick": 45, "intervalTicks": 14}
       ]
@@ -1986,20 +1986,20 @@
       "id": "wave_5",
       "archetype": "Rush",
       "spawns": [
-        {"enemyId": "runner", "count": 33, "firstSpawnTick": 0, "intervalTicks": 8},
+        {"enemyId": "runner", "count": 29, "firstSpawnTick": 0, "intervalTicks": 8},
         {"enemyId": "runner", "count": 5, "firstSpawnTick": 36, "intervalTicks": 51, "eliteTraitIds": ["rusher"]},
         {"enemyId": "raider", "count": 15, "firstSpawnTick": 30, "intervalTicks": 15},
-        {"enemyId": "armored_knight", "count": 5, "firstSpawnTick": 55, "intervalTicks": 48},
-        {"enemyId": "elite_golem", "count": 4, "firstSpawnTick": 190, "intervalTicks": 60}
+        {"enemyId": "armored_knight", "count": 7, "firstSpawnTick": 55, "intervalTicks": 48},
+        {"enemyId": "elite_golem", "count": 6, "firstSpawnTick": 190, "intervalTicks": 60}
       ]
     },
     {
       "id": "wave_6",
       "archetype": "Containment",
       "spawns": [
-        {"enemyId": "raider", "count": 7, "firstSpawnTick": 0, "intervalTicks": 41},
-        {"enemyId": "runner", "count": 7, "firstSpawnTick": 24, "intervalTicks": 37},
-        {"enemyId": "armored_knight", "count": 3, "firstSpawnTick": 60, "intervalTicks": 81},
+        {"enemyId": "raider", "count": 6, "firstSpawnTick": 0, "intervalTicks": 41},
+        {"enemyId": "runner", "count": 6, "firstSpawnTick": 24, "intervalTicks": 37},
+        {"enemyId": "armored_knight", "count": 5, "firstSpawnTick": 60, "intervalTicks": 81},
         {"enemyId": "boss_summoner", "count": 1, "firstSpawnTick": 210, "intervalTicks": 1}
       ]
     },
@@ -2007,30 +2007,30 @@
       "id": "wave_7",
       "archetype": "HeavyEscort",
       "spawns": [
-        {"enemyId": "elite_golem", "count": 4, "firstSpawnTick": 0, "intervalTicks": 115},
-        {"enemyId": "runner", "count": 28, "firstSpawnTick": 24, "intervalTicks": 9},
+        {"enemyId": "elite_golem", "count": 5, "firstSpawnTick": 0, "intervalTicks": 115},
+        {"enemyId": "runner", "count": 25, "firstSpawnTick": 24, "intervalTicks": 9},
         {"enemyId": "raider", "count": 21, "firstSpawnTick": 35, "intervalTicks": 14},
-        {"enemyId": "armored_knight", "count": 7, "firstSpawnTick": 60, "intervalTicks": 41},
-        {"enemyId": "armored_knight", "count": 4, "firstSpawnTick": 85, "intervalTicks": 85, "eliteTraitIds": ["barrier"]}
+        {"enemyId": "armored_knight", "count": 8, "firstSpawnTick": 60, "intervalTicks": 41},
+        {"enemyId": "armored_knight", "count": 5, "firstSpawnTick": 85, "intervalTicks": 85, "eliteTraitIds": ["barrier"]}
       ]
     },
     {
       "id": "wave_8",
       "archetype": "Swarm",
       "spawns": [
-        {"enemyId": "raider", "count": 34, "firstSpawnTick": 0, "intervalTicks": 8},
-        {"enemyId": "runner", "count": 33, "firstSpawnTick": 8, "intervalTicks": 8},
-        {"enemyId": "armored_knight", "count": 6, "firstSpawnTick": 45, "intervalTicks": 41},
-        {"enemyId": "elite_golem", "count": 3, "firstSpawnTick": 180, "intervalTicks": 68}
+        {"enemyId": "raider", "count": 31, "firstSpawnTick": 0, "intervalTicks": 8},
+        {"enemyId": "runner", "count": 30, "firstSpawnTick": 8, "intervalTicks": 8},
+        {"enemyId": "armored_knight", "count": 9, "firstSpawnTick": 45, "intervalTicks": 41},
+        {"enemyId": "elite_golem", "count": 6, "firstSpawnTick": 180, "intervalTicks": 68}
       ]
     },
     {
       "id": "wave_9",
       "archetype": "Containment",
       "spawns": [
-        {"enemyId": "raider", "count": 7, "firstSpawnTick": 0, "intervalTicks": 44},
-        {"enemyId": "runner", "count": 9, "firstSpawnTick": 24, "intervalTicks": 39},
-        {"enemyId": "armored_knight", "count": 3, "firstSpawnTick": 75, "intervalTicks": 89},
+        {"enemyId": "raider", "count": 6, "firstSpawnTick": 0, "intervalTicks": 44},
+        {"enemyId": "runner", "count": 7, "firstSpawnTick": 24, "intervalTicks": 39},
+        {"enemyId": "armored_knight", "count": 6, "firstSpawnTick": 75, "intervalTicks": 89},
         {"enemyId": "boss_time_walker", "count": 1, "firstSpawnTick": 230, "intervalTicks": 1}
       ]
     }

@@ -38,10 +38,11 @@ namespace RuleforgeTD.Tests.EditMode
                     "shock"
                 }));
             AssertTunedCombatBalance(content);
-            Assert.That(content.GetWave(0).TotalSpawnCount, Is.EqualTo(24));
+            Assert.That(content.GetWave(0).TotalSpawnCount, Is.EqualTo(35));
             Assert.That(
                 content.GetWave(0).Spawns[0].IntervalTicks,
                 Is.EqualTo(30));
+            AssertStageThreeWaveComposition(content);
 
             TextAsset stageTwoAsset =
                 AssetDatabase.LoadAssetAtPath<TextAsset>(
@@ -55,6 +56,9 @@ namespace RuleforgeTD.Tests.EditMode
             Assert.That(
                 content.Run.StartingCards,
                 Is.Not.EqualTo(stageTwoContent.Run.StartingCards));
+            Assert.That(
+                CountAllSpawns(content),
+                Is.GreaterThan(CountAllSpawns(stageTwoContent)));
 
             Scene scene = EditorSceneManager.OpenScene(
                 StageThreeFieldMapBuilder.StageThreeScenePath,
@@ -137,6 +141,58 @@ namespace RuleforgeTD.Tests.EditMode
             Assert.That(
                 explode.EnemyEffects[0].Amount2,
                 Is.EqualTo(21600));
+        }
+
+        private static void AssertStageThreeWaveComposition(
+            CompiledContent content)
+        {
+            Assert.That(
+                Enumerable.Range(0, content.WaveCount)
+                    .Select(index =>
+                        content.GetWave(index).TotalSpawnCount),
+                Is.EqualTo(new[]
+                {
+                    35, 62, 20, 60, 72, 21, 73, 86, 23
+                }));
+            Assert.That(CountSpawns(content, "raider"), Is.EqualTo(215));
+            Assert.That(CountSpawns(content, "runner"), Is.EqualTo(191));
+            Assert.That(
+                CountSpawns(content, "armored_knight"),
+                Is.EqualTo(34));
+            Assert.That(
+                CountSpawns(content, "elite_golem"),
+                Is.EqualTo(9));
+            Assert.That(
+                CountAllSpawns(content),
+                Is.EqualTo(452));
+        }
+
+        private static int CountSpawns(
+            CompiledContent content,
+            string enemyStableId)
+        {
+            int total = 0;
+            for (int waveIndex = 0;
+                 waveIndex < content.WaveCount;
+                 waveIndex++)
+            {
+                foreach (CompiledWaveSpawn spawn in
+                         content.GetWave(waveIndex).Spawns)
+                {
+                    if (content.GetEnemy(spawn.EnemyId).StableId ==
+                        enemyStableId)
+                    {
+                        total += spawn.Count;
+                    }
+                }
+            }
+            return total;
+        }
+
+        private static int CountAllSpawns(CompiledContent content)
+        {
+            return Enumerable.Range(0, content.WaveCount)
+                .Sum(index => content.GetWave(index).TotalSpawnCount);
         }
     }
 }
