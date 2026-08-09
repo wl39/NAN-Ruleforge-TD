@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using RuleforgeTD.Battle;
 using RuleforgeTD.Maps;
+using RuleforgeTD.Rendering;
 using UnityEditor;
 using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
@@ -265,6 +266,12 @@ namespace RuleforgeTD.Editor.AssetImport
                 summary.totalSize +
                 " duration=" +
                 summary.totalTime);
+
+            // Stage01과 TestLab은 같은 전투/콘텐츠를 사용하므로 게시
+            // 산출물도 한 개발 빌드 경로에서 함께 갱신한다. TestLab
+            // builder는 Stage01 WebGL builder를 다시 호출하지 않으므로
+            // 이 연결은 재귀하지 않는다.
+            TestLabSceneBuilder.BuildWebGLFromCommandLine();
         }
 
         private static void PublishWebGLBuild()
@@ -1087,6 +1094,9 @@ namespace RuleforgeTD.Editor.AssetImport
                 SpriteRenderer renderer =
                     root.AddComponent<SpriteRenderer>();
                 renderer.sprite = available;
+                WorldSortingLayers.Apply(
+                    renderer,
+                    WorldSortingLayers.Route);
                 renderer.sortingOrder = 30;
                 var collider = root.AddComponent<BoxCollider2D>();
                 collider.size = new Vector2(1.9f, 1.9f);
@@ -1175,25 +1185,15 @@ namespace RuleforgeTD.Editor.AssetImport
                 masks,
                 walkable);
 
-            Dictionary<string, Tile> propTiles =
-                LoadPropTiles();
-            Dictionary<string, FieldAnimatedTile> animatedTiles =
-                LoadAnimatedTiles();
-            BiomeDefinition[] biomes = GetStageOneBiomes();
-            MeadowDefinition[] meadows = GetStageOneMeadows();
-            PaintBiomeGroundCover(
-                decals,
-                propTiles,
-                run,
-                biomes);
+            FieldStageDecorationSpec decorationSpec =
+                FieldStageDecorationSpecs.CreateStageOne(
+                    run.PathPoints,
+                    run.BuildSpots);
             Transform decorationRoot =
-                CreateStageDecorations(
+                FieldStageDecorationPipeline.Generate(
+                    decals,
                     stageRoot.transform,
-                    propTiles,
-                    animatedTiles,
-                    run,
-                    biomes,
-                    meadows);
+                    decorationSpec);
 
             var navigationObject = new GameObject("Navigation");
             navigationObject.transform.SetParent(stageRoot.transform);
@@ -1254,6 +1254,9 @@ namespace RuleforgeTD.Editor.AssetImport
             tilemap.tileAnchor = tileAnchor;
             TilemapRenderer renderer =
                 gameObject.AddComponent<TilemapRenderer>();
+            WorldSortingLayers.Apply(
+                renderer,
+                WorldSortingLayers.Route);
             renderer.sortingOrder = sortingOrder;
             renderer.mode = mode;
             return tilemap;
@@ -1466,15 +1469,35 @@ namespace RuleforgeTD.Editor.AssetImport
             };
         }
 
-        private static void PaintBiomeGroundCover(
+        private static RoadMarkerPlacement[]
+            GetStageOneRoadsideMarkers()
+        {
+            return new[]
+            {
+                new RoadMarkerPlacement(
+                    0, 0.2f, -1f, "3 Pointer/1", false, false),
+                new RoadMarkerPlacement(
+                    0, 0.7f, 1f, "Flag_DownRight", true, false),
+                new RoadMarkerPlacement(
+                    1, 0.45f, 1f, "3 Pointer/2", false, true),
+                new RoadMarkerPlacement(
+                    2, 0.35f, 1f, "Flag_Down", true, false),
+                new RoadMarkerPlacement(
+                    3, 0.8f, 1f, "3 Pointer/4", false, true),
+                new RoadMarkerPlacement(
+                    4, 0.85f, 1f, "Flag_UpRight", true, false)
+            };
+        }
+
+        internal static void PaintBiomeGroundCover(
             Tilemap decals,
             Dictionary<string, Tile> tiles,
             RunMapSource run,
             BiomeDefinition[] biomes)
         {
-            for (int y = MapMinY; y <= MapMaxY; y++)
+            for (int y = run.MapMinY; y <= run.MapMaxY; y++)
             {
-                for (int x = MapMinX; x <= MapMaxX; x++)
+                for (int x = run.MapMinX; x <= run.MapMaxX; x++)
                 {
                     var point = new Vector2(
                         x + 0.5f,
@@ -1533,13 +1556,14 @@ namespace RuleforgeTD.Editor.AssetImport
             decals.CompressBounds();
         }
 
-        private static Transform CreateStageDecorations(
+        internal static Transform CreateStageDecorations(
             Transform parent,
             Dictionary<string, Tile> propTiles,
             Dictionary<string, FieldAnimatedTile> animatedTiles,
             RunMapSource run,
             BiomeDefinition[] biomes,
-            MeadowDefinition[] meadows)
+            MeadowDefinition[] meadows,
+            RoadMarkerPlacement[] roadsideMarkers)
         {
             var rootObject = new GameObject("Decorative Biomes");
             rootObject.transform.SetParent(parent);
@@ -1553,7 +1577,8 @@ namespace RuleforgeTD.Editor.AssetImport
                     biome);
                 if (biome.Profile == "Dense Forest" ||
                     biome.Profile == "Forest Edge" ||
-                    biome.Profile == "Woodland")
+                    biome.Profile == "Woodland" ||
+                    biome.Profile == "Shrub Grove")
                 {
                     CreateForestDecorations(
                         cluster,
@@ -1614,6 +1639,7 @@ namespace RuleforgeTD.Editor.AssetImport
                 propTiles,
                 animatedTiles,
                 run,
+                roadsideMarkers,
                 ref sequence);
             return rootObject.transform;
         }
@@ -1810,7 +1836,10 @@ namespace RuleforgeTD.Editor.AssetImport
                         run,
                         SmallPropPathClearance,
                         SmallPropBuildSiteClearance) ||
-                    !IsInsideDecorationBounds(position, 0.25f))
+                    !IsInsideDecorationBounds(
+                        position,
+                        0.25f,
+                        run))
                 {
                     continue;
                 }
@@ -2247,7 +2276,10 @@ namespace RuleforgeTD.Editor.AssetImport
             float structuralPadding,
             RunMapSource run)
         {
-            return IsInsideDecorationBounds(point, 0.35f) &&
+            return IsInsideDecorationBounds(
+                    point,
+                    0.35f,
+                    run) &&
                 IsInsideEllipse(
                     point,
                     meadow.Center,
@@ -2271,6 +2303,11 @@ namespace RuleforgeTD.Editor.AssetImport
         {
             for (int i = 0; i < biomes.Length; i++)
             {
+                if (biomes[i].Profile == "Shrub Grove")
+                {
+                    continue;
+                }
+
                 Vector2 radius = biomes[i].Radius +
                     Vector2.one * padding;
                 if (IsInsideEllipse(
@@ -2338,7 +2375,7 @@ namespace RuleforgeTD.Editor.AssetImport
             ref int sequence)
         {
             DecorationPlacement[] placements =
-                biome.Id == "camp_northeast"
+                biome.Profile == "Ranger Camp"
                     ? new[]
                     {
                         new DecorationPlacement(
@@ -2466,11 +2503,11 @@ namespace RuleforgeTD.Editor.AssetImport
             }
 
             string animationKey =
-                biome.Id == "camp_northeast"
+                biome.Profile == "Ranger Camp"
                     ? "Campfire_Lit"
                     : "Campfire_Unlit";
             Vector2 fireOffset =
-                biome.Id == "camp_northeast"
+                biome.Profile == "Ranger Camp"
                     ? new Vector2(0f, -0.65f)
                     : new Vector2(0f, -0.35f);
             CreateAnimatedDecoration(
@@ -2492,13 +2529,18 @@ namespace RuleforgeTD.Editor.AssetImport
             Dictionary<string, Tile> propTiles,
             Dictionary<string, FieldAnimatedTile> animatedTiles,
             RunMapSource run,
+            RoadMarkerPlacement[] placements,
             ref int sequence)
         {
             var biome = new BiomeDefinition(
                 "roadside_verges",
                 "Roadside Verges",
-                new Vector2(12f, 6f),
-                new Vector2(14f, 9f),
+                new Vector2(
+                    (run.MapMinX + run.MapMaxX) * 0.5f,
+                    (run.MapMinY + run.MapMaxY) * 0.5f),
+                new Vector2(
+                    (run.MapMaxX - run.MapMinX) * 0.5f,
+                    (run.MapMaxY - run.MapMinY) * 0.5f),
                 8867,
                 0,
                 0,
@@ -2508,52 +2550,7 @@ namespace RuleforgeTD.Editor.AssetImport
                 0f,
                 0f);
             Transform cluster = CreateDecorationCluster(parent, biome);
-            var placements = new[]
-            {
-                new RoadMarkerPlacement(
-                    0,
-                    0.2f,
-                    -1f,
-                    "3 Pointer/1",
-                    false,
-                    false),
-                new RoadMarkerPlacement(
-                    0,
-                    0.7f,
-                    1f,
-                    "Flag_DownRight",
-                    true,
-                    false),
-                new RoadMarkerPlacement(
-                    1,
-                    0.45f,
-                    1f,
-                    "3 Pointer/2",
-                    false,
-                    true),
-                new RoadMarkerPlacement(
-                    2,
-                    0.35f,
-                    1f,
-                    "Flag_Down",
-                    true,
-                    false),
-                new RoadMarkerPlacement(
-                    3,
-                    0.8f,
-                    1f,
-                    "3 Pointer/4",
-                    false,
-                    true),
-                new RoadMarkerPlacement(
-                    4,
-                    0.85f,
-                    1f,
-                    "Flag_UpRight",
-                    true,
-                    false)
-            };
-            float vergeDistance = RoadHalfWidth + 0.65f;
+            float vergeDistance = run.RoadHalfWidth + 0.65f;
             for (int i = 0; i < placements.Length; i++)
             {
                 RoadMarkerPlacement placement = placements[i];
@@ -2632,7 +2629,8 @@ namespace RuleforgeTD.Editor.AssetImport
                 candidate = SnapToPixel(candidate);
                 if (!IsInsideDecorationBounds(
                         candidate,
-                        boundsPadding) ||
+                        boundsPadding,
+                        run) ||
                     !HasWorldClearance(
                         candidate,
                         run,
@@ -2717,6 +2715,9 @@ namespace RuleforgeTD.Editor.AssetImport
             body.sprite = tile.sprite;
             body.flipX = flipX;
             body.spriteSortPoint = SpriteSortPoint.Pivot;
+            WorldSortingLayers.Apply(
+                body,
+                WorldSortingLayers.Object);
             body.sortingOrder =
                 GetDecorationSortingOrder(position, sequence);
 
@@ -2742,6 +2743,9 @@ namespace RuleforgeTD.Editor.AssetImport
                     baseObject.AddComponent<SpriteRenderer>();
                 groundBase.sprite = baseTile.sprite;
                 groundBase.spriteSortPoint = SpriteSortPoint.Pivot;
+                WorldSortingLayers.Apply(
+                    groundBase,
+                    WorldSortingLayers.Object);
                 groundBase.sortingOrder = body.sortingOrder - 1;
             }
 
@@ -2799,6 +2803,9 @@ namespace RuleforgeTD.Editor.AssetImport
             body.sprite = tile.GetFrame(0);
             body.flipX = tile.FlipX ^ flipX;
             body.spriteSortPoint = SpriteSortPoint.Pivot;
+            WorldSortingLayers.Apply(
+                body,
+                WorldSortingLayers.Object);
             body.sortingOrder =
                 GetDecorationSortingOrder(position, sequence);
 
@@ -2888,7 +2895,8 @@ namespace RuleforgeTD.Editor.AssetImport
                     Hash01(x, y, seed, 47) * 6f);
             if (profile == "Dense Forest" ||
                 profile == "Forest Edge" ||
-                profile == "Woodland")
+                profile == "Woodland" ||
+                profile == "Shrub Grove")
             {
                 if (selector < 78)
                 {
@@ -2974,12 +2982,13 @@ namespace RuleforgeTD.Editor.AssetImport
 
         private static bool IsInsideDecorationBounds(
             Vector2 point,
-            float padding)
+            float padding,
+            RunMapSource run)
         {
-            return point.x >= MapMinX + padding &&
-                point.x <= MapMaxX - padding &&
-                point.y >= MapMinY + padding &&
-                point.y <= MapMaxY - padding;
+            return point.x >= run.MapMinX + padding &&
+                point.x <= run.MapMaxX - padding &&
+                point.y >= run.MapMinY + padding &&
+                point.y <= run.MapMaxY - padding;
         }
 
         private static TowerBuildSiteView[] CreateBuildSites(
@@ -3214,6 +3223,7 @@ namespace RuleforgeTD.Editor.AssetImport
                 StageOnePresentationCatalog catalog =
                     controller.PresentationCatalog;
                 if (catalog.TowerBindingCount != 7 ||
+                    catalog.TowerAppearanceBindingCount != 2 ||
                     catalog.EnemyBindingCount != 7 ||
                     catalog.ProjectileDirectionCount != 5 ||
                     catalog.DefaultCardProgramCount != 3 ||
@@ -3734,7 +3744,7 @@ namespace RuleforgeTD.Editor.AssetImport
             return result;
         }
 
-        private static Dictionary<string, Tile> LoadPropTiles()
+        internal static Dictionary<string, Tile> LoadPropTiles()
         {
             var result = new Dictionary<string, Tile>(
                 StringComparer.Ordinal);
@@ -3768,7 +3778,7 @@ namespace RuleforgeTD.Editor.AssetImport
             return result;
         }
 
-        private static Dictionary<string, FieldAnimatedTile>
+        internal static Dictionary<string, FieldAnimatedTile>
             LoadAnimatedTiles()
         {
             var result =
@@ -4068,21 +4078,52 @@ namespace RuleforgeTD.Editor.AssetImport
             public int[] pathPointYMilli;
         }
 
-        private readonly struct RunMapSource
+        internal readonly struct RunMapSource
         {
             public RunMapSource(
                 Vector2[] pathPoints,
                 Vector2[] buildSpots,
                 int[] buildSpotUnlockCosts)
+                : this(
+                    pathPoints,
+                    buildSpots,
+                    buildSpotUnlockCosts,
+                    CraftPixFieldTilemapAssetBuilder.MapMinX,
+                    CraftPixFieldTilemapAssetBuilder.MapMaxX,
+                    CraftPixFieldTilemapAssetBuilder.MapMinY,
+                    CraftPixFieldTilemapAssetBuilder.MapMaxY,
+                    CraftPixFieldTilemapAssetBuilder.RoadHalfWidth)
+            {
+            }
+
+            public RunMapSource(
+                Vector2[] pathPoints,
+                Vector2[] buildSpots,
+                int[] buildSpotUnlockCosts,
+                int mapMinX,
+                int mapMaxX,
+                int mapMinY,
+                int mapMaxY,
+                float roadHalfWidth)
             {
                 PathPoints = pathPoints;
                 BuildSpots = buildSpots;
                 BuildSpotUnlockCosts = buildSpotUnlockCosts;
+                MapMinX = mapMinX;
+                MapMaxX = mapMaxX;
+                MapMinY = mapMinY;
+                MapMaxY = mapMaxY;
+                RoadHalfWidth = roadHalfWidth;
             }
 
             public Vector2[] PathPoints { get; }
             public Vector2[] BuildSpots { get; }
             public int[] BuildSpotUnlockCosts { get; }
+            public int MapMinX { get; }
+            public int MapMaxX { get; }
+            public int MapMinY { get; }
+            public int MapMaxY { get; }
+            public float RoadHalfWidth { get; }
         }
 
         private readonly struct AnimatedTileDefinition
@@ -4102,7 +4143,7 @@ namespace RuleforgeTD.Editor.AssetImport
             public bool FlipX { get; }
         }
 
-        private readonly struct BiomeDefinition
+        internal readonly struct BiomeDefinition
         {
             public BiomeDefinition(
                 string id,
@@ -4146,7 +4187,7 @@ namespace RuleforgeTD.Editor.AssetImport
             public float FenceEndDegrees { get; }
         }
 
-        private readonly struct MeadowDefinition
+        internal readonly struct MeadowDefinition
         {
             public MeadowDefinition(
                 string id,
@@ -4207,7 +4248,7 @@ namespace RuleforgeTD.Editor.AssetImport
             public string GroundBaseKey { get; }
         }
 
-        private readonly struct RoadMarkerPlacement
+        internal readonly struct RoadMarkerPlacement
         {
             public RoadMarkerPlacement(
                 int segmentIndex,

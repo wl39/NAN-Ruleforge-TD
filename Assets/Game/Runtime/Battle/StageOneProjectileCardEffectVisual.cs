@@ -23,12 +23,12 @@ namespace RuleforgeTD.Battle
         private StageOneProjectileView projectileView;
         private SpriteRenderer overlay;
         private TrailRenderer trail;
-        private ProjectileEffectVisualFlags activeFlags;
+        private CardEffectVisualFlags activeFlags;
         private Vector3 appliedPresentationOffset;
         private string dominantEffectId = string.Empty;
         private Color dominantColor = Color.white;
 
-        public ProjectileEffectVisualFlags ActiveFlags =>
+        public CardEffectVisualFlags ActiveFlags =>
             activeFlags;
         public string DominantEffectId =>
             dominantEffectId;
@@ -84,7 +84,7 @@ namespace RuleforgeTD.Battle
         }
 
         public void SetVisualFlags(
-            ProjectileEffectVisualFlags flags)
+            CardEffectVisualFlags flags)
         {
             if (flags == activeFlags)
             {
@@ -106,7 +106,7 @@ namespace RuleforgeTD.Battle
 
         public void ResetVisuals()
         {
-            activeFlags = ProjectileEffectVisualFlags.None;
+            activeFlags = CardEffectVisualFlags.None;
             dominantEffectId = string.Empty;
             dominantColor = Color.white;
             RestorePresentationOffset();
@@ -251,7 +251,7 @@ namespace RuleforgeTD.Battle
                 Color overlayColor = style.Primary;
                 overlayColor.a =
                     (activeFlags &
-                     ProjectileEffectVisualFlags.Curse) != 0
+                     CardEffectVisualFlags.Curse) != 0
                         ? 0.7f
                         : 0.55f;
                 overlay.color = overlayColor;
@@ -270,10 +270,10 @@ namespace RuleforgeTD.Battle
                 trail.endWidth = style.Width * 0.2f;
                 trail.time =
                     (activeFlags &
-                     ProjectileEffectVisualFlags.Afterimage) != 0
+                     CardEffectVisualFlags.Afterimage) != 0
                         ? 0.38f
                         : (activeFlags &
-                           ProjectileEffectVisualFlags.Accelerate) != 0
+                           CardEffectVisualFlags.Accelerate) != 0
                             ? 0.18f
                             : 0.24f;
                 trail.emitting = isActiveAndEnabled;
@@ -297,7 +297,7 @@ namespace RuleforgeTD.Battle
                 targetRenderer.sortingOrder + 1;
             overlay.enabled =
                 activeFlags !=
-                    ProjectileEffectVisualFlags.None &&
+                    CardEffectVisualFlags.None &&
                 targetRenderer.enabled &&
                 targetRenderer.sprite != null;
 
@@ -309,7 +309,7 @@ namespace RuleforgeTD.Battle
                     targetRenderer.sortingOrder - 1;
                 trail.emitting =
                     activeFlags !=
-                        ProjectileEffectVisualFlags.None &&
+                        CardEffectVisualFlags.None &&
                     gameObject.activeInHierarchy;
             }
         }
@@ -321,14 +321,14 @@ namespace RuleforgeTD.Battle
                 return;
             }
 
-            float time = Time.unscaledTime;
+            float time = Time.time;
             float pulse =
                 1f + Mathf.Sin(time * 12f) * 0.09f;
             overlay.transform.localScale =
                 Vector3.one * pulse;
 
             if ((activeFlags &
-                 ProjectileEffectVisualFlags.Delay) != 0)
+                 CardEffectVisualFlags.Delay) != 0)
             {
                 overlay.transform.localRotation =
                     Quaternion.Euler(
@@ -337,7 +337,7 @@ namespace RuleforgeTD.Battle
                         -time * 80f);
             }
             else if ((activeFlags &
-                      ProjectileEffectVisualFlags.Shock) != 0)
+                      CardEffectVisualFlags.Shock) != 0)
             {
                 overlay.transform.localRotation =
                     Quaternion.Euler(
@@ -355,7 +355,7 @@ namespace RuleforgeTD.Battle
         private void ApplyAirborneOffset()
         {
             if ((activeFlags &
-                 ProjectileEffectVisualFlags.Airborne) == 0 ||
+                 CardEffectVisualFlags.Airborne) == 0 ||
                 projectileView == null)
             {
                 return;
@@ -376,7 +376,7 @@ namespace RuleforgeTD.Battle
             {
                 progress =
                     0.5f +
-                    Mathf.Sin(Time.unscaledTime * 4f) * 0.12f;
+                    Mathf.Sin(Time.time * 4f) * 0.12f;
             }
 
             StageOneCardEffectPalette.TryGetStyle(
@@ -403,164 +403,234 @@ namespace RuleforgeTD.Battle
         }
 
         private static string ResolveDominantEffectId(
-            ProjectileEffectVisualFlags flags)
+            CardEffectVisualFlags flags)
         {
-            if ((flags & ProjectileEffectVisualFlags.Airborne) != 0)
+            string highTierEffect =
+                StageOneCardEffectPalette
+                    .ResolveHighestSetEffectId(
+                        flags,
+                        44);
+            if (!string.IsNullOrEmpty(highTierEffect))
+            {
+                return highTierEffect;
+            }
+
+            if ((flags & CardEffectVisualFlags.Rebirth) != 0)
+            {
+                return "rebirth";
+            }
+
+            if ((flags & CardEffectVisualFlags.Execute) != 0)
+            {
+                return "execute";
+            }
+
+            if ((flags & CardEffectVisualFlags.TimeStop) != 0)
+            {
+                return "time_stop";
+            }
+
+            if ((flags & CardEffectVisualFlags.Mutation) != 0)
+            {
+                return "mutation";
+            }
+
+            if ((flags & CardEffectVisualFlags.Parasite) != 0)
+            {
+                return "parasite";
+            }
+
+            if ((flags & CardEffectVisualFlags.Absorb) != 0)
+            {
+                return "absorb";
+            }
+
+            if ((flags & CardEffectVisualFlags.Resonance) != 0)
+            {
+                return "resonance";
+            }
+
+            if ((flags & CardEffectVisualFlags.Chain) != 0)
+            {
+                return "chain";
+            }
+
+            if ((flags & CardEffectVisualFlags.Retrograde) != 0)
+            {
+                return "retrograde";
+            }
+
+            if ((flags & CardEffectVisualFlags.Return) != 0)
+            {
+                return "return";
+            }
+
+            if ((flags & CardEffectVisualFlags.Sacrifice) != 0)
+            {
+                return "sacrifice";
+            }
+
+            if ((flags & CardEffectVisualFlags.Duplicate) != 0)
+            {
+                return "duplicate";
+            }
+
+            if ((flags & CardEffectVisualFlags.Airborne) != 0)
             {
                 return "airborne";
             }
 
-            if ((flags & ProjectileEffectVisualFlags.Stun) != 0)
+            if ((flags & CardEffectVisualFlags.Stun) != 0)
             {
                 return "stun";
             }
 
-            if ((flags & ProjectileEffectVisualFlags.Explode) != 0)
+            if ((flags & CardEffectVisualFlags.Explode) != 0)
             {
                 return "explode";
             }
 
-            if ((flags & ProjectileEffectVisualFlags.Reflect) != 0)
+            if ((flags & CardEffectVisualFlags.Reflect) != 0)
             {
                 return "reflect";
             }
 
-            if ((flags & ProjectileEffectVisualFlags.Afterimage) != 0)
+            if ((flags & CardEffectVisualFlags.Afterimage) != 0)
             {
                 return "afterimage";
             }
 
-            if ((flags & ProjectileEffectVisualFlags.Shock) != 0)
+            if ((flags & CardEffectVisualFlags.Shock) != 0)
             {
                 return "shock";
             }
 
-            if ((flags & ProjectileEffectVisualFlags.Freeze) != 0)
+            if ((flags & CardEffectVisualFlags.Freeze) != 0)
             {
                 return "freeze";
             }
 
-            if ((flags & ProjectileEffectVisualFlags.Curse) != 0)
+            if ((flags & CardEffectVisualFlags.Curse) != 0)
             {
                 return "curse";
             }
 
-            if ((flags & ProjectileEffectVisualFlags.Bind) != 0)
+            if ((flags & CardEffectVisualFlags.Bind) != 0)
             {
                 return "bind";
             }
 
-            if ((flags & ProjectileEffectVisualFlags.Magnet) != 0)
+            if ((flags & CardEffectVisualFlags.Magnet) != 0)
             {
                 return "magnet";
             }
 
-            if ((flags & ProjectileEffectVisualFlags.Contagion) != 0)
+            if ((flags & CardEffectVisualFlags.Contagion) != 0)
             {
                 return "contagion";
             }
 
-            if ((flags & ProjectileEffectVisualFlags.Seal) != 0)
+            if ((flags & CardEffectVisualFlags.Seal) != 0)
             {
                 return "seal";
             }
 
-            if ((flags & ProjectileEffectVisualFlags.Corrosion) != 0)
+            if ((flags & CardEffectVisualFlags.Corrosion) != 0)
             {
                 return "corrosion";
             }
 
-            if ((flags & ProjectileEffectVisualFlags.Orbit) != 0)
+            if ((flags & CardEffectVisualFlags.Orbit) != 0)
             {
                 return "orbit";
             }
 
-            if ((flags & ProjectileEffectVisualFlags.Lifesteal) != 0)
+            if ((flags & CardEffectVisualFlags.Lifesteal) != 0)
             {
                 return "lifesteal";
             }
 
-            if ((flags & ProjectileEffectVisualFlags.Fear) != 0)
+            if ((flags & CardEffectVisualFlags.Fear) != 0)
             {
                 return "fear";
             }
 
-            if ((flags & ProjectileEffectVisualFlags.Pulse) != 0)
+            if ((flags & CardEffectVisualFlags.Pulse) != 0)
             {
                 return "pulse";
             }
 
-            if ((flags & ProjectileEffectVisualFlags.Delay) != 0)
+            if ((flags & CardEffectVisualFlags.Delay) != 0)
             {
                 return "delay";
             }
 
-            if ((flags & ProjectileEffectVisualFlags.Homing) != 0)
+            if ((flags & CardEffectVisualFlags.Homing) != 0)
             {
                 return "homing";
             }
 
-            if ((flags & ProjectileEffectVisualFlags.Accelerate) != 0)
+            if ((flags & CardEffectVisualFlags.Accelerate) != 0)
             {
                 return "accelerate";
             }
 
-            if ((flags & ProjectileEffectVisualFlags.Ricochet) != 0)
+            if ((flags & CardEffectVisualFlags.Ricochet) != 0)
             {
                 return "ricochet";
             }
 
-            if ((flags & ProjectileEffectVisualFlags.Bleed) != 0)
+            if ((flags & CardEffectVisualFlags.Bleed) != 0)
             {
                 return "bleed";
             }
 
-            if ((flags & ProjectileEffectVisualFlags.Burn) != 0)
+            if ((flags & CardEffectVisualFlags.Burn) != 0)
             {
                 return "burn";
             }
 
-            if ((flags & ProjectileEffectVisualFlags.Poison) != 0)
+            if ((flags & CardEffectVisualFlags.Poison) != 0)
             {
                 return "poison";
             }
 
-            if ((flags & ProjectileEffectVisualFlags.Mark) != 0)
+            if ((flags & CardEffectVisualFlags.Mark) != 0)
             {
                 return "mark";
             }
 
-            if ((flags & ProjectileEffectVisualFlags.Pierce) != 0)
+            if ((flags & CardEffectVisualFlags.Pierce) != 0)
             {
                 return "pierce";
             }
 
-            if ((flags & ProjectileEffectVisualFlags.Knockback) != 0)
+            if ((flags & CardEffectVisualFlags.Knockback) != 0)
             {
                 return "knockback";
             }
 
-            if ((flags & ProjectileEffectVisualFlags.GoldBounty) != 0)
+            if ((flags & CardEffectVisualFlags.GoldBounty) != 0)
             {
                 return "gold_bounty";
             }
 
-            if ((flags & ProjectileEffectVisualFlags.Enlarge) != 0)
+            if ((flags & CardEffectVisualFlags.Enlarge) != 0)
             {
                 return "enlarge";
             }
 
-            if ((flags & ProjectileEffectVisualFlags.Shrink) != 0)
+            if ((flags & CardEffectVisualFlags.Shrink) != 0)
             {
                 return "shrink";
             }
 
-            if ((flags & ProjectileEffectVisualFlags.Slow) != 0)
+            if ((flags & CardEffectVisualFlags.Slow) != 0)
             {
                 return "slow";
             }
 
-            if ((flags & ProjectileEffectVisualFlags.Split) != 0)
+            if ((flags & CardEffectVisualFlags.Split) != 0)
             {
                 return "split";
             }

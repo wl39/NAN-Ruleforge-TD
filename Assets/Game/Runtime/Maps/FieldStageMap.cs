@@ -1,4 +1,5 @@
 using System;
+using RuleforgeTD.Rendering;
 using UnityEngine;
 using UnityEngine.Tilemaps;
 
@@ -7,6 +8,7 @@ namespace RuleforgeTD.Maps
     /// <summary>
     /// Scene-level references for an editable Fields Tilemap stage.
     /// </summary>
+    [ExecuteAlways]
     public sealed class FieldStageMap : MonoBehaviour
     {
         [SerializeField]
@@ -52,6 +54,54 @@ namespace RuleforgeTD.Maps
             buildSites = sites == null
                 ? Array.Empty<TowerBuildSiteView>()
                 : (TowerBuildSiteView[])sites.Clone();
+            RefreshSortingLayers();
+        }
+
+        private void OnEnable()
+        {
+            RefreshSortingLayers();
+        }
+
+        private void OnValidate()
+        {
+            RefreshSortingLayers();
+        }
+
+        private void RefreshSortingLayers()
+        {
+            if (terrain != null)
+            {
+                WorldSortingLayers.Apply(
+                    terrain.GetComponent<TilemapRenderer>(),
+                    WorldSortingLayers.Route);
+            }
+
+            if (groundDecals != null)
+            {
+                WorldSortingLayers.Apply(
+                    groundDecals.GetComponent<TilemapRenderer>(),
+                    WorldSortingLayers.Route);
+            }
+
+            WorldSortingLayers.ApplyToHierarchy(
+                decorationRoot,
+                WorldSortingLayers.Object);
+
+            if (buildSites == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < buildSites.Length; i++)
+            {
+                TowerBuildSiteView site = buildSites[i];
+                if (site != null)
+                {
+                    WorldSortingLayers.ApplyToHierarchy(
+                        site.transform,
+                        WorldSortingLayers.Route);
+                }
+            }
         }
 
         public TowerBuildSiteView GetBuildSite(int index)

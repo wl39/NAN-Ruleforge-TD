@@ -13,7 +13,8 @@ namespace RuleforgeTD.UI
         Disabled = 0,
         Ready = 1,
         Playing = 2,
-        Paused = 3
+        Paused = 3,
+        Continue = 4
     }
 
     /// <summary>
@@ -28,35 +29,34 @@ namespace RuleforgeTD.UI
         public const int RewardChoiceCapacity = 3;
 
         private static readonly Color BarColor =
-            new Color32(25, 31, 43, 0);
+            new Color32(48, 31, 21, 0);
         private static readonly Color MobileBarColor =
-            new Color32(25, 31, 43, 218);
+            new Color32(48, 31, 21, 232);
         private static readonly Color PanelColor =
-            new Color32(39, 48, 64, 0);
+            new Color32(64, 41, 27, 0);
         private static readonly Color MobilePanelColor =
-            new Color32(39, 48, 64, 210);
+            Color.white;
         private static readonly Color CardColor =
-            new Color32(55, 67, 84, 0);
+            new Color32(73, 48, 31, 0);
         private static readonly Color RewardDialogColor =
-            new Color32(39, 48, 64, 244);
+            Color.white;
         private static readonly Color PrimaryButtonColor =
             new Color32(203, 118, 44, 255);
         private static readonly Color SpeedButtonColor =
-            new Color32(63, 122, 156, 255);
-        private static readonly Color SelectedSpeedButtonColor =
-            new Color32(244, 183, 74, 255);
-        private static readonly Color SelectedSpeedTextColor =
-            new Color32(39, 48, 64, 255);
+            new Color32(76, 92, 50, 255);
         private static readonly Color RewardButtonColor =
-            new Color32(73, 83, 111, 255);
+            new Color32(82, 58, 38, 255);
         private static readonly Color OverlayColor =
             new Color32(8, 12, 20, 224);
         private static readonly Color TitleColor =
             new Color32(255, 226, 162, 255);
         private static readonly Color BodyColor =
-            new Color32(236, 241, 246, 255);
+            new Color32(246, 235, 205, 255);
         private static readonly Color MutedColor =
-            new Color32(183, 197, 209, 255);
+            new Color32(205, 188, 151, 255);
+
+        private const float PlayPulsePeriodSeconds = 1.15f;
+        private const float PlayPulseScale = 0.045f;
 
         private static readonly float[] SupportedSpeedMultipliers =
         {
@@ -89,6 +89,7 @@ namespace RuleforgeTD.UI
         private Font legacyFont;
         private Canvas hudCanvas;
         private Text hudText;
+        private Text combatDetailsText;
         private Text statusText;
         private Text equippedCardsTitleText;
         private Text playButtonLabel;
@@ -125,10 +126,12 @@ namespace RuleforgeTD.UI
         private float speedMultiplier = 1f;
         private int waveNumber;
         private int totalWaveCount = 1;
+        private int stageNumber = 1;
         private int baseHealth;
         private int gold;
         private string phaseId = "awaiting_starting_tower";
         private string statusKey = "status.ready";
+        private string combatDetails = string.Empty;
         private object[] statusArguments = Array.Empty<object>();
         private bool equippedDisplaysAreExplicit;
         private bool rewardDisplaysAreExplicit;
@@ -145,6 +148,7 @@ namespace RuleforgeTD.UI
 
         public Canvas HudCanvas => hudCanvas;
         public Text HudText => hudText;
+        public Text CombatDetailsText => combatDetailsText;
         public Text StatusText => statusText;
         public Button PlayButton => playButton;
         public Button SpeedButton => speedButton;
@@ -163,6 +167,11 @@ namespace RuleforgeTD.UI
             hudCanvas.enabled &&
             hudVisible;
         public bool IsBuilt => built;
+        public bool IsPlayButtonPulsing =>
+            (playState == StageOnePlayState.Ready ||
+             playState == StageOnePlayState.Continue) &&
+            playButton != null &&
+            playButton.interactable;
 
         public static StageOneHudView CreateRuntime(
             StageOneUiTextCatalog catalog,
@@ -211,6 +220,8 @@ namespace RuleforgeTD.UI
             {
                 ApplyResponsiveLayout();
             }
+
+            UpdatePlayButtonPulse();
         }
 
         public void Configure(TextAsset stageLocalizationJson)
@@ -273,16 +284,29 @@ namespace RuleforgeTD.UI
             int waveCount,
             int currentBaseHealth,
             int currentGold,
-            string currentPhaseId)
+            string currentPhaseId,
+            int currentStageNumber = 1)
         {
             waveNumber = Mathf.Max(0, currentWaveNumber);
             totalWaveCount = Mathf.Max(1, waveCount);
+            stageNumber = Mathf.Max(1, currentStageNumber);
             baseHealth = Mathf.Max(0, currentBaseHealth);
             gold = Mathf.Max(0, currentGold);
             phaseId = string.IsNullOrWhiteSpace(currentPhaseId)
                 ? "unknown"
                 : currentPhaseId.Trim();
             RefreshHudText();
+            RefreshPlayState();
+        }
+
+        /// <summary>
+        /// 개별 피해/골드 팝업 대신 합산한 고밀도 전투 지표 또는 다음 웨이브
+        /// 구성을 상단 중앙에 표시한다.
+        /// </summary>
+        public void SetCombatDetails(string details)
+        {
+            combatDetails = details ?? string.Empty;
+            RefreshCombatDetails();
         }
 
         public void SetPlayState(StageOnePlayState state)
@@ -538,6 +562,7 @@ namespace RuleforgeTD.UI
             canvasObject.transform.SetParent(transform, false);
             hudCanvas = canvasObject.GetComponent<Canvas>();
             hudCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            hudCanvas.pixelPerfect = true;
             hudCanvas.sortingOrder = 100;
 
             CanvasScaler scaler =
@@ -578,7 +603,10 @@ namespace RuleforgeTD.UI
                 "Top HUD",
                 parent,
                 BarColor);
-            AnchorAtTop(topBar, 52f, Vector2.zero);
+            AnchorAtTop(
+                topBar,
+                StageOneHudLayoutMetrics.DesktopTopBarHeight,
+                Vector2.zero);
 
             hudText = CreateText(
                 "HUD Summary",
@@ -594,6 +622,24 @@ namespace RuleforgeTD.UI
                 374f,
                 6f);
 
+            combatDetailsText = CreateText(
+                "Combat Density Details",
+                topBar,
+                13,
+                FontStyle.Bold,
+                TitleColor,
+                TextAnchor.MiddleCenter);
+            combatDetailsText.horizontalOverflow =
+                HorizontalWrapMode.Wrap;
+            combatDetailsText.verticalOverflow =
+                VerticalWrapMode.Truncate;
+            Stretch(
+                combatDetailsText.rectTransform,
+                390f,
+                4f,
+                470f,
+                4f);
+
             playButton = CreateButton(
                 "Play Button",
                 topBar,
@@ -603,7 +649,7 @@ namespace RuleforgeTD.UI
             AnchorAtRight(
                 playButton.GetComponent<RectTransform>(),
                 new Vector2(-236f, 0f),
-                new Vector2(118f, 36f));
+                new Vector2(148f, 45f));
             playButton.onClick.AddListener(HandlePlayClicked);
 
             speedButtons =
@@ -618,10 +664,6 @@ namespace RuleforgeTD.UI
                     SpeedButtonColor,
                     out Text label,
                     14);
-                label.horizontalOverflow =
-                    HorizontalWrapMode.Overflow;
-                label.verticalOverflow =
-                    VerticalWrapMode.Overflow;
                 float rightOffset =
                     -12f -
                     (speedButtons.Length - 1 - i) * 54f;
@@ -657,8 +699,12 @@ namespace RuleforgeTD.UI
                 PanelColor);
             AnchorAtTop(
                 statusPanel,
-                42f,
-                new Vector2(0f, -56f));
+                StageOneHudLayoutMetrics
+                    .DesktopStatusPanelHeight,
+                new Vector2(
+                    0f,
+                    -StageOneHudLayoutMetrics
+                        .DesktopStatusPanelTopOffset));
             statusPanel.anchorMin = new Vector2(0.15f, 1f);
             statusPanel.anchorMax = new Vector2(0.85f, 1f);
 
@@ -757,6 +803,10 @@ namespace RuleforgeTD.UI
             rewardDialog = CreatePanel(
                 "Reward Choice Dialog",
                 rewardOverlay.transform,
+                RewardDialogColor);
+            RuleforgePixelUi.ApplyPanel(
+                rewardDialog.GetComponent<Image>(),
+                RuleforgePixelPanelRole.Workbench,
                 RewardDialogColor);
             AnchorAtCenter(
                 rewardDialog,
@@ -859,7 +909,10 @@ namespace RuleforgeTD.UI
 
         private void ApplyPortraitTopLayout()
         {
-            AnchorAtTop(topBar, 118f, Vector2.zero);
+            AnchorAtTop(
+                topBar,
+                StageOneHudLayoutMetrics.PortraitTopBarHeight,
+                Vector2.zero);
             topBar.GetComponent<Image>().color = MobileBarColor;
 
             RectTransform summaryRect = hudText.rectTransform;
@@ -872,18 +925,22 @@ namespace RuleforgeTD.UI
             hudText.alignment = TextAnchor.MiddleLeft;
             hudText.horizontalOverflow = HorizontalWrapMode.Wrap;
             hudText.verticalOverflow = VerticalWrapMode.Truncate;
+            if (combatDetailsText != null)
+            {
+                combatDetailsText.gameObject.SetActive(false);
+            }
 
             SetBottomAnchoredRange(
                 playButton.GetComponent<RectTransform>(),
                 0.02f,
-                0.22f,
+                0.3f,
                 10f,
                 54f,
                 2f,
                 2f);
-            playButtonLabel.fontSize = 19;
+            playButtonLabel.fontSize = 18;
 
-            const float speedsStart = 0.24f;
+            const float speedsStart = 0.32f;
             const float speedsEnd = 0.99f;
             float speedWidth =
                 (speedsEnd - speedsStart) / speedButtons.Length;
@@ -902,11 +959,28 @@ namespace RuleforgeTD.UI
 
             AnchorAtTop(
                 statusPanel,
-                54f,
-                new Vector2(0f, -124f));
+                StageOneHudLayoutMetrics
+                    .PortraitStatusPanelHeight,
+                new Vector2(
+                    0f,
+                    -StageOneHudLayoutMetrics
+                        .PortraitStatusPanelTopOffset));
             statusPanel.anchorMin = new Vector2(0.025f, 1f);
             statusPanel.anchorMax = new Vector2(0.975f, 1f);
-            statusPanel.GetComponent<Image>().color = MobilePanelColor;
+            Image statusImage = statusPanel.GetComponent<Image>();
+            RuleforgePixelUi.ApplyPanel(
+                statusImage,
+                RuleforgePixelPanelRole.Parchment,
+                MobilePanelColor);
+            statusText.color = RuleforgePixelUi.InkText;
+            RuleforgeUiTypography.RestyleButtonLabel(
+                statusText,
+                RuleforgePixelUi.InkText);
+            Shadow statusShadow = statusText.GetComponent<Shadow>();
+            if (statusShadow != null)
+            {
+                statusShadow.enabled = false;
+            }
             statusText.fontSize = 17;
             Stretch(
                 statusText.rectTransform,
@@ -918,12 +992,26 @@ namespace RuleforgeTD.UI
 
         private void ApplyLandscapeTopLayout()
         {
-            AnchorAtTop(topBar, 52f, Vector2.zero);
+            if (combatDetailsText != null)
+            {
+                combatDetailsText.gameObject.SetActive(true);
+                Stretch(
+                    combatDetailsText.rectTransform,
+                    390f,
+                    4f,
+                    470f,
+                    4f);
+            }
+
+            AnchorAtTop(
+                topBar,
+                StageOneHudLayoutMetrics.DesktopTopBarHeight,
+                Vector2.zero);
             topBar.GetComponent<Image>().color = BarColor;
             hudText.fontSize = 19;
             hudText.alignment = TextAnchor.MiddleLeft;
-            hudText.horizontalOverflow = HorizontalWrapMode.Overflow;
-            hudText.verticalOverflow = VerticalWrapMode.Overflow;
+            hudText.horizontalOverflow = HorizontalWrapMode.Wrap;
+            hudText.verticalOverflow = VerticalWrapMode.Truncate;
             Stretch(
                 hudText.rectTransform,
                 18f,
@@ -934,7 +1022,7 @@ namespace RuleforgeTD.UI
             AnchorAtRight(
                 playButton.GetComponent<RectTransform>(),
                 new Vector2(-236f, 0f),
-                new Vector2(118f, 36f));
+                new Vector2(148f, 45f));
             playButtonLabel.fontSize = 16;
 
             for (int i = 0; i < speedButtons.Length; i++)
@@ -951,11 +1039,23 @@ namespace RuleforgeTD.UI
 
             AnchorAtTop(
                 statusPanel,
-                42f,
-                new Vector2(0f, -56f));
+                StageOneHudLayoutMetrics
+                    .DesktopStatusPanelHeight,
+                new Vector2(
+                    0f,
+                    -StageOneHudLayoutMetrics
+                        .DesktopStatusPanelTopOffset));
             statusPanel.anchorMin = new Vector2(0.15f, 1f);
             statusPanel.anchorMax = new Vector2(0.85f, 1f);
-            statusPanel.GetComponent<Image>().color = PanelColor;
+            Image statusImage = statusPanel.GetComponent<Image>();
+            statusImage.sprite = null;
+            statusImage.type = Image.Type.Simple;
+            statusImage.preserveAspect = false;
+            statusImage.color = PanelColor;
+            statusText.color = MutedColor;
+            RuleforgeUiTypography.RestyleButtonLabel(
+                statusText,
+                MutedColor);
             statusText.fontSize = 15;
             Stretch(
                 statusText.rectTransform,
@@ -1059,6 +1159,7 @@ namespace RuleforgeTD.UI
             }
 
             RefreshHudText();
+            RefreshCombatDetails();
             RefreshPlayState();
             SetSpeed(speedMultiplier);
             RefreshStatusText();
@@ -1084,7 +1185,16 @@ namespace RuleforgeTD.UI
                 totalWaveCount,
                 baseHealth,
                 gold,
-                GetPhaseText(phaseId));
+                GetPhaseText(phaseId),
+                stageNumber);
+        }
+
+        private void RefreshCombatDetails()
+        {
+            if (combatDetailsText != null)
+            {
+                combatDetailsText.text = combatDetails;
+            }
         }
 
         private void RefreshPlayState()
@@ -1104,10 +1214,47 @@ namespace RuleforgeTD.UI
                 case StageOnePlayState.Paused:
                     playButtonLabel.text = GetText("hud.resume");
                     break;
+                case StageOnePlayState.Continue:
+                    playButtonLabel.text = GetText(
+                        "hud.continue_stage");
+                    break;
                 default:
-                    playButtonLabel.text = GetText("hud.play");
+                    playButtonLabel.text = FormatText(
+                        "hud.play_format",
+                        Mathf.Max(1, waveNumber));
                     break;
             }
+
+            if (!IsPlayButtonPulsing)
+            {
+                playButton.transform.localScale = Vector3.one;
+            }
+        }
+
+        private void UpdatePlayButtonPulse()
+        {
+            if (playButton == null)
+            {
+                return;
+            }
+
+            if (!IsPlayButtonPulsing)
+            {
+                playButton.transform.localScale = Vector3.one;
+                return;
+            }
+
+            float cycle = Mathf.Repeat(
+                Time.unscaledTime,
+                PlayPulsePeriodSeconds) /
+                PlayPulsePeriodSeconds;
+            float wave = (Mathf.Sin(
+                cycle * Mathf.PI * 2f - Mathf.PI * 0.5f) + 1f) *
+                0.5f;
+            float eased = wave * wave * (3f - 2f * wave);
+            float scale = 1f + PlayPulseScale * eased;
+            playButton.transform.localScale =
+                new Vector3(scale, scale, 1f);
         }
 
         private void RefreshStatusText()
@@ -1287,19 +1434,15 @@ namespace RuleforgeTD.UI
                 bool selected = Mathf.Approximately(
                     SupportedSpeedMultipliers[i],
                     speedMultiplier);
-                Image image = button.targetGraphic as Image;
-                if (image != null)
-                {
-                    image.color = selected
-                        ? SelectedSpeedButtonColor
-                        : SpeedButtonColor;
-                }
+                RuleforgePixelUi.Apply(
+                    button,
+                    selected
+                        ? RuleforgePixelButtonRole.Selected
+                        : RuleforgePixelButtonRole.Utility);
 
                 if (label != null)
                 {
-                    label.color = selected
-                        ? SelectedSpeedTextColor
-                        : BodyColor;
+                    label.color = RuleforgePixelUi.ParchmentText;
                 }
             }
         }
@@ -1428,6 +1571,13 @@ namespace RuleforgeTD.UI
                 BodyColor,
                 TextAnchor.MiddleCenter);
             Stretch(label.rectTransform, 8f, 4f, 8f, 4f);
+            RuleforgePixelButtonRole role =
+                color == PrimaryButtonColor
+                    ? RuleforgePixelButtonRole.Primary
+                    : color == SpeedButtonColor
+                        ? RuleforgePixelButtonRole.Utility
+                        : RuleforgePixelButtonRole.Secondary;
+            RuleforgePixelUi.ApplyTint(button, role, color);
             return button;
         }
 
@@ -1445,20 +1595,13 @@ namespace RuleforgeTD.UI
                 typeof(Text));
             textObject.transform.SetParent(parent, false);
             Text text = textObject.GetComponent<Text>();
-            text.font = legacyFont;
-            text.fontSize = fontSize;
-            text.fontStyle = style;
-            text.color = color;
-            text.alignment = alignment;
-            text.supportRichText = false;
-            text.raycastTarget = false;
-            text.horizontalOverflow = HorizontalWrapMode.Overflow;
-            text.verticalOverflow = VerticalWrapMode.Overflow;
-            Outline outline =
-                textObject.AddComponent<Outline>();
-            outline.effectColor = new Color(0f, 0f, 0f, 0.72f);
-            outline.effectDistance = new Vector2(1f, -1f);
-            outline.useGraphicAlpha = true;
+            RuleforgeUiTypography.Configure(
+                text,
+                legacyFont,
+                fontSize,
+                color,
+                alignment,
+                RuleforgeUiTypography.IsLight(color));
             return text;
         }
 

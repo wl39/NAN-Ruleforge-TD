@@ -19,26 +19,28 @@ namespace RuleforgeTD.UI
         IPointerDownHandler
     {
         private const float PointerToggleDebounceSeconds = 0.15f;
+        private const string EquippedIconResourcePath =
+            "RuleforgeTD/UI/Loadout/RuleforgeCardEquipped";
 
         public static readonly Color ProjectileBodyColor =
-            new Color32(172, 86, 35, 248);
+            new Color32(164, 94, 52, 255);
         public static readonly Color EnemyBodyColor =
-            new Color32(145, 43, 48, 248);
+            new Color32(132, 59, 55, 255);
 
         private static readonly Color NameBackplateColor =
-            new Color32(30, 24, 22, 212);
+            Color.clear;
         private static readonly Color DescriptionBackplateColor =
-            new Color32(29, 24, 23, 228);
+            Color.clear;
         private static readonly Color ArtworkPlaceholderColor =
-            new Color32(49, 43, 42, 242);
+            Color.clear;
         private static readonly Color PrimaryTextColor =
             new Color32(255, 247, 222, 255);
         private static readonly Color DescriptionTextColor =
-            new Color32(246, 238, 220, 255);
+            new Color32(48, 34, 24, 255);
         private static readonly Color EquippedBadgeColor =
             new Color32(255, 220, 73, 255);
         private static readonly Color EquippedBadgeTextColor =
-            new Color32(48, 36, 12, 255);
+            new Color32(255, 247, 222, 255);
 
         [SerializeField]
         private Image borderImage;
@@ -53,6 +55,9 @@ namespace RuleforgeTD.UI
         private Image artworkImage;
 
         [SerializeField]
+        private Image artworkFrameImage;
+
+        [SerializeField]
         private Image descriptionBackplateImage;
 
         [SerializeField]
@@ -60,6 +65,12 @@ namespace RuleforgeTD.UI
 
         [SerializeField]
         private Image equippedBadgeImage;
+
+        [SerializeField]
+        private Image equippedHighlightImage;
+
+        [SerializeField]
+        private Image tierAccentImage;
 
         [SerializeField]
         private Text nameText;
@@ -89,6 +100,7 @@ namespace RuleforgeTD.UI
         private bool built;
         private bool hasConfiguredDisplay;
         private bool interpretationPreviewOverridden;
+        private bool equipped;
         private float lastPointerToggleTime =
             float.NegativeInfinity;
 
@@ -97,10 +109,14 @@ namespace RuleforgeTD.UI
         public Image BodyImage => bodyImage;
         public Image NameBackplateImage => nameBackplateImage;
         public Image ArtworkImage => artworkImage;
+        public Image ArtworkFrameImage => artworkFrameImage;
         public Image DescriptionBackplateImage =>
             descriptionBackplateImage;
         public Image TierBadgeImage => tierBadgeImage;
         public Image EquippedBadgeImage => equippedBadgeImage;
+        public Image EquippedHighlightImage =>
+            equippedHighlightImage;
+        public Image TierAccentImage => tierAccentImage;
         public Text NameText => nameText;
         public Text ArtworkSymbolText => artworkSymbolText;
         public Text DescriptionText => descriptionText;
@@ -115,6 +131,10 @@ namespace RuleforgeTD.UI
         public SubjectType SubjectType => subjectType;
         public Sprite ArtworkSprite =>
             artworkImage == null ? null : artworkImage.sprite;
+        public Sprite EquippedBadgeSprite =>
+            equippedBadgeImage == null
+                ? null
+                : equippedBadgeImage.sprite;
         public bool IsEquipped =>
             EquippedBadgeRoot != null &&
             EquippedBadgeRoot.activeSelf;
@@ -159,7 +179,7 @@ namespace RuleforgeTD.UI
                 typeof(StageOneCardView));
             host.transform.SetParent(parent, false);
             RectTransform rect = host.GetComponent<RectTransform>();
-            rect.sizeDelta = new Vector2(156f, 220f);
+            rect.sizeDelta = new Vector2(113f, 192f);
 
             StageOneCardView view =
                 host.GetComponent<StageOneCardView>();
@@ -198,7 +218,11 @@ namespace RuleforgeTD.UI
             {
                 SetTarget(subjectType);
             }
-            SetArtwork(artwork);
+            SetArtwork(
+                artwork != null
+                    ? artwork
+                    : StageOneCardArtworkCatalog.Load(
+                        display.StableId));
             SetEquipped(equipped, equippedBadgeLabel);
             SetInteractable(interactable);
         }
@@ -232,9 +256,11 @@ namespace RuleforgeTD.UI
             BuildInterface();
             tier = NormalizeTier(cardTier);
             Color tierColor = GetTierColor(tier);
-            borderImage.color = tierColor;
+            borderImage.color = Color.white;
             tierBadgeImage.color = tierColor;
+            tierAccentImage.color = tierColor;
             tierBadgeText.text = GetTierLabel(tier);
+            RuleforgePixelCardUi.ApplyFrame(button, tier, equipped);
         }
 
         public void SetTarget(SubjectType targetType)
@@ -303,11 +329,14 @@ namespace RuleforgeTD.UI
             string badgeLabel = null)
         {
             BuildInterface();
+            this.equipped = equipped;
             equippedBadgeImage.gameObject.SetActive(equipped);
+            equippedHighlightImage.gameObject.SetActive(equipped);
             equippedBadgeText.text =
-                string.IsNullOrWhiteSpace(badgeLabel)
-                    ? "✓"
-                    : badgeLabel.Trim();
+                equipped && equippedBadgeImage.sprite == null
+                    ? "◆"
+                    : string.Empty;
+            RuleforgePixelCardUi.ApplyFrame(button, tier, equipped);
         }
 
         public void SetInteractable(bool interactable)
@@ -322,33 +351,33 @@ namespace RuleforgeTD.UI
             float normalized = Mathf.Clamp(scale, 0.75f, 2f);
             SetScaledText(
                 nameText,
-                17,
+                14,
                 11,
-                17,
+                14,
                 normalized);
             SetScaledText(
                 artworkSymbolText,
-                38,
-                20,
-                42,
+                26,
+                16,
+                30,
                 normalized);
             SetScaledText(
                 descriptionText,
-                13,
-                9,
-                13,
+                11,
+                7,
+                11,
                 normalized);
             SetScaledText(
                 tierBadgeText,
-                12,
-                12,
-                12,
+                8,
+                8,
+                8,
                 normalized);
             SetScaledText(
                 equippedBadgeText,
-                12,
                 8,
-                12,
+                7,
+                8,
                 normalized);
         }
 
@@ -372,15 +401,15 @@ namespace RuleforgeTD.UI
             switch (NormalizeTier(cardTier))
             {
                 case CardTier.Uncommon:
-                    return new Color32(67, 153, 211, 255);
+                    return new Color32(107, 151, 91, 255);
                 case CardTier.Rare:
-                    return new Color32(151, 87, 205, 255);
+                    return new Color32(92, 139, 164, 255);
                 case CardTier.Legendary:
-                    return new Color32(242, 174, 49, 255);
+                    return new Color32(218, 167, 61, 255);
                 case CardTier.Mythic:
-                    return new Color32(234, 66, 105, 255);
+                    return new Color32(181, 77, 111, 255);
                 default:
-                    return new Color32(188, 161, 117, 255);
+                    return new Color32(174, 160, 132, 255);
             }
         }
 
@@ -469,22 +498,13 @@ namespace RuleforgeTD.UI
                 : Resources.GetBuiltinResource<Font>(
                     "LegacyRuntime.ttf");
             borderImage = GetComponent<Image>();
+            if (GetComponent<RectMask2D>() == null)
+            {
+                gameObject.AddComponent<RectMask2D>();
+            }
             button = GetComponent<Button>();
             button.targetGraphic = borderImage;
-            button.transition = Selectable.Transition.ColorTint;
-            ColorBlock colors = button.colors;
-            colors.normalColor = Color.white;
-            colors.highlightedColor =
-                new Color32(255, 250, 226, 255);
-            colors.pressedColor =
-                new Color32(208, 200, 181, 255);
-            colors.selectedColor =
-                new Color32(255, 242, 197, 255);
-            colors.disabledColor =
-                new Color32(130, 130, 130, 210);
-            colors.colorMultiplier = 1f;
-            colors.fadeDuration = 0.08f;
-            button.colors = colors;
+            RuleforgePixelCardUi.ApplyFrame(button, tier, equipped);
             Navigation navigation = button.navigation;
             navigation.mode = Navigation.Mode.None;
             button.navigation = navigation;
@@ -495,56 +515,93 @@ namespace RuleforgeTD.UI
                 shadow = gameObject.AddComponent<Shadow>();
             }
 
-            shadow.effectColor = new Color(0f, 0f, 0f, 0.72f);
-            shadow.effectDistance = new Vector2(3f, -3f);
+            shadow.effectColor = new Color(0f, 0f, 0f, 0.52f);
+            shadow.effectDistance = new Vector2(2f, -2f);
             shadow.useGraphicAlpha = true;
 
             bodyImage = CreateImage("Card Body", transform);
-            Stretch(bodyImage.rectTransform, 5f);
+            Stretch(bodyImage.rectTransform, 0f);
+            RuleforgePixelCardUi.ApplyPanel(
+                bodyImage,
+                RuleforgePixelCardPanel.Body,
+                ProjectileBodyColor);
+            bodyImage.enabled = false;
+
+            equippedHighlightImage =
+                CreateImage("Equipped Highlight", bodyImage.transform);
+            Stretch(equippedHighlightImage.rectTransform, 4f);
+            equippedHighlightImage.color =
+                new Color32(76, 224, 222, 34);
+            equippedHighlightImage.gameObject.SetActive(false);
+
+            tierAccentImage =
+                CreateImage("Tier Accent", bodyImage.transform);
+            SetAnchors(
+                tierAccentImage.rectTransform,
+                new Vector2(0.025f, 0.1f),
+                new Vector2(0.055f, 0.9f),
+                Vector2.zero,
+                Vector2.zero);
+            tierAccentImage.color = GetTierColor(tier);
+            tierAccentImage.enabled = false;
 
             nameBackplateImage =
                 CreateImage("Name Backplate", bodyImage.transform);
             SetAnchors(
                 nameBackplateImage.rectTransform,
-                new Vector2(0.05f, 0.79f),
-                new Vector2(0.95f, 0.96f),
+                new Vector2(0.09f, 0.815f),
+                new Vector2(0.91f, 0.915f),
                 Vector2.zero,
                 Vector2.zero);
             nameBackplateImage.color = NameBackplateColor;
+            RuleforgePixelCardUi.ApplyPanel(
+                nameBackplateImage,
+                RuleforgePixelCardPanel.Name,
+                Color.white);
+            nameBackplateImage.enabled = false;
 
             nameText = CreateText(
                 "Card Name",
                 nameBackplateImage.transform,
-                17,
+                14,
                 FontStyle.Bold,
-                PrimaryTextColor,
+                DescriptionTextColor,
                 TextAnchor.MiddleCenter);
             nameText.resizeTextForBestFit = true;
             nameText.resizeTextMinSize = 11;
-            nameText.resizeTextMaxSize = 17;
-            Stretch(nameText.rectTransform, 30f, 4f, 58f, 4f);
+            nameText.resizeTextMaxSize = 14;
+            Stretch(nameText.rectTransform, 8f, 2f, 8f, 2f);
 
-            artworkImage =
-                CreateImage("Card Artwork", bodyImage.transform);
+            artworkFrameImage =
+                CreateImage("Artwork Frame", bodyImage.transform);
             SetAnchors(
-                artworkImage.rectTransform,
-                new Vector2(0.1f, 0.37f),
-                new Vector2(0.9f, 0.76f),
+                artworkFrameImage.rectTransform,
+                new Vector2(0.115f, 0.47f),
+                new Vector2(0.885f, 0.735f),
                 Vector2.zero,
                 Vector2.zero);
+            RuleforgePixelCardUi.ApplyPanel(
+                artworkFrameImage,
+                RuleforgePixelCardPanel.Artwork,
+                Color.white);
+            artworkFrameImage.enabled = false;
+
+            artworkImage =
+                CreateImage("Card Artwork", artworkFrameImage.transform);
+            Stretch(artworkImage.rectTransform, 0f);
             artworkImage.color = ArtworkPlaceholderColor;
 
             artworkSymbolText = CreateText(
                 "Artwork Placeholder Symbol",
                 artworkImage.transform,
-                38,
+                26,
                 FontStyle.Bold,
-                PrimaryTextColor,
+                DescriptionTextColor,
                 TextAnchor.MiddleCenter);
             artworkSymbolText.resizeTextForBestFit = true;
-            artworkSymbolText.resizeTextMinSize = 20;
-            artworkSymbolText.resizeTextMaxSize = 42;
-            Stretch(artworkSymbolText.rectTransform, 8f);
+            artworkSymbolText.resizeTextMinSize = 16;
+            artworkSymbolText.resizeTextMaxSize = 30;
+            Stretch(artworkSymbolText.rectTransform, 4f);
 
             descriptionBackplateImage =
                 CreateImage(
@@ -552,39 +609,50 @@ namespace RuleforgeTD.UI
                     bodyImage.transform);
             SetAnchors(
                 descriptionBackplateImage.rectTransform,
-                new Vector2(0.06f, 0.05f),
-                new Vector2(0.94f, 0.34f),
+                new Vector2(0.105f, 0.095f),
+                new Vector2(0.895f, 0.42f),
                 Vector2.zero,
                 Vector2.zero);
             descriptionBackplateImage.color =
                 DescriptionBackplateColor;
+            RuleforgePixelCardUi.ApplyPanel(
+                descriptionBackplateImage,
+                RuleforgePixelCardPanel.Description,
+                Color.white);
+            descriptionBackplateImage.enabled = false;
 
             descriptionText = CreateText(
                 "Card Description",
                 descriptionBackplateImage.transform,
-                13,
+                11,
                 FontStyle.Normal,
                 DescriptionTextColor,
-                TextAnchor.MiddleCenter);
+                TextAnchor.UpperLeft);
             descriptionText.horizontalOverflow =
                 HorizontalWrapMode.Wrap;
             descriptionText.verticalOverflow =
                 VerticalWrapMode.Truncate;
             descriptionText.resizeTextForBestFit = true;
-            descriptionText.resizeTextMinSize = 9;
-            descriptionText.resizeTextMaxSize = 13;
-            Stretch(descriptionText.rectTransform, 7f, 5f, 7f, 5f);
+            descriptionText.resizeTextMinSize = 7;
+            descriptionText.resizeTextMaxSize = 11;
+            descriptionText.lineSpacing = 0.85f;
+            Stretch(descriptionText.rectTransform, 12f, 12f, 12f, 10f);
 
             tierBadgeImage =
                 CreateImage("Tier Badge", bodyImage.transform);
-            AnchorAtTopLeft(
+            AnchorAtTopCenter(
                 tierBadgeImage.rectTransform,
-                new Vector2(5f, -5f),
-                new Vector2(35f, 24f));
+                new Vector2(0f, -1f),
+                new Vector2(24f, 11f));
+            RuleforgePixelCardUi.ApplyPanel(
+                tierBadgeImage,
+                RuleforgePixelCardPanel.Badge,
+                GetTierColor(tier));
+            tierBadgeImage.enabled = false;
             tierBadgeText = CreateText(
                 "Tier Badge Text",
                 tierBadgeImage.transform,
-                12,
+                8,
                 FontStyle.Bold,
                 PrimaryTextColor,
                 TextAnchor.MiddleCenter);
@@ -594,20 +662,26 @@ namespace RuleforgeTD.UI
                 CreateImage("Equipped Badge", bodyImage.transform);
             AnchorAtTopRight(
                 equippedBadgeImage.rectTransform,
-                new Vector2(-5f, -5f),
-                new Vector2(54f, 24f));
-            equippedBadgeImage.color = EquippedBadgeColor;
+                new Vector2(-5f, -3f),
+                new Vector2(30f, 30f));
+            equippedBadgeImage.sprite =
+                Resources.Load<Sprite>(EquippedIconResourcePath);
+            equippedBadgeImage.type = Image.Type.Simple;
+            equippedBadgeImage.preserveAspect = true;
+            equippedBadgeImage.color = equippedBadgeImage.sprite == null
+                ? EquippedBadgeColor
+                : Color.white;
             equippedBadgeText = CreateText(
                 "Equipped Badge Text",
                 equippedBadgeImage.transform,
-                12,
+                8,
                 FontStyle.Bold,
                 EquippedBadgeTextColor,
                 TextAnchor.MiddleCenter);
             equippedBadgeText.resizeTextForBestFit = true;
-            equippedBadgeText.resizeTextMinSize = 8;
-            equippedBadgeText.resizeTextMaxSize = 12;
-            Stretch(equippedBadgeText.rectTransform, 2f);
+            equippedBadgeText.resizeTextMinSize = 7;
+            equippedBadgeText.resizeTextMaxSize = 8;
+            Stretch(equippedBadgeText.rectTransform, 1f);
 
             built = true;
             SetTier(tier);
@@ -621,10 +695,13 @@ namespace RuleforgeTD.UI
             return borderImage != null &&
                 bodyImage != null &&
                 nameBackplateImage != null &&
+                artworkFrameImage != null &&
                 artworkImage != null &&
                 descriptionBackplateImage != null &&
                 tierBadgeImage != null &&
                 equippedBadgeImage != null &&
+                equippedHighlightImage != null &&
+                tierAccentImage != null &&
                 nameText != null &&
                 artworkSymbolText != null &&
                 descriptionText != null &&
@@ -709,17 +786,13 @@ namespace RuleforgeTD.UI
                 typeof(Outline));
             host.transform.SetParent(parent, false);
             Text text = host.GetComponent<Text>();
-            text.font = font;
-            text.fontSize = fontSize;
-            text.fontStyle = style;
-            text.color = color;
-            text.alignment = alignment;
-            text.raycastTarget = false;
-            text.supportRichText = false;
-            Outline outline = host.GetComponent<Outline>();
-            outline.effectColor = new Color(0f, 0f, 0f, 0.7f);
-            outline.effectDistance = new Vector2(1f, -1f);
-            outline.useGraphicAlpha = true;
+            RuleforgeUiTypography.Configure(
+                text,
+                font,
+                fontSize,
+                color,
+                alignment,
+                RuleforgeUiTypography.IsLight(color));
             return text;
         }
 
@@ -766,6 +839,18 @@ namespace RuleforgeTD.UI
             rect.anchorMin = new Vector2(0f, 1f);
             rect.anchorMax = new Vector2(0f, 1f);
             rect.pivot = new Vector2(0f, 1f);
+            rect.anchoredPosition = anchoredPosition;
+            rect.sizeDelta = size;
+        }
+
+        private static void AnchorAtTopCenter(
+            RectTransform rect,
+            Vector2 anchoredPosition,
+            Vector2 size)
+        {
+            rect.anchorMin = new Vector2(0.5f, 1f);
+            rect.anchorMax = new Vector2(0.5f, 1f);
+            rect.pivot = new Vector2(0.5f, 1f);
             rect.anchoredPosition = anchoredPosition;
             rect.sizeDelta = size;
         }

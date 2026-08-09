@@ -1,3 +1,4 @@
+using RuleforgeTD.Rendering;
 using UnityEngine;
 
 namespace RuleforgeTD.Maps
@@ -6,6 +7,7 @@ namespace RuleforgeTD.Maps
     /// Scene-authored decoration made from an independently sorted body and
     /// optional ground contact sprite.
     /// </summary>
+    [ExecuteAlways]
     public sealed class FieldDecorationView : MonoBehaviour
     {
         [SerializeField]
@@ -54,6 +56,27 @@ namespace RuleforgeTD.Maps
             isRoadsideMarker = roadsideMarker;
             body = bodyRenderer;
             groundBase = groundBaseRenderer;
+            RefreshSortingLayer();
+        }
+
+        private void OnEnable()
+        {
+            RefreshSortingLayer();
+        }
+
+        private void OnValidate()
+        {
+            RefreshSortingLayer();
+        }
+
+        private void RefreshSortingLayer()
+        {
+            WorldSortingLayers.Apply(
+                body,
+                WorldSortingLayers.Object);
+            WorldSortingLayers.Apply(
+                groundBase,
+                WorldSortingLayers.Object);
         }
     }
 }

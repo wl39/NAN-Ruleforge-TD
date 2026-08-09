@@ -2,6 +2,7 @@ using System.Collections;
 using System.Linq;
 using NUnit.Framework;
 using RuleforgeTD.Maps;
+using RuleforgeTD.Rendering;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
@@ -128,6 +129,9 @@ namespace RuleforgeTD.Tests.PlayMode
                 Assert.That(
                     renderer.sprite.texture.name,
                     Is.EqualTo("PlaceForTower1"));
+                Assert.That(
+                    renderer.sortingLayerName,
+                    Is.EqualTo(WorldSortingLayers.Route));
             }
         }
 
@@ -143,8 +147,14 @@ namespace RuleforgeTD.Tests.PlayMode
                 terrainRenderer.sortingOrder,
                 Is.EqualTo(-3000));
             Assert.That(
+                terrainRenderer.sortingLayerName,
+                Is.EqualTo(WorldSortingLayers.Route));
+            Assert.That(
                 decalsRenderer.sortingOrder,
                 Is.EqualTo(-2500));
+            Assert.That(
+                decalsRenderer.sortingLayerName,
+                Is.EqualTo(WorldSortingLayers.Route));
 
             AssertGroundDecalClearance(
                 stage,
@@ -218,6 +228,9 @@ namespace RuleforgeTD.Tests.PlayMode
             Assert.That(
                 decoration.Body.spriteSortPoint,
                 Is.EqualTo(SpriteSortPoint.Pivot));
+            Assert.That(
+                decoration.Body.sortingLayerName,
+                Is.EqualTo(WorldSortingLayers.Object));
 
             Vector3 position = decoration.transform.position;
             const float pixelSize = 1f / 32f;
@@ -305,6 +318,9 @@ namespace RuleforgeTD.Tests.PlayMode
             Assert.That(
                 groundBase.sortingOrder,
                 Is.EqualTo(decoration.Body.sortingOrder - 1));
+            Assert.That(
+                groundBase.sortingLayerName,
+                Is.EqualTo(WorldSortingLayers.Object));
 
             Vector3 foot = decoration.transform.position;
             Vector3 closest = groundBase.bounds.ClosestPoint(foot);

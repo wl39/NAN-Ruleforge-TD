@@ -4,6 +4,7 @@ using RuleforgeTD.Battle;
 using RuleforgeTD.GameLogic.Core;
 using RuleforgeTD.GameLogic.Simulation;
 using RuleforgeTD.Maps;
+using RuleforgeTD.Rendering;
 using RuleforgeTD.Towers.Archer;
 using RuleforgeTD.UI;
 using UnityEngine;
@@ -32,6 +33,14 @@ namespace RuleforgeTD.Tests.PlayMode
                 Is.EqualTo(
                     RunPhase.AwaitingStartingTower));
             Assert.That(controller.Hud, Is.Not.Null);
+            Assert.That(controller.WavePreviewView, Is.Not.Null);
+            Assert.That(controller.WavePreviewView.IsVisible, Is.True);
+            Assert.That(
+                controller.WavePreviewView.TotalEnemyText.text,
+                Does.Contain("35"));
+            Assert.That(
+                controller.WavePreviewView.GroupButtonCount,
+                Is.EqualTo(1));
             Assert.That(
                 controller.PresentationCatalog.UiFont,
                 Is.Not.Null);
@@ -54,6 +63,37 @@ namespace RuleforgeTD.Tests.PlayMode
                     TowerBuildSiteView.AuthoredVisualScale)
                     .Within(0.00001f),
                 "Tower and build-site opaque footprints must occupy the same world width.");
+            Assert.That(
+                controller.PresentationCatalog.TryGetTower(
+                    "ballista",
+                    7,
+                    out GameObject highestAuthoredTower,
+                    out _),
+                Is.True);
+            Assert.That(
+                controller.PresentationCatalog.TryGetTower(
+                    "ballista",
+                    99,
+                    out GameObject fallbackTower,
+                    out _),
+                Is.True);
+            Assert.That(
+                fallbackTower,
+                Is.SameAs(highestAuthoredTower),
+                "Presentation assets must fall back without capping " +
+                "the data-authored gameplay level.");
+            Assert.That(
+                controller.PresentationCatalog
+                    .TowerAppearanceBindingCount,
+                Is.EqualTo(2));
+            Assert.That(
+                controller.PresentationCatalog
+                    .GetTowerPrototypeTint(
+                        "mutation_obelisk").b,
+                Is.GreaterThan(
+                    controller.PresentationCatalog
+                        .GetTowerPrototypeTint(
+                            "mutation_obelisk").g));
             Assert.That(
                 controller.PresentationCatalog.TryGetEnemy(
                     "raider",
@@ -135,19 +175,32 @@ namespace RuleforgeTD.Tests.PlayMode
             Assert.That(
                 controller.PendingBuildPointIndex,
                 Is.EqualTo(firstSite.BuildPointIndex));
-            Assert.That(buildPicker.OptionCount, Is.EqualTo(2));
+            Assert.That(buildPicker.OptionCount, Is.EqualTo(1));
             Assert.That(
                 buildPicker.GetOptionId(0),
                 Is.EqualTo("ballista"));
             Assert.That(
-                buildPicker.GetOptionId(1),
-                Is.EqualTo("mutation_obelisk"));
-            Assert.That(
                 buildPicker.GetOptionCost(0),
                 Is.Zero);
-            Assert.That(
-                buildPicker.GetOptionCost(1),
-                Is.Zero);
+            Button firstBuildOption =
+                buildPicker.GetOptionButton(0);
+            Text optionName = firstBuildOption.transform
+                .Find("Name").GetComponent<Text>();
+            Text optionPrice = firstBuildOption.transform
+                .Find("Price").GetComponent<Text>();
+            Text optionDescription = firstBuildOption.transform
+                .Find("Description").GetComponent<Text>();
+            Assert.That(optionName.fontSize, Is.EqualTo(17));
+            Assert.That(optionName.rectTransform.offsetMin.x,
+                Is.EqualTo(20f).Within(0.001f));
+            Assert.That(optionName.rectTransform.offsetMax.y,
+                Is.EqualTo(-12f).Within(0.001f));
+            Assert.That(optionPrice.fontSize, Is.EqualTo(14));
+            Assert.That(optionDescription.fontSize, Is.EqualTo(11));
+            Assert.That(optionDescription.rectTransform.offsetMin,
+                Is.EqualTo(new Vector2(20f, 12f)));
+            Assert.That(optionDescription.rectTransform.offsetMax,
+                Is.EqualTo(new Vector2(-20f, -40f)));
             Assert.That(
                 buildPicker.PanelRoot.parent.GetComponent<
                     StageOneSafeAreaFitter>(),
@@ -162,6 +215,21 @@ namespace RuleforgeTD.Tests.PlayMode
                 controller.CurrentPhase,
                 Is.EqualTo(RunPhase.Planning));
             Assert.That(controller.TowerViewCount, Is.EqualTo(1));
+            TowerSelectionView placedTower =
+                controller.SelectedTowerSelectionView;
+            Assert.That(placedTower, Is.Not.Null);
+            SpriteRenderer[] placedTowerRenderers = placedTower
+                .GetComponentsInChildren<SpriteRenderer>(true);
+            Assert.That(placedTowerRenderers, Is.Not.Empty);
+            for (int rendererIndex = 0;
+                 rendererIndex < placedTowerRenderers.Length;
+                 rendererIndex++)
+            {
+                Assert.That(
+                    placedTowerRenderers[rendererIndex]
+                        .sortingLayerName,
+                    Is.EqualTo(WorldSortingLayers.Tower));
+            }
             Assert.That(
                 firstSite.State,
                 Is.EqualTo(
@@ -204,10 +272,10 @@ namespace RuleforgeTD.Tests.PlayMode
                 Is.Not.Null);
             Assert.That(
                 controller.LoadoutView.BlueprintGraphic
-                    .BackgroundColor.b,
+                    .BackgroundColor.r,
                 Is.GreaterThan(
                     controller.LoadoutView.BlueprintGraphic
-                        .BackgroundColor.r));
+                        .BackgroundColor.b));
             Assert.That(
                 controller.LoadoutView.GetComponentsInChildren<
                     StageOneBlueprintGridGraphic>(true).Length,
@@ -215,7 +283,8 @@ namespace RuleforgeTD.Tests.PlayMode
             Assert.That(
                 controller.LoadoutView.TowerPreviewContent.parent
                     .GetComponent<Image>(),
-                Is.Null);
+                Is.SameAs(
+                    controller.LoadoutView.TowerPreviewBackplate));
             Assert.That(
                 controller.LoadoutView.GetSlotButton(0)
                     .interactable,
@@ -523,6 +592,113 @@ namespace RuleforgeTD.Tests.PlayMode
                 Is.EqualTo(
                     StageOneCardView.ProjectileBodyColor));
 
+            // All slots are full, so an inventory-card double click replaces
+            // the bottom-most unlocked slot.
+            controller.LoadoutView.GetCardButton(2)
+                .onClick.Invoke();
+            controller.LoadoutView.GetCardButton(2)
+                .onClick.Invoke();
+            tower = controller.CurrentSnapshot.Towers[0];
+            Assert.That(
+                controller.LoadoutView.GetSlotDescriptionText(0)
+                    .text,
+                Does.Contain("분열"));
+            Assert.That(
+                controller.LoadoutView.GetSlotDescriptionText(1)
+                    .text,
+                Does.Contain("화상"));
+            Assert.That(
+                controller.LoadoutView.GetSlotDescriptionText(2)
+                    .text,
+                Does.Contain("폭발"),
+                "A full loadout must replace the last card.");
+
+            // With slot 2 empty and slot 3 selected, double-clicking poison
+            // must still fill the first empty slot instead of the selection.
+            Assert.That(
+                controller.LoadoutView.RequestSlotDoubleClick(1),
+                Is.True);
+            controller.LoadoutView.GetSlotButton(2)
+                .onClick.Invoke();
+            controller.LoadoutView.GetCardButton(3)
+                .onClick.Invoke();
+            controller.LoadoutView.GetCardButton(3)
+                .onClick.Invoke();
+            tower = controller.CurrentSnapshot.Towers[0];
+            Assert.That(tower.CardInstanceIds[0], Is.GreaterThanOrEqualTo(0));
+            Assert.That(tower.CardInstanceIds[1], Is.GreaterThanOrEqualTo(0));
+            Assert.That(tower.CardInstanceIds[2], Is.GreaterThanOrEqualTo(0));
+            Assert.That(
+                controller.LoadoutView.GetSlotDescriptionText(1)
+                    .text,
+                Does.Contain("중독"),
+                "The first gap must win over the currently selected slot.");
+
+            // With slots 1 and 2 empty, the same gesture starts at slot 1.
+            Assert.That(
+                controller.LoadoutView.RequestSlotDoubleClick(0),
+                Is.True);
+            Assert.That(
+                controller.LoadoutView.RequestSlotDoubleClick(1),
+                Is.True);
+            controller.LoadoutView.GetSlotButton(2)
+                .onClick.Invoke();
+            controller.LoadoutView.GetCardButton(1)
+                .onClick.Invoke();
+            controller.LoadoutView.GetCardButton(1)
+                .onClick.Invoke();
+            tower = controller.CurrentSnapshot.Towers[0];
+            Assert.That(tower.CardInstanceIds[0], Is.GreaterThanOrEqualTo(0));
+            Assert.That(tower.CardInstanceIds[1], Is.EqualTo(-1));
+            Assert.That(
+                controller.LoadoutView.GetSlotDescriptionText(0)
+                    .text,
+                Does.Contain("화상"),
+                "Automatic equip must scan slots from 1 to 3.");
+
+            // Dropping a different card on an occupied row replaces it.
+            Assert.That(
+                controller.LoadoutView.RequestCardDrop(3, 0),
+                Is.True);
+            Assert.That(
+                controller.LoadoutView.GetSlotDescriptionText(0)
+                    .text,
+                Does.Contain("중독"));
+
+            // Restore the original build for the later combat assertions.
+            Assert.That(
+                controller.LoadoutView.RequestCardDrop(0, 0),
+                Is.True);
+            Assert.That(
+                controller.LoadoutView.RequestCardDrop(1, 1),
+                Is.True);
+            Assert.That(
+                controller.LoadoutView.RequestCardDrop(3, 2),
+                Is.True);
+            Assert.That(
+                controller.LoadoutView.GetSlotDescriptionText(0)
+                    .text,
+                Does.Contain("분열"));
+            Assert.That(
+                controller.LoadoutView.GetSlotDescriptionText(1)
+                    .text,
+                Does.Contain("화상"));
+            Assert.That(
+                controller.LoadoutView.GetSlotDescriptionText(2)
+                    .text,
+                Does.Contain("중독"));
+
+            controller.LoadoutView.GetCardButton(0)
+                .onClick.Invoke();
+            controller.LoadoutView.GetCardButton(0)
+                .onClick.Invoke();
+            Assert.That(
+                controller.LoadoutView.GetSlotDescriptionText(0)
+                    .text,
+                Does.Contain("분열"),
+                "Double-clicking an already-equipped inventory card " +
+                "must restore its original slot after the first click.");
+
             Assert.That(
                 controller.CameraController,
                 Is.Not.Null);
@@ -580,6 +756,13 @@ namespace RuleforgeTD.Tests.PlayMode
                 controller.CurrentPhase,
                 Is.EqualTo(RunPhase.Combat));
             Assert.That(controller.IsPaused, Is.False);
+            Assert.That(
+                controller.WavePreviewView.IsVisible,
+                Is.True,
+                "Combat keeps the following wave summary visible.");
+            Assert.That(
+                controller.WavePreviewView.TotalEnemyText.text,
+                Does.Contain("55"));
             controller.SetSpeed(2f);
             Assert.That(Time.timeScale, Is.EqualTo(2f));
 
@@ -724,7 +907,29 @@ namespace RuleforgeTD.Tests.PlayMode
             Assert.That(controller.IsPaused, Is.False);
             Assert.That(Time.timeScale, Is.EqualTo(3f));
 
-            yield return new WaitForSecondsRealtime(0.12f);
+            float impactVfxTimeout =
+                Time.realtimeSinceStartup + 3f;
+            while (string.IsNullOrEmpty(
+                       controller.CardEffectVfx
+                           .LastPlayedEffectId) &&
+                   Time.realtimeSinceStartup < impactVfxTimeout)
+            {
+                yield return null;
+            }
+            Assert.That(
+                controller.CardEffectVfx.SemanticEventPlayCount,
+                Is.Zero,
+                "Card VFX must not play at the tower when a card executes; " +
+                "projectile cards play on hit and enemy cards on death.");
+            Assert.That(
+                controller.CardEffectVfx.LastPlayedEffectId,
+                Is.Not.Empty,
+                "An impact or death must play the accumulated card VFX.");
+            Assert.That(
+                StageOneCardEffectPalette.TryGetStyle(
+                    controller.CardEffectVfx.LastPlayedEffectId,
+                    out _),
+                Is.True);
             Assert.That(
                 controller.CurrentSnapshot.Tick,
                 Is.GreaterThan(tickBeforePause));
@@ -821,7 +1026,7 @@ namespace RuleforgeTD.Tests.PlayMode
 
         [UnityTest]
         public IEnumerator
-            BuildPicker_UsesChosenStartingTowerThenUnlockedTowers()
+            BuildPicker_OnlyOffersArcherTowerAcrossRun()
         {
             SceneManager.LoadScene(
                 "Stage01",
@@ -839,19 +1044,14 @@ namespace RuleforgeTD.Tests.PlayMode
 
             StageOneTowerBuildPickerView picker =
                 controller.TowerBuildPickerView;
-            int mutationOption = -1;
-            for (int i = 0; i < picker.OptionCount; i++)
-            {
-                if (picker.GetOptionId(i) ==
-                    "mutation_obelisk")
-                {
-                    mutationOption = i;
-                    break;
-                }
-            }
-
-            Assert.That(mutationOption, Is.GreaterThanOrEqualTo(0));
-            picker.GetOptionButton(mutationOption)
+            Assert.That(picker.OptionCount, Is.EqualTo(1));
+            Assert.That(
+                picker.GetOptionId(0),
+                Is.EqualTo("ballista"));
+            Assert.That(
+                picker.GetOptionCost(0),
+                Is.Zero);
+            picker.GetOptionButton(0)
                 .onClick.Invoke();
             yield return null;
 
@@ -861,7 +1061,7 @@ namespace RuleforgeTD.Tests.PlayMode
             Assert.That(
                 controller.CurrentSnapshot.Towers[0]
                     .DefinitionId,
-                Is.EqualTo("mutation_obelisk"));
+                Is.EqualTo("ballista"));
             Assert.That(
                 controller.IsTowerBlueprintOpen,
                 Is.False);
@@ -869,58 +1069,27 @@ namespace RuleforgeTD.Tests.PlayMode
                 controller.TowerActionView.IsVisible,
                 Is.True);
 
-            ArcherTowerView fallbackView =
+            ArcherTowerView archerView =
                 Object.FindObjectOfType<ArcherTowerView>();
             Assert.That(
-                fallbackView,
-                Is.Not.Null,
-                "Until a dedicated prefab exists, a tinted prototype " +
-                "must remain visible.");
-            Assert.That(
-                fallbackView.TowerRenderer.color.b,
-                Is.GreaterThan(
-                    fallbackView.TowerRenderer.color.g));
+                archerView,
+                Is.Not.Null);
 
             TowerBuildSiteView secondSite =
                 controller.StageMap.GetBuildSite(1);
             Assert.That(secondSite.RequestBuild(), Is.True);
             yield return null;
 
-            CollectionAssert.AreEquivalent(
-                new[]
-                {
-                    "mutation_obelisk",
-                    "death_engine"
-                },
-                new[]
-                {
-                    picker.GetOptionId(0),
-                    picker.GetOptionId(1)
-                });
-            for (int option = 0;
-                 option < picker.OptionCount;
-                 option++)
-            {
-                if (picker.GetOptionId(option) ==
-                    "mutation_obelisk")
-                {
-                    Assert.That(
-                        picker.GetOptionCost(option),
-                        Is.EqualTo(120));
-                }
-                else if (picker.GetOptionId(option) ==
-                    "death_engine")
-                {
-                    Assert.That(
-                        picker.GetOptionCost(option),
-                        Is.EqualTo(70));
-                }
-
-                Assert.That(
-                    picker.GetOptionButton(option)
-                        .interactable,
-                    Is.False);
-            }
+            Assert.That(picker.OptionCount, Is.EqualTo(1));
+            Assert.That(
+                picker.GetOptionId(0),
+                Is.EqualTo("ballista"));
+            Assert.That(
+                picker.GetOptionCost(0),
+                Is.EqualTo(100));
+            Assert.That(
+                picker.GetOptionButton(0).interactable,
+                Is.False);
             Assert.That(
                 controller.CurrentSnapshot.Towers.Length,
                 Is.EqualTo(1),

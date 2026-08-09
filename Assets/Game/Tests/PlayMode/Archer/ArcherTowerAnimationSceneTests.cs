@@ -174,7 +174,7 @@ namespace RuleforgeTD.Tests.PlayMode
                     Is.EqualTo(4500));
                 AssertStatusDefinition(
                     cardProgram.BurnDefinition,
-                    500,
+                    450,
                     90,
                     15,
                     10,
@@ -480,11 +480,11 @@ namespace RuleforgeTD.Tests.PlayMode
 
             targetStatus.enabled = false;
             int healthBeforeStatusTicks = target.CurrentHealth;
-            targetStatus.SimulateTicksForTesting(30);
+            targetStatus.SimulateTicksForTesting(45);
             Assert.That(
                 target.CurrentHealth,
                 Is.LessThan(healthBeforeStatusTicks),
-                "Two authored burn intervals must convert milli damage into health loss.");
+                "Three authored burn intervals must convert milli damage into health loss.");
         }
 
         [UnityTest]
@@ -538,12 +538,17 @@ namespace RuleforgeTD.Tests.PlayMode
 
             status.SimulateTicksForTesting(1);
             Assert.That(status.BurnTickCount, Is.EqualTo(1));
-            Assert.That(status.BurnPendingDamageMilli, Is.EqualTo(500));
+            Assert.That(status.BurnPendingDamageMilli, Is.EqualTo(450));
             Assert.That(enemy.CurrentHealth, Is.EqualTo(maximumHealth));
 
             status.SimulateTicksForTesting(15);
             Assert.That(status.BurnTickCount, Is.EqualTo(2));
-            Assert.That(status.BurnPendingDamageMilli, Is.Zero);
+            Assert.That(status.BurnPendingDamageMilli, Is.EqualTo(900));
+            Assert.That(enemy.CurrentHealth, Is.EqualTo(maximumHealth));
+
+            status.SimulateTicksForTesting(15);
+            Assert.That(status.BurnTickCount, Is.EqualTo(3));
+            Assert.That(status.BurnPendingDamageMilli, Is.EqualTo(350));
             Assert.That(enemy.CurrentHealth, Is.EqualTo(maximumHealth - 1));
 
             status.ClearAll();
@@ -676,7 +681,7 @@ namespace RuleforgeTD.Tests.PlayMode
             Assert.That(targetStatus.BurnTickCount, Is.EqualTo(1));
             Assert.That(
                 targetStatus.BurnPendingDamageMilli,
-                Is.EqualTo(500));
+                Is.EqualTo(450));
             Assert.That(
                 targetStatus.PoisonTicksUntilDamage,
                 Is.EqualTo(15));
@@ -750,7 +755,7 @@ namespace RuleforgeTD.Tests.PlayMode
                         "The child must inherit the source tick history.");
                     Assert.That(
                         childStatus.BurnPendingDamageMilli,
-                        Is.EqualTo(500),
+                        Is.EqualTo(450),
                         "The child must inherit fractional status damage.");
                     Assert.That(
                         childStatus.PoisonTicksUntilDamage,
@@ -758,7 +763,7 @@ namespace RuleforgeTD.Tests.PlayMode
                         "The child must inherit the next poison tick.");
                     Assert.That(
                         childStatus.BurnIntensityMilli,
-                        Is.EqualTo(500));
+                        Is.EqualTo(450));
                     Assert.That(
                         childStatus.BurnMaxStacks,
                         Is.EqualTo(10));

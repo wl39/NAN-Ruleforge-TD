@@ -38,6 +38,21 @@ TagManager:
   - 
   - 
   m_SortingLayers:
+  - name: Route
+    uniqueID: 119805069
+    locked: 0
+  - name: Tower
+    uniqueID: 167298932
+    locked: 0
+  - name: Enemy
+    uniqueID: 251274190
+    locked: 0
+  - name: Object
+    uniqueID: 372982815
+    locked: 0
+  - name: Effects
+    uniqueID: 428165903
+    locked: 0
   - name: Default
     uniqueID: 0
     locked: 0

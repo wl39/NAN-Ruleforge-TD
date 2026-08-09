@@ -48,20 +48,23 @@ namespace RuleforgeTD.UI
         private const float PanelGap = 18f;
         private const float EdgeMargin = 12f;
 
-        private static readonly Color PanelColor =
-            new Color32(17, 35, 50, 248);
+        private static readonly Color PanelColor = Color.white;
         private static readonly Color ProjectileColor =
             new Color32(184, 96, 32, 255);
         private static readonly Color EnemyColor =
-            new Color32(42, 103, 125, 255);
+            new Color32(151, 61, 48, 255);
         private static readonly Color TextColor =
             new Color32(255, 245, 215, 255);
         private static readonly Color MutedTextColor =
             new Color32(204, 218, 220, 255);
-        private static readonly Color PriceTextColor =
-            new Color32(255, 224, 116, 255);
-        private static readonly Color UnaffordableTextColor =
-            new Color32(255, 145, 135, 255);
+        private static readonly Color OptionInkColor =
+            new Color32(52, 34, 20, 255);
+        private static readonly Color OptionMutedInkColor =
+            new Color32(94, 66, 43, 255);
+        private static readonly Color OptionPriceTextColor =
+            new Color32(71, 98, 38, 255);
+        private static readonly Color OptionUnaffordableTextColor =
+            new Color32(151, 53, 43, 255);
 
         private readonly List<Button> optionButtons =
             new List<Button>(4);
@@ -207,6 +210,10 @@ namespace RuleforgeTD.UI
                 optionCount * OptionHeight +
                 Mathf.Max(0, optionCount - 1) * OptionGap +
                 BottomPadding);
+            RuleforgePixelUi.ApplyExactPanel(
+                panelRoot.GetComponent<Image>(),
+                ResolvePickerPanelAsset(optionCount),
+                Color.white);
             panelRoot.gameObject.SetActive(visible);
             if (visible)
             {
@@ -334,6 +341,7 @@ namespace RuleforgeTD.UI
             canvasObject.transform.SetParent(transform, false);
             canvas = canvasObject.GetComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.pixelPerfect = true;
             canvas.sortingOrder = 115;
 
             CanvasScaler scaler =
@@ -380,7 +388,7 @@ namespace RuleforgeTD.UI
             titleLabel = CreateText(
                 "Title",
                 panelRoot,
-                22,
+                20,
                 FontStyle.Bold,
                 TextColor,
                 TextAnchor.MiddleLeft);
@@ -388,13 +396,13 @@ namespace RuleforgeTD.UI
             titleRect.anchorMin = new Vector2(0f, 1f);
             titleRect.anchorMax = new Vector2(1f, 1f);
             titleRect.pivot = new Vector2(0.5f, 1f);
-            titleRect.offsetMin = new Vector2(18f, -44f);
-            titleRect.offsetMax = new Vector2(-62f, -8f);
+            titleRect.offsetMin = new Vector2(24f, -44f);
+            titleRect.offsetMax = new Vector2(-68f, -12f);
 
             costLabel = CreateText(
                 "Cost",
                 panelRoot,
-                15,
+                14,
                 FontStyle.Normal,
                 MutedTextColor,
                 TextAnchor.MiddleLeft);
@@ -402,13 +410,13 @@ namespace RuleforgeTD.UI
             costRect.anchorMin = new Vector2(0f, 1f);
             costRect.anchorMax = new Vector2(1f, 1f);
             costRect.pivot = new Vector2(0.5f, 1f);
-            costRect.offsetMin = new Vector2(18f, -68f);
-            costRect.offsetMax = new Vector2(-18f, -43f);
+            costRect.offsetMin = new Vector2(24f, -66f);
+            costRect.offsetMax = new Vector2(-24f, -44f);
 
             closeButton = CreateButton(
                 "Close",
                 panelRoot,
-                new Color32(89, 99, 105, 255));
+                new Color32(74, 51, 36, 255));
             RectTransform closeRect =
                 closeButton.GetComponent<RectTransform>();
             closeRect.anchorMin = new Vector2(1f, 1f);
@@ -450,6 +458,13 @@ namespace RuleforgeTD.UI
                 "Build " + option.DefinitionId,
                 panelRoot,
                 optionColor);
+            RuleforgePixelUi.ApplyExact(
+                button,
+                RuleforgeExactButtonAsset.TowerOption356x88,
+                RuleforgePixelButtonRole.Secondary,
+                option.CanAfford
+                    ? Color.white
+                    : new Color(0.67f, 0.65f, 0.61f, 1f));
             RectTransform buttonRect =
                 button.GetComponent<RectTransform>();
             buttonRect.anchorMin = new Vector2(0f, 1f);
@@ -465,26 +480,29 @@ namespace RuleforgeTD.UI
             Text nameLabel = CreateText(
                 "Name",
                 buttonRect,
-                19,
+                17,
                 FontStyle.Bold,
-                TextColor,
+                OptionInkColor,
                 TextAnchor.MiddleLeft);
             RectTransform nameRect = nameLabel.rectTransform;
             nameRect.anchorMin = new Vector2(0f, 1f);
             nameRect.anchorMax = new Vector2(1f, 1f);
             nameRect.pivot = new Vector2(0.5f, 1f);
-            nameRect.offsetMin = new Vector2(14f, -35f);
-            nameRect.offsetMax = new Vector2(-100f, -6f);
+            nameRect.offsetMin = new Vector2(20f, -36f);
+            nameRect.offsetMax = new Vector2(-104f, -12f);
+            nameLabel.resizeTextForBestFit = true;
+            nameLabel.resizeTextMinSize = 14;
+            nameLabel.resizeTextMaxSize = 17;
             nameLabel.text = option.Name;
 
             Text priceLabel = CreateText(
                 "Price",
                 buttonRect,
-                16,
+                14,
                 FontStyle.Bold,
                 option.CanAfford
-                    ? PriceTextColor
-                    : UnaffordableTextColor,
+                    ? OptionPriceTextColor
+                    : OptionUnaffordableTextColor,
                 TextAnchor.MiddleRight);
             RectTransform priceRect =
                 priceLabel.rectTransform;
@@ -492,8 +510,11 @@ namespace RuleforgeTD.UI
             priceRect.anchorMax = new Vector2(1f, 1f);
             priceRect.pivot = new Vector2(1f, 1f);
             priceRect.anchoredPosition =
-                new Vector2(-14f, -6f);
-            priceRect.sizeDelta = new Vector2(84f, 29f);
+                new Vector2(-20f, -12f);
+            priceRect.sizeDelta = new Vector2(80f, 24f);
+            priceLabel.resizeTextForBestFit = true;
+            priceLabel.resizeTextMinSize = 12;
+            priceLabel.resizeTextMaxSize = 14;
             priceLabel.text = option.Cost <= 0
                 ? catalog.Get("tower_build.option_free")
                 : catalog.Format(
@@ -503,20 +524,24 @@ namespace RuleforgeTD.UI
             Text descriptionLabel = CreateText(
                 "Description",
                 buttonRect,
-                13,
+                11,
                 FontStyle.Normal,
-                MutedTextColor,
+                OptionMutedInkColor,
                 TextAnchor.UpperLeft);
             RectTransform descriptionRect =
                 descriptionLabel.rectTransform;
             descriptionRect.anchorMin = Vector2.zero;
             descriptionRect.anchorMax = Vector2.one;
-            descriptionRect.offsetMin = new Vector2(14f, 8f);
-            descriptionRect.offsetMax = new Vector2(-14f, -38f);
+            descriptionRect.offsetMin = new Vector2(20f, 12f);
+            descriptionRect.offsetMax = new Vector2(-20f, -40f);
             descriptionLabel.horizontalOverflow =
                 HorizontalWrapMode.Wrap;
             descriptionLabel.verticalOverflow =
                 VerticalWrapMode.Truncate;
+            descriptionLabel.resizeTextForBestFit = true;
+            descriptionLabel.resizeTextMinSize = 9;
+            descriptionLabel.resizeTextMaxSize = 11;
+            descriptionLabel.lineSpacing = 0.95f;
             descriptionLabel.text = option.Description;
 
             string definitionId = option.DefinitionId;
@@ -555,6 +580,10 @@ namespace RuleforgeTD.UI
             colors.disabledColor = Color.white;
             colors.colorMultiplier = 1f;
             button.colors = colors;
+            RuleforgePixelUi.ApplyTint(
+                button,
+                RuleforgePixelButtonRole.Secondary,
+                color);
             return button;
         }
 
@@ -573,11 +602,13 @@ namespace RuleforgeTD.UI
                 typeof(Text));
             textObject.transform.SetParent(parent, false);
             Text label = textObject.GetComponent<Text>();
-            label.font = font;
-            label.fontSize = size;
-            label.fontStyle = style;
-            label.color = color;
-            label.alignment = alignment;
+            RuleforgeUiTypography.Configure(
+                label,
+                font,
+                size,
+                color,
+                alignment,
+                RuleforgeUiTypography.IsLight(color));
             return label;
         }
 
@@ -589,6 +620,22 @@ namespace RuleforgeTD.UI
             rect.anchorMax = Vector2.one;
             rect.offsetMin = Vector2.one * inset;
             rect.offsetMax = Vector2.one * -inset;
+        }
+
+        private static RuleforgeExactPanelAsset
+            ResolvePickerPanelAsset(int optionCount)
+        {
+            switch (Mathf.Clamp(optionCount, 1, 4))
+            {
+                case 1:
+                    return RuleforgeExactPanelAsset.TowerPicker1_380x176;
+                case 2:
+                    return RuleforgeExactPanelAsset.TowerPicker2_380x272;
+                case 3:
+                    return RuleforgeExactPanelAsset.TowerPicker3_380x368;
+                default:
+                    return RuleforgeExactPanelAsset.TowerPicker4_380x464;
+            }
         }
 
         private void ClearOptions()

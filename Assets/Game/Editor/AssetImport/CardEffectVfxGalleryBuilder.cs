@@ -2,6 +2,8 @@
 using System;
 using System.IO;
 using RuleforgeTD.Battle;
+using RuleforgeTD.GameLogic.Content;
+using RuleforgeTD.Simulation;
 using UnityEditor;
 using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
@@ -79,7 +81,7 @@ namespace RuleforgeTD.Editor.AssetImport
                 "RULEFORGE_CARD_VFX_GALLERY_WEBGL_BUILD_OK path=" +
                 WebGLBuildPath +
                 " effects=" +
-                StageOneCardEffectPalette.StyleCount +
+                GetGalleryCardCount() +
                 " size=" +
                 summary.totalSize +
                 " duration=" +
@@ -88,18 +90,33 @@ namespace RuleforgeTD.Editor.AssetImport
 
         public static void BuildScene()
         {
+            CardContentModuleCatalogDiscovery
+                .SynchronizeCatalogNow();
             EnsureFolder("Assets/Game/Scenes/Test");
             EnsureFolder("Assets/Game/Data/Vfx");
             Sprite pixel = EnsureGalleryPixel();
+            StageOnePresentationCatalog catalog =
+                LoadGalleryCatalog();
+            CompiledContent content =
+                LogicContentJsonLoader.Load(
+                    catalog.ContentJson,
+                    catalog.CardContentModules);
+            StageOneCardEffectStyle[] styles =
+                StageOneCardEffectPalette
+                    .CreateCardGalleryStyles(content);
 
             Scene scene = EditorSceneManager.NewScene(
                 NewSceneSetup.EmptyScene,
                 NewSceneMode.Single);
             scene.name = "CardEffectVfxGallery";
-            CreateCamera();
-            CreateBackdrop(pixel);
-            CreateHeader();
-            CreateEffectGrid(pixel);
+            Camera galleryCamera = CreateCamera();
+            CreateBackdrop(pixel, styles.Length);
+            Transform headerRoot =
+                CreateHeader(pixel, styles.Length);
+            Transform[] cardRoots = CreateEffectGrid(
+                pixel,
+                styles,
+                content.Cards);
 
             var host = new GameObject("Card Effect VFX Gallery");
             StageOneCardEffectVfxView vfx =
@@ -107,7 +124,12 @@ namespace RuleforgeTD.Editor.AssetImport
                     host.transform);
             CardEffectVfxGallery gallery =
                 host.AddComponent<CardEffectVfxGallery>();
-            gallery.Configure(vfx);
+            gallery.Configure(
+                vfx,
+                catalog,
+                galleryCamera,
+                headerRoot,
+                cardRoots);
 
             EditorSceneManager.MarkSceneDirty(scene);
             if (!EditorSceneManager.SaveScene(scene, ScenePath))
@@ -119,12 +141,12 @@ namespace RuleforgeTD.Editor.AssetImport
 
             Debug.Log(
                 "RULEFORGE_CARD_VFX_GALLERY_SCENE_OK effects=" +
-                StageOneCardEffectPalette.StyleCount +
+                styles.Length +
                 " scene=" +
                 ScenePath);
         }
 
-        private static void CreateCamera()
+        private static Camera CreateCamera()
         {
             var cameraObject = new GameObject("Main Camera");
             Camera camera = cameraObject.AddComponent<Camera>();
@@ -133,10 +155,11 @@ namespace RuleforgeTD.Editor.AssetImport
             camera.transform.position =
                 new Vector3(0f, 0f, -10f);
             camera.orthographic = true;
-            camera.orthographicSize = 5.25f;
+            camera.orthographicSize = 3.7f;
             camera.clearFlags = CameraClearFlags.SolidColor;
             camera.backgroundColor =
                 new Color(0.025f, 0.035f, 0.055f, 1f);
+            return camera;
         }
 
         private static Sprite EnsureGalleryPixel()
@@ -182,70 +205,99 @@ namespace RuleforgeTD.Editor.AssetImport
             return sprite;
         }
 
-        private static void CreateBackdrop(Sprite pixel)
+        private static void CreateBackdrop(
+            Sprite pixel,
+            int effectCount)
         {
+            float maximumGalleryHalfHeight =
+                GetGridHalfHeight(effectCount, 1) + 3f;
             CreateColoredSprite(
                 "Gallery Backdrop",
                 pixel,
                 Vector3.zero,
-                new Vector2(19f, 10.5f),
+                new Vector2(
+                    24f,
+                    maximumGalleryHalfHeight * 2f),
                 new Color(0.035f, 0.055f, 0.075f, 1f),
                 -100);
+        }
+
+        private static Transform CreateHeader(
+            Sprite pixel,
+            int effectCount)
+        {
+            var headerRoot = new GameObject("Gallery Header");
+            headerRoot.transform.position = new Vector3(
+                0f,
+                GetGridHalfHeight(
+                    effectCount,
+                    CardEffectVfxGallery.ColumnCount) +
+                1.93f,
+                0f);
             CreateColoredSprite(
                 "Header Backdrop",
                 pixel,
-                new Vector3(0f, 4.55f, 0f),
-                new Vector2(19f, 1.4f),
+                Vector3.zero,
+                new Vector2(24f, 1.4f),
                 new Color(0.055f, 0.08f, 0.11f, 1f),
-                -90);
-            CreateColoredSprite(
-                "Footer Backdrop",
-                pixel,
-                new Vector3(0f, -4.72f, 0f),
-                new Vector2(19f, 0.7f),
-                new Color(0.025f, 0.04f, 0.06f, 1f),
-                -90);
-        }
-
-        private static void CreateHeader()
-        {
+                -90,
+                headerRoot.transform);
             CreateText(
                 "Gallery Title",
                 "RULEFORGE TD  •  CARD EFFECT VFX LAB",
-                new Vector3(0f, 4.8f, 0f),
+                new Vector3(0f, 0.25f, 0f),
                 0.085f,
                 56,
                 new Color(1f, 0.93f, 0.68f, 1f),
-                80);
+                80,
+                headerRoot.transform);
             CreateText(
                 "Gallery Subtitle",
-                "32 EFFECTS  •  30 FPS FRAME STEP  •  SAME RENDERER AS STAGE 01",
-                new Vector3(0f, 4.32f, 0f),
+                effectCount +
+                " CARDS  •  SCROLL / DRAG  •  SAME RENDERER AS STAGE 01",
+                new Vector3(0f, -0.23f, 0f),
                 0.046f,
                 34,
                 new Color(0.66f, 0.78f, 0.84f, 1f),
-                80);
+                80,
+                headerRoot.transform);
+            return headerRoot.transform;
         }
 
-        private static void CreateEffectGrid(Sprite pixel)
+        private static Transform[] CreateEffectGrid(
+            Sprite pixel,
+            StageOneCardEffectStyle[] styles,
+            CompiledCardDefinition[] cards)
         {
-            for (int i = 0;
-                 i < StageOneCardEffectPalette.StyleCount;
-                 i++)
+            if (styles == null || cards == null ||
+                styles.Length != cards.Length)
+            {
+                throw new ArgumentException(
+                    "Gallery styles and cards must have matching lengths.");
+            }
+
+            var cardRoots = new Transform[styles.Length];
+            for (int i = 0; i < styles.Length; i++)
             {
                 StageOneCardEffectStyle style =
-                    StageOneCardEffectPalette.GetStyle(i);
-                Vector3 effectCenter =
-                    CardEffectVfxGallery.GetSlotPosition(i);
+                    styles[i];
+                var cardRoot = new GameObject(
+                    "VFX Card " + i.ToString("000") + " " + style.Id);
+                cardRoot.transform.position =
+                    CardEffectVfxGallery.GetSlotPosition(
+                        i,
+                        styles.Length);
+                cardRoots[i] = cardRoot.transform;
                 Vector3 panelCenter =
-                    effectCenter + Vector3.down * 0.18f;
+                    Vector3.down * 0.18f;
                 CreateColoredSprite(
                     "VFX Panel " + style.Id,
                     pixel,
                     panelCenter,
                     new Vector2(2.08f, 1.62f),
                     new Color(0.07f, 0.10f, 0.13f, 0.96f),
-                    -70);
+                    -70,
+                    cardRoot.transform);
 
                 Color accent = style.Primary;
                 accent.a = 0.9f;
@@ -255,7 +307,8 @@ namespace RuleforgeTD.Editor.AssetImport
                     panelCenter + Vector3.up * 0.75f,
                     new Vector2(2.08f, 0.08f),
                     accent,
-                    -60);
+                    -60,
+                    cardRoot.transform);
                 CreateText(
                     "VFX Label " + style.Id,
                     style.Id.ToUpperInvariant(),
@@ -263,16 +316,62 @@ namespace RuleforgeTD.Editor.AssetImport
                     0.044f,
                     34,
                     new Color(0.94f, 0.96f, 0.98f, 1f),
-                    80);
+                    80,
+                    cardRoot.transform);
                 CreateText(
                     "VFX Shape " + style.Id,
+                    "T" +
+                    (int)cards[i].Tier +
+                    "  •  " +
                     style.Shape.ToString().ToUpperInvariant(),
                     panelCenter + Vector3.down * 0.73f,
                     0.025f,
                     26,
                     new Color(0.45f, 0.56f, 0.62f, 1f),
-                    80);
+                    80,
+                    cardRoot.transform);
             }
+
+            return cardRoots;
+        }
+
+        private static float GetGridHalfHeight(
+            int effectCount,
+            int columnCount)
+        {
+            return (
+                CardEffectVfxGallery.GetRowCount(
+                    effectCount,
+                    columnCount) - 1) *
+                CardEffectVfxGallery.VerticalSpacing *
+                0.5f;
+        }
+
+        private static StageOnePresentationCatalog LoadGalleryCatalog()
+        {
+            StageOnePresentationCatalog catalog =
+                AssetDatabase.LoadAssetAtPath<
+                    StageOnePresentationCatalog>(
+                    StageOneGameplaySceneInstaller.CatalogPath);
+            if (catalog == null || catalog.ContentJson == null)
+            {
+                throw new InvalidOperationException(
+                    "The card VFX gallery requires the Stage 01 " +
+                    "presentation catalog.");
+            }
+
+            return catalog;
+        }
+
+        private static int GetGalleryCardCount()
+        {
+            StageOnePresentationCatalog catalog =
+                LoadGalleryCatalog();
+            return LogicContentJsonLoader.Load(
+                    catalog.ContentJson,
+                    catalog.CardContentModules)
+                .Cards
+                .Length;
         }
 
         private static void CreateColoredSprite(
@@ -281,10 +380,12 @@ namespace RuleforgeTD.Editor.AssetImport
             Vector3 position,
             Vector2 size,
             Color color,
-            int sortingOrder)
+            int sortingOrder,
+            Transform parent = null)
         {
             var target = new GameObject(objectName);
-            target.transform.position = position;
+            target.transform.SetParent(parent, false);
+            target.transform.localPosition = position;
             target.transform.localScale =
                 new Vector3(size.x, size.y, 1f);
             SpriteRenderer renderer =
@@ -301,10 +402,12 @@ namespace RuleforgeTD.Editor.AssetImport
             float characterSize,
             int fontSize,
             Color color,
-            int sortingOrder)
+            int sortingOrder,
+            Transform parent = null)
         {
             var target = new GameObject(objectName);
-            target.transform.position = position;
+            target.transform.SetParent(parent, false);
+            target.transform.localPosition = position;
             TextMesh text = target.AddComponent<TextMesh>();
             text.text = content;
             text.anchor = TextAnchor.MiddleCenter;

@@ -1,3 +1,6 @@
+using System;
+using RuleforgeTD.GameLogic.Content;
+using RuleforgeTD.Simulation;
 using UnityEngine;
 
 namespace RuleforgeTD.Battle
@@ -10,17 +13,34 @@ namespace RuleforgeTD.Battle
     [DisallowMultipleComponent]
     public sealed class CardEffectVfxGallery : MonoBehaviour
     {
-        public const int ColumnCount = 8;
-        public const int RowCount = 4;
+        public const int ColumnCount = 5;
         public const int ReviewFramesPerSecond = 30;
         public const float HorizontalSpacing = 2.24f;
         public const float VerticalSpacing = 1.82f;
-        public const float FirstColumnX = -7.84f;
-        public const float FirstRowY = 3.05f;
         public const float DefaultReplayInterval = 1.15f;
+        public const float DesktopAspectThreshold = 1.3f;
+        public const float TabletAspectThreshold = 0.8f;
+        public const float NarrowPhoneAspectThreshold = 0.42f;
+
+        private const float DesktopOrthographicSize = 3.7f;
+        private const float TabletOrthographicSize = 4.15f;
+        private const float PhoneOrthographicSize = 4.85f;
+        private const float ScrollWheelStep = 0.7f;
 
         [SerializeField]
         private StageOneCardEffectVfxView vfxView;
+
+        [SerializeField]
+        private StageOnePresentationCatalog presentationCatalog;
+
+        [SerializeField]
+        private Camera galleryCamera;
+
+        [SerializeField]
+        private Transform headerRoot;
+
+        [SerializeField]
+        private Transform[] cardRoots = Array.Empty<Transform>();
 
         [SerializeField]
         [Min(0.75f)]
@@ -36,9 +56,19 @@ namespace RuleforgeTD.Battle
         private GUIStyle primaryButtonStyle;
         private GUIStyle frameLabelStyle;
         private GUIStyle hintLabelStyle;
+        private float scrollNormalized;
+        private float scrollTopY;
+        private float scrollBottomY;
+        private int activeColumnCount = ColumnCount;
+        private int lastScreenWidth;
+        private int lastScreenHeight;
+        private bool isPointerDragging;
+        private Vector2 previousPointerPosition;
+        private StageOneCardEffectStyle[] effectStyles =
+            Array.Empty<StageOneCardEffectStyle>();
 
         public int EffectCount =>
-            StageOneCardEffectPalette.StyleCount;
+            effectStyles.Length;
         public float ReplayInterval =>
             replayInterval;
         public bool IsPlaying =>
@@ -49,9 +79,16 @@ namespace RuleforgeTD.Battle
             totalFrameCount;
         public float MaximumEffectDuration =>
             maximumEffectDuration;
+        public float ScrollNormalized =>
+            scrollNormalized;
+        public int ActiveColumnCount =>
+            activeColumnCount;
+        public bool CanScroll =>
+            scrollTopY > scrollBottomY + 0.001f;
 
         private void Awake()
         {
+            InitializeEffectStyles();
             if (vfxView == null)
             {
                 vfxView =
@@ -59,17 +96,29 @@ namespace RuleforgeTD.Battle
                         transform);
             }
 
-            vfxView.InitializeNow();
+            vfxView.InitializeNow(
+                Mathf.Max(
+                    StageOneCardEffectVfxView.DefaultPoolCapacity,
+                    effectStyles.Length));
             RecalculateTimeline();
         }
 
         private void Start()
         {
+            ApplyResponsiveLayout(true);
             PlayAllNow();
         }
 
         private void Update()
         {
+            if (lastScreenWidth != Screen.width ||
+                lastScreenHeight != Screen.height)
+            {
+                ApplyResponsiveLayout(false);
+                PlayAllNow();
+            }
+
+            HandleViewportInput();
             HandleKeyboard();
             if (!isPlaying)
             {
@@ -95,6 +144,25 @@ namespace RuleforgeTD.Battle
             RecalculateTimeline();
         }
 
+        public void Configure(
+            StageOneCardEffectVfxView effectView,
+            StageOnePresentationCatalog catalog,
+            Camera camera,
+            Transform galleryHeader,
+            Transform[] galleryCardRoots,
+            float interval = DefaultReplayInterval)
+        {
+            vfxView = effectView;
+            presentationCatalog = catalog;
+            galleryCamera = camera;
+            headerRoot = galleryHeader;
+            cardRoots = galleryCardRoots ?? Array.Empty<Transform>();
+            replayInterval = Mathf.Max(0.75f, interval);
+            effectStyles = Array.Empty<StageOneCardEffectStyle>();
+            InitializeEffectStyles();
+            RecalculateTimeline();
+        }
+
         public void PlayAllNow()
         {
             if (vfxView == null)
@@ -103,13 +171,15 @@ namespace RuleforgeTD.Battle
             }
 
             vfxView.StopAll();
-            for (int i = 0;
-                 i < StageOneCardEffectPalette.StyleCount;
-                 i++)
+            for (int i = 0; i < effectStyles.Length; i++)
             {
                 StageOneCardEffectStyle style =
-                    StageOneCardEffectPalette.GetStyle(i);
-                Vector3 center = GetSlotPosition(i);
+                    effectStyles[i];
+                Vector3 center =
+                    GetSlotPosition(
+                        i,
+                        effectStyles.Length,
+                        activeColumnCount);
                 if (UsesDirectionalLink(style.Shape))
                 {
                     Vector3 linkOffset =
@@ -165,21 +235,77 @@ namespace RuleforgeTD.Battle
 
         public static Vector3 GetSlotPosition(int index)
         {
-            int column = Mathf.Clamp(
-                index % ColumnCount,
-                0,
-                ColumnCount - 1);
-            int row = Mathf.Clamp(
-                index / ColumnCount,
-                0,
-                RowCount - 1);
+            return GetSlotPosition(
+                index,
+                StageOneCardEffectPalette.StyleCount);
+        }
+
+        public static Vector3 GetSlotPosition(
+            int index,
+            int effectCount)
+        {
+            return GetSlotPosition(
+                index,
+                effectCount,
+                ColumnCount);
+        }
+
+        public static Vector3 GetSlotPosition(
+            int index,
+            int effectCount,
+            int columnCount)
+        {
+            int safeCount = Mathf.Max(1, effectCount);
+            int safeColumnCount = Mathf.Min(
+                Mathf.Max(1, columnCount),
+                safeCount);
+            int column = Mathf.Max(0, index) % safeColumnCount;
+            int row = Mathf.Max(0, index) / safeColumnCount;
+            int rowCount = GetRowCount(
+                safeCount,
+                safeColumnCount);
+            float firstColumnX =
+                -(safeColumnCount - 1) * HorizontalSpacing * 0.5f;
+            float firstRowY =
+                (rowCount - 1) * VerticalSpacing * 0.5f;
             return new Vector3(
-                FirstColumnX +
+                firstColumnX +
                 column * HorizontalSpacing,
-                FirstRowY -
+                firstRowY -
                 row * VerticalSpacing +
                 0.18f,
                 0f);
+        }
+
+        public static int GetRowCount(int effectCount)
+        {
+            return GetRowCount(effectCount, ColumnCount);
+        }
+
+        public static int GetRowCount(
+            int effectCount,
+            int columnCount)
+        {
+            int safeColumnCount = Mathf.Max(1, columnCount);
+            return Mathf.Max(
+                1,
+                (Mathf.Max(0, effectCount) + safeColumnCount - 1) /
+                safeColumnCount);
+        }
+
+        public static int GetColumnCountForAspect(float aspect)
+        {
+            if (aspect >= DesktopAspectThreshold)
+            {
+                return ColumnCount;
+            }
+
+            if (aspect >= TabletAspectThreshold)
+            {
+                return 3;
+            }
+
+            return aspect < NarrowPhoneAspectThreshold ? 1 : 2;
         }
 
         private static bool UsesDirectionalLink(
@@ -190,21 +316,23 @@ namespace RuleforgeTD.Battle
                    shape == StageOneCardEffectShape.Lightning ||
                    shape == StageOneCardEffectShape.Transfer ||
                    shape == StageOneCardEffectShape.Lance ||
-                   shape == StageOneCardEffectShape.Streak;
+                   shape == StageOneCardEffectShape.Streak ||
+                   shape == StageOneCardEffectShape.Return ||
+                   shape == StageOneCardEffectShape.Rewind ||
+                   shape == StageOneCardEffectShape.Relay ||
+                   shape == StageOneCardEffectShape.Recursion ||
+                   shape == StageOneCardEffectShape.LastCommand;
         }
 
         private void RecalculateTimeline()
         {
+            InitializeEffectStyles();
             maximumEffectDuration = 0f;
-            for (int i = 0;
-                 i < StageOneCardEffectPalette.StyleCount;
-                 i++)
+            for (int i = 0; i < effectStyles.Length; i++)
             {
                 maximumEffectDuration = Mathf.Max(
                     maximumEffectDuration,
-                    StageOneCardEffectPalette
-                        .GetStyle(i)
-                        .Duration);
+                    effectStyles[i].Duration);
             }
 
             totalFrameCount = Mathf.Max(
@@ -219,6 +347,36 @@ namespace RuleforgeTD.Battle
                 currentFrame,
                 0,
                 totalFrameCount - 1);
+        }
+
+        private void InitializeEffectStyles()
+        {
+            if (effectStyles.Length > 0)
+            {
+                return;
+            }
+
+            if (presentationCatalog != null &&
+                presentationCatalog.ContentJson != null)
+            {
+                CompiledContent content =
+                    LogicContentJsonLoader.Load(
+                        presentationCatalog.ContentJson,
+                        presentationCatalog.CardContentModules);
+                effectStyles = StageOneCardEffectPalette
+                    .CreateCardGalleryStyles(content);
+                return;
+            }
+
+            int authoredCount =
+                StageOneCardEffectPalette.StyleCount;
+            effectStyles =
+                new StageOneCardEffectStyle[authoredCount];
+            for (int i = 0; i < authoredCount; i++)
+            {
+                effectStyles[i] =
+                    StageOneCardEffectPalette.GetStyle(i);
+            }
         }
 
         private void SetPreviewTime(float elapsedTime)
@@ -242,6 +400,205 @@ namespace RuleforgeTD.Battle
                 0,
                 totalFrameCount - 1);
             vfxView.SetManualPreviewTime(previewTime);
+        }
+
+        public void SetScrollNormalized(float value)
+        {
+            scrollNormalized = Mathf.Clamp01(value);
+            if (galleryCamera == null)
+            {
+                return;
+            }
+
+            Vector3 position = galleryCamera.transform.position;
+            position.y = Mathf.Lerp(
+                scrollTopY,
+                scrollBottomY,
+                scrollNormalized);
+            galleryCamera.transform.position = position;
+        }
+
+        private void ApplyResponsiveLayout(bool resetScroll)
+        {
+            if (galleryCamera == null)
+            {
+                galleryCamera = Camera.main;
+            }
+
+            if (galleryCamera == null)
+            {
+                return;
+            }
+
+            float preservedScroll = scrollNormalized;
+            float aspect = Screen.height > 0
+                ? Screen.width / (float)Screen.height
+                : 16f / 9f;
+            activeColumnCount =
+                GetColumnCountForAspect(aspect);
+
+            int layoutCount = Mathf.Min(
+                effectStyles.Length,
+                cardRoots != null ? cardRoots.Length : 0);
+            for (int i = 0; i < layoutCount; i++)
+            {
+                if (cardRoots[i] == null)
+                {
+                    continue;
+                }
+
+                cardRoots[i].position =
+                    GetSlotPosition(
+                        i,
+                        effectStyles.Length,
+                        activeColumnCount);
+            }
+
+            int rowCount = GetRowCount(
+                effectStyles.Length,
+                activeColumnCount);
+            float gridHalfHeight =
+                (rowCount - 1) * VerticalSpacing * 0.5f;
+            if (headerRoot != null)
+            {
+                headerRoot.position =
+                    new Vector3(
+                        0f,
+                        gridHalfHeight + 1.93f,
+                        0f);
+            }
+
+            galleryCamera.orthographic = true;
+            galleryCamera.orthographicSize =
+                GetOrthographicSizeForAspect(aspect);
+
+            float halfViewHeight =
+                galleryCamera.orthographicSize;
+            float contentTop = gridHalfHeight + 2.72f;
+            float contentBottom = -gridHalfHeight - 1.05f;
+            float controlsWorldHeight =
+                halfViewHeight * 2f *
+                GetControlPanelHeight() /
+                Mathf.Max(1f, Screen.height);
+            scrollTopY = contentTop - halfViewHeight;
+            scrollBottomY =
+                contentBottom +
+                halfViewHeight +
+                controlsWorldHeight;
+            if (scrollTopY < scrollBottomY)
+            {
+                float centeredY =
+                    (contentTop + contentBottom) * 0.5f;
+                scrollTopY = centeredY;
+                scrollBottomY = centeredY;
+            }
+
+            lastScreenWidth = Screen.width;
+            lastScreenHeight = Screen.height;
+            SetScrollNormalized(
+                resetScroll ? 0f : preservedScroll);
+        }
+
+        private static float GetOrthographicSizeForAspect(float aspect)
+        {
+            if (aspect >= DesktopAspectThreshold)
+            {
+                return DesktopOrthographicSize;
+            }
+
+            if (aspect >= TabletAspectThreshold)
+            {
+                return TabletOrthographicSize;
+            }
+
+            return PhoneOrthographicSize;
+        }
+
+        private static float GetControlPanelHeight()
+        {
+            return Screen.width < 700 ? 104f : 86f;
+        }
+
+        private void HandleViewportInput()
+        {
+            if (!CanScroll || galleryCamera == null)
+            {
+                isPointerDragging = false;
+                return;
+            }
+
+            float wheelDelta = Input.mouseScrollDelta.y;
+            if (Mathf.Abs(wheelDelta) > 0.001f)
+            {
+                MoveCamera(wheelDelta * ScrollWheelStep);
+            }
+
+            if (Input.touchCount > 0)
+            {
+                Touch touch = Input.GetTouch(0);
+                if (touch.phase == TouchPhase.Began)
+                {
+                    isPointerDragging =
+                        touch.position.y > GetControlPanelHeight();
+                    previousPointerPosition = touch.position;
+                }
+                else if (isPointerDragging &&
+                         touch.phase == TouchPhase.Moved)
+                {
+                    MoveCamera(
+                        -touch.deltaPosition.y /
+                        Mathf.Max(1f, Screen.height) *
+                        galleryCamera.orthographicSize * 2f);
+                    previousPointerPosition = touch.position;
+                }
+                else if (touch.phase == TouchPhase.Ended ||
+                         touch.phase == TouchPhase.Canceled)
+                {
+                    isPointerDragging = false;
+                }
+
+                return;
+            }
+
+            Vector2 pointerPosition = Input.mousePosition;
+            if (Input.GetMouseButtonDown(0))
+            {
+                isPointerDragging =
+                    pointerPosition.y > GetControlPanelHeight() &&
+                    pointerPosition.x < Screen.width - 28f;
+                previousPointerPosition = pointerPosition;
+            }
+            else if (isPointerDragging &&
+                     Input.GetMouseButton(0))
+            {
+                float pointerDeltaY =
+                    pointerPosition.y -
+                    previousPointerPosition.y;
+                MoveCamera(
+                    -pointerDeltaY /
+                    Mathf.Max(1f, Screen.height) *
+                    galleryCamera.orthographicSize * 2f);
+                previousPointerPosition = pointerPosition;
+            }
+            else if (Input.GetMouseButtonUp(0))
+            {
+                isPointerDragging = false;
+            }
+        }
+
+        private void MoveCamera(float worldDeltaY)
+        {
+            Vector3 position = galleryCamera.transform.position;
+            position.y = Mathf.Clamp(
+                position.y + worldDeltaY,
+                scrollBottomY,
+                scrollTopY);
+            galleryCamera.transform.position = position;
+            float range = scrollTopY - scrollBottomY;
+            scrollNormalized = range > 0.001f
+                ? Mathf.Clamp01(
+                    (scrollTopY - position.y) / range)
+                : 0f;
         }
 
         private void HandleKeyboard()
@@ -272,15 +629,21 @@ namespace RuleforgeTD.Battle
             {
                 Replay();
             }
+            else if (Input.GetKeyDown(KeyCode.PageUp))
+            {
+                MoveCamera(galleryCamera.orthographicSize * 1.4f);
+            }
+            else if (Input.GetKeyDown(KeyCode.PageDown))
+            {
+                MoveCamera(-galleryCamera.orthographicSize * 1.4f);
+            }
         }
 
         private void OnGUI()
         {
             EnsureGuiStyles();
 
-            const float panelHeight = 86f;
-            const float margin = 18f;
-            const float buttonHeight = 32f;
+            float panelHeight = GetControlPanelHeight();
             float panelY = Screen.height - panelHeight;
             Rect panelRect = new Rect(
                 0f,
@@ -293,6 +656,69 @@ namespace RuleforgeTD.Battle
             GUI.Box(panelRect, GUIContent.none, panelStyle);
             GUI.color = previousGuiColor;
 
+            DrawScrollBar(panelY);
+            if (Screen.width < 700)
+            {
+                DrawCompactControls(panelY);
+                return;
+            }
+
+            DrawDesktopControls(panelY);
+        }
+
+        private void DrawScrollBar(float panelY)
+        {
+            if (!CanScroll)
+            {
+                return;
+            }
+
+            const float margin = 10f;
+            float trackHeight = Mathf.Max(
+                80f,
+                panelY - margin * 2f);
+            float contentHeight =
+                Mathf.Max(
+                    galleryCamera.orthographicSize * 2f,
+                    scrollTopY - scrollBottomY +
+                    galleryCamera.orthographicSize * 2f);
+            float thumbSize = Mathf.Clamp(
+                galleryCamera.orthographicSize * 2f /
+                contentHeight,
+                0.08f,
+                0.85f);
+            float selectedScroll = GUI.VerticalScrollbar(
+                new Rect(
+                    Screen.width - 18f,
+                    margin,
+                    12f,
+                    trackHeight),
+                scrollNormalized,
+                thumbSize,
+                0f,
+                1f);
+            if (!Mathf.Approximately(
+                    selectedScroll,
+                    scrollNormalized))
+            {
+                SetScrollNormalized(selectedScroll);
+            }
+
+            GUI.Label(
+                new Rect(
+                    Mathf.Max(0f, Screen.width - 132f),
+                    10f,
+                    104f,
+                    22f),
+                "SCROLL · DRAG",
+                hintLabelStyle);
+
+        }
+
+        private void DrawDesktopControls(float panelY)
+        {
+            const float margin = 18f;
+            const float buttonHeight = 32f;
             float controlsY = panelY + 10f;
             float x = margin;
             if (GUI.Button(
@@ -386,8 +812,112 @@ namespace RuleforgeTD.Battle
                     panelY + 50f,
                     Screen.width - margin * 2f,
                     24f),
-                "SPACE  PLAY / PAUSE     LEFT · RIGHT  FRAME STEP     HOME · END  FIRST / LAST     R  REPLAY",
+                "SCROLL / DRAG  BROWSE     SPACE  PLAY / PAUSE     LEFT · RIGHT  FRAME STEP     R  REPLAY",
                 hintLabelStyle);
+        }
+
+        private void DrawCompactControls(float panelY)
+        {
+            const float margin = 10f;
+            const float gap = 5f;
+            const float buttonHeight = 36f;
+            float controlsY = panelY + 8f;
+            float compactButtonWidth = Mathf.Clamp(
+                (Screen.width - margin * 2f - gap * 4f) / 5f,
+                44f,
+                72f);
+            float x = margin;
+            if (GUI.Button(
+                    new Rect(
+                        x,
+                        controlsY,
+                        compactButtonWidth,
+                        buttonHeight),
+                    isPlaying ? "PAUSE" : "PLAY",
+                    primaryButtonStyle))
+            {
+                TogglePlayback();
+            }
+
+            x += compactButtonWidth + gap;
+            if (GUI.Button(
+                    new Rect(
+                        x,
+                        controlsY,
+                        compactButtonWidth,
+                        buttonHeight),
+                    "|<",
+                    buttonStyle))
+            {
+                SetFrame(0);
+            }
+
+            x += compactButtonWidth + gap;
+            if (GUI.Button(
+                    new Rect(
+                        x,
+                        controlsY,
+                        compactButtonWidth,
+                        buttonHeight),
+                    "<",
+                    buttonStyle))
+            {
+                StepFrame(-1);
+            }
+
+            x += compactButtonWidth + gap;
+            if (GUI.Button(
+                    new Rect(
+                        x,
+                        controlsY,
+                        compactButtonWidth,
+                        buttonHeight),
+                    ">",
+                    buttonStyle))
+            {
+                StepFrame(1);
+            }
+
+            x += compactButtonWidth + gap;
+            if (GUI.Button(
+                    new Rect(
+                        x,
+                        controlsY,
+                        compactButtonWidth,
+                        buttonHeight),
+                    "R",
+                    buttonStyle))
+            {
+                Replay();
+            }
+
+            float sliderY = controlsY + buttonHeight + 12f;
+            int selectedFrame = Mathf.RoundToInt(
+                GUI.HorizontalSlider(
+                    new Rect(
+                        margin,
+                        sliderY + 5f,
+                        Screen.width - margin * 2f - 76f,
+                        24f),
+                    currentFrame,
+                    0f,
+                    Mathf.Max(0, totalFrameCount - 1)));
+            if (selectedFrame != currentFrame)
+            {
+                SetFrame(selectedFrame);
+            }
+
+            GUI.Label(
+                new Rect(
+                    Screen.width - margin - 68f,
+                    sliderY - 4f,
+                    68f,
+                    28f),
+                string.Format(
+                    "{0:00}/{1:00}",
+                    currentFrame + 1,
+                    totalFrameCount),
+                frameLabelStyle);
         }
 
         private void EnsureGuiStyles()

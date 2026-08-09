@@ -11,7 +11,7 @@ namespace RuleforgeTD.UI
     /// </summary>
     public static class StageOneUiFontCoverage
     {
-        public const string RequiredRuntimeSymbols = "✓×→−·";
+        public const string RequiredRuntimeSymbols = "◆×→−·";
 
         public static string FindMissingCharacters(
             Font font,

@@ -1,5 +1,6 @@
 using System;
 using RuleforgeTD.Battle;
+using RuleforgeTD.GameLogic.Simulation;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -19,15 +20,19 @@ namespace RuleforgeTD.UI
         private const float EdgeMargin = 12f;
 
         private static readonly Color PanelColor =
-            new Color32(18, 35, 49, 238);
+            Color.white;
         private static readonly Color UpgradeColor =
             new Color32(219, 126, 40, 255);
         private static readonly Color CardsColor =
-            new Color32(48, 112, 151, 255);
+            new Color32(72, 96, 51, 255);
         private static readonly Color DisabledColor =
-            new Color32(75, 84, 91, 230);
+            new Color32(83, 75, 63, 230);
         private static readonly Color TextColor =
             new Color32(255, 244, 215, 255);
+        private static readonly Color CostColor =
+            new Color32(255, 218, 112, 255);
+        private static readonly Color UnaffordableCostColor =
+            new Color32(205, 184, 151, 255);
 
         private StageOneUiTextCatalog catalog;
         private Font font;
@@ -38,6 +43,7 @@ namespace RuleforgeTD.UI
         private Button upgradeButton;
         private Button cardsButton;
         private Text upgradeLabel;
+        private Text upgradeCostLabel;
         private Text cardsLabel;
         private TowerSelectionView target;
         private Camera worldCamera;
@@ -46,6 +52,8 @@ namespace RuleforgeTD.UI
         private bool placedOnLeft;
         private int currentUpgradeCost;
         private bool currentUpgradeIsMaximum;
+        private bool currentUpgradeCostVisible;
+        private bool currentUpgradeCanAfford;
 
         public event Action UpgradeRequested;
         public event Action CardsRequested;
@@ -53,6 +61,7 @@ namespace RuleforgeTD.UI
         public Canvas Canvas => canvas;
         public RectTransform PanelRoot => panelRoot;
         public Button UpgradeButton => upgradeButton;
+        public Text UpgradeCostLabel => upgradeCostLabel;
         public Button CardsButton => cardsButton;
         public TowerSelectionView Target => target;
         public bool IsVisible =>
@@ -126,6 +135,9 @@ namespace RuleforgeTD.UI
             bool canUpgrade)
         {
             Show(tower, canUpgrade, 0, true);
+            currentUpgradeCostVisible = false;
+            currentUpgradeIsMaximum = false;
+            RefreshText();
         }
 
         public void Show(
@@ -139,9 +151,42 @@ namespace RuleforgeTD.UI
             visible = target != null;
             currentUpgradeCost = Math.Max(0, upgradeCost);
             currentUpgradeIsMaximum = upgradeCost < 0;
+            currentUpgradeCostVisible = upgradeCost >= 0;
+            currentUpgradeCanAfford = canAfford;
             panelRoot.gameObject.SetActive(visible);
             upgradeButton.interactable =
                 visible && canUpgrade && canAfford;
+            SetButtonColor(
+                upgradeButton,
+                upgradeButton.interactable
+                    ? UpgradeColor
+                    : DisabledColor);
+            RefreshText();
+            cardsButton.interactable = visible;
+            if (visible)
+            {
+                RefreshPosition();
+            }
+        }
+
+        /// <summary>
+        /// 게임 규칙 계층이 계산한 업그레이드 견적을 그대로 표시한다.
+        /// 최대 레벨과 구매 가능 여부를 이 뷰에서 다시 추론하지 않는다.
+        /// </summary>
+        public void Show(
+            TowerSelectionView tower,
+            TowerUpgradeQuote quote)
+        {
+            BuildInterface();
+            target = tower;
+            visible = target != null && quote.Exists;
+            currentUpgradeCost = Math.Max(0, quote.Cost);
+            currentUpgradeIsMaximum = quote.IsMaximumLevel;
+            currentUpgradeCostVisible = quote.HasNextLevel;
+            currentUpgradeCanAfford = quote.CanAfford;
+            panelRoot.gameObject.SetActive(visible);
+            upgradeButton.interactable =
+                visible && quote.CanUpgrade;
             SetButtonColor(
                 upgradeButton,
                 upgradeButton.interactable
@@ -271,6 +316,7 @@ namespace RuleforgeTD.UI
             canvasObject.transform.SetParent(transform, false);
             canvas = canvasObject.GetComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.pixelPerfect = true;
             canvas.sortingOrder = 110;
 
             CanvasScaler scaler =
@@ -309,8 +355,10 @@ namespace RuleforgeTD.UI
             panelRoot.pivot = new Vector2(0.5f, 0.5f);
             panelRoot.sizeDelta =
                 new Vector2(PanelWidth, PanelHeight);
-            panelObject.GetComponent<Image>().color =
-                PanelColor;
+            RuleforgePixelUi.ApplyPanel(
+                panelObject.GetComponent<Image>(),
+                RuleforgePixelPanelRole.Workbench,
+                PanelColor);
             panelCanvasGroup =
                 panelObject.GetComponent<CanvasGroup>();
 
@@ -324,6 +372,33 @@ namespace RuleforgeTD.UI
                 38f);
             upgradeButton.onClick.AddListener(
                 HandleUpgradeClicked);
+            upgradeLabel.alignment = TextAnchor.MiddleLeft;
+            upgradeLabel.rectTransform.offsetMax =
+                new Vector2(-74f, -5f);
+
+            var costLabelObject = new GameObject(
+                "Upgrade Cost",
+                typeof(RectTransform),
+                typeof(CanvasRenderer),
+                typeof(Text));
+            costLabelObject.transform.SetParent(
+                upgradeButton.transform,
+                false);
+            upgradeCostLabel =
+                costLabelObject.GetComponent<Text>();
+            RuleforgeUiTypography.Configure(
+                upgradeCostLabel,
+                font,
+                16,
+                CostColor,
+                TextAnchor.MiddleRight,
+                true);
+            RectTransform costRect =
+                upgradeCostLabel.rectTransform;
+            costRect.anchorMin = new Vector2(0.56f, 0f);
+            costRect.anchorMax = Vector2.one;
+            costRect.offsetMin = new Vector2(0f, 5f);
+            costRect.offsetMax = new Vector2(-10f, -5f);
 
             cardsButton = CreateButton(
                 "Equip Cards Button",
@@ -377,20 +452,19 @@ namespace RuleforgeTD.UI
                 buttonObject.transform,
                 false);
             label = labelObject.GetComponent<Text>();
-            label.font = font;
-            label.fontSize = 18;
-            label.fontStyle = FontStyle.Bold;
-            label.color = TextColor;
-            label.alignment = TextAnchor.MiddleCenter;
-            label.horizontalOverflow =
-                HorizontalWrapMode.Wrap;
-            label.verticalOverflow =
-                VerticalWrapMode.Truncate;
+            RuleforgeUiTypography.Configure(
+                label,
+                font,
+                18,
+                TextColor,
+                TextAnchor.MiddleCenter,
+                true);
             RectTransform labelRect = label.rectTransform;
             labelRect.anchorMin = Vector2.zero;
             labelRect.anchorMax = Vector2.one;
             labelRect.offsetMin = new Vector2(8f, 5f);
             labelRect.offsetMax = new Vector2(-8f, -5f);
+            RuleforgePixelUi.ApplyLegacyColor(button, color);
             return button;
         }
 
@@ -412,7 +486,7 @@ namespace RuleforgeTD.UI
             if (button != null &&
                 button.targetGraphic != null)
             {
-                button.targetGraphic.color = color;
+                RuleforgePixelUi.ApplyLegacyColor(button, color);
             }
         }
 
@@ -425,11 +499,25 @@ namespace RuleforgeTD.UI
 
             upgradeLabel.text = currentUpgradeIsMaximum
                 ? catalog.Get("tower_panel.max_level")
-                : currentUpgradeCost > 0
-                    ? catalog.Format(
-                        "tower_action.upgrade_cost_format",
-                        currentUpgradeCost)
-                    : catalog.Get("tower_action.upgrade");
+                : catalog.Get("tower_action.upgrade");
+            bool showCost =
+                !currentUpgradeIsMaximum &&
+                currentUpgradeCostVisible;
+            upgradeCostLabel.gameObject.SetActive(showCost);
+            upgradeCostLabel.text = showCost
+                ? catalog.Format(
+                    "tower_action.upgrade_cost_value_format",
+                    currentUpgradeCost)
+                : string.Empty;
+            upgradeCostLabel.color = currentUpgradeCanAfford
+                ? CostColor
+                : UnaffordableCostColor;
+            upgradeLabel.alignment = showCost
+                ? TextAnchor.MiddleLeft
+                : TextAnchor.MiddleCenter;
+            upgradeLabel.rectTransform.offsetMax = showCost
+                ? new Vector2(-74f, -5f)
+                : new Vector2(-8f, -5f);
             cardsLabel.text =
                 catalog.Get("tower_action.cards");
         }

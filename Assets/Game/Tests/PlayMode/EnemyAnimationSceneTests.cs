@@ -45,7 +45,71 @@ namespace RuleforgeTD.Tests.PlayMode
                 Assert.That(healthBar, Is.Not.Null);
                 Assert.That(
                     healthBar.DisplayedValue,
-                    Is.EqualTo(health.MaxHealth + " / " + health.MaxHealth));
+                    Is.Empty);
+                Assert.That(
+                    healthBar.ValueVisible,
+                    Is.False);
+                EnemyHealthBarVisualSettings
+                    visualSettings =
+                        healthBar.VisualSettings;
+                Assert.That(
+                    visualSettings,
+                    Is.Not.Null);
+                Assert.That(
+                    healthBar.FullWidth,
+                    Is.EqualTo(
+                        visualSettings.FillWidth)
+                        .Within(0.001f));
+                Assert.That(
+                    visualSettings.FillWidth,
+                    Is.LessThan(
+                        visualSettings.BackgroundWidth));
+                Assert.That(
+                    visualSettings.FillHeight,
+                    Is.LessThan(
+                        visualSettings.BackgroundHeight));
+                Assert.That(
+                    healthBar.BarLocalY,
+                    Is.EqualTo(
+                        visualSettings.LocalY)
+                        .Within(0.001f));
+                Assert.That(
+                    healthBar.TryGetVisualTopLocalY(
+                        out float healthBarTopLocalY),
+                    Is.True);
+                Assert.That(
+                    healthBarTopLocalY,
+                    Is.GreaterThan(
+                        visualSettings.LocalY));
+                Transform healthBarRoot =
+                    actors[i].transform.Find(
+                        "Health Bar");
+                Assert.That(
+                    healthBarRoot,
+                    Is.Not.Null);
+                Transform background =
+                    healthBarRoot.Find("Background");
+                Assert.That(background, Is.Not.Null);
+                Assert.That(
+                    background.localScale.x,
+                    Is.EqualTo(
+                        visualSettings
+                            .BackgroundWidth)
+                        .Within(0.001f));
+                Assert.That(
+                    background.localScale.y,
+                    Is.EqualTo(
+                        visualSettings
+                            .BackgroundHeight)
+                        .Within(0.001f));
+                Transform fill =
+                    healthBarRoot.Find("Fill");
+                Assert.That(fill, Is.Not.Null);
+                Assert.That(
+                    fill.localScale.y,
+                    Is.EqualTo(
+                        visualSettings.FillHeight)
+                        .Within(0.001f));
             }
 
             yield return new WaitForSecondsRealtime(0.35f);
@@ -91,7 +155,10 @@ namespace RuleforgeTD.Tests.PlayMode
             yield return null;
             Assert.That(beeHealth.CurrentHealth, Is.Zero);
             Assert.That(beeHealth.IsDead, Is.True);
-            Assert.That(bee.GetComponent<EnemyHealthBarView>().DisplayedValue, Is.EqualTo("0 / 5"));
+            Assert.That(
+                bee.GetComponent<EnemyHealthBarView>()
+                    .DisplayedValue,
+                Is.Empty);
             Assert.That(
                 bee.GetComponent<Animator>().GetCurrentAnimatorStateInfo(0).IsName("DeathSide"),
                 Is.True);

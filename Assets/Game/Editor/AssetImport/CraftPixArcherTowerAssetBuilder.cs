@@ -688,6 +688,9 @@ namespace RuleforgeTD.Editor.AssetImport
                 bodyObject.transform.SetParent(root.transform, false);
                 SpriteRenderer bodyRenderer = bodyObject.AddComponent<SpriteRenderer>();
                 bodyRenderer.sprite = idleFrames[0];
+                WorldSortingLayers.Apply(
+                    bodyRenderer,
+                    WorldSortingLayers.Tower);
                 bodyRenderer.sortingOrder = TowerBodySortingOrder;
 
                 var unitsObject = new GameObject("Archers");
@@ -762,6 +765,9 @@ namespace RuleforgeTD.Editor.AssetImport
                         positions[i]);
 
                 SpriteRenderer renderer = archerObject.AddComponent<SpriteRenderer>();
+                WorldSortingLayers.Apply(
+                    renderer,
+                    WorldSortingLayers.Tower);
                 renderer.sortingOrder = ArcherSortingOrder;
                 DirectionalArcherAnimator animator =
                     archerObject.AddComponent<DirectionalArcherAnimator>();
@@ -1036,6 +1042,9 @@ namespace RuleforgeTD.Editor.AssetImport
                 };
                 var towerActors =
                     new List<ArcherTowerShowcaseActor>(ExpectedTowerLevels);
+                TextAsset[] cardContentModules =
+                    CardContentModuleCatalogDiscovery
+                        .DiscoverTextAssets();
 
                 for (int level = 1; level <= ExpectedTowerLevels; level++)
                 {
@@ -1056,7 +1065,10 @@ namespace RuleforgeTD.Editor.AssetImport
                     int unitTier = ArcherTowerView.GetDefaultUnitTier(level);
                     ArcherShowcaseCardProgram cardProgram =
                         instance.AddComponent<ArcherShowcaseCardProgram>();
-                    cardProgram.Configure(logicContent, showcasePixel);
+                    cardProgram.Configure(
+                        logicContent,
+                        showcasePixel,
+                        cardContentModules);
                     ArcherTowerShowcaseActor actor =
                         instance.AddComponent<ArcherTowerShowcaseActor>();
                     actor.Configure(

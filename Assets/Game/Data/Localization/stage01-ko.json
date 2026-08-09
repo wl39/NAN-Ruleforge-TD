@@ -3,11 +3,63 @@
   "strings": [
     {
       "key": "hud.summary_format",
-      "value": "웨이브 {0}/{1}  ·  본진 {2}  ·  골드 {3}  ·  {4}"
+      "value": "스테이지 {5}  ·  웨이브 {0}/{1}  ·  본진 {2}  ·  골드 {3}  ·  {4}"
     },
     {
-      "key": "hud.play",
-      "value": "시작"
+      "key": "combat_density.live_format",
+      "value": "연속 {0} · 연쇄 처치 {1} · 폭발 {2} · 감전 {3} · 도탄 {4} · 전염 {5} · 골드 +{6} · 카드 골드 {7} (잔여 {8})"
+    },
+    {
+      "key": "combat_density.wave_summary_format",
+      "value": "웨이브 골드 +{0} · 최고 연속 {1}"
+    },
+    {
+      "key": "combat_density.card_summary_format",
+      "value": " · {0} {1} 피해/{2}회"
+    },
+    {
+      "key": "combat_density.forecast_format",
+      "value": "다음 W{0} · {1} · 총 {2} (일반 {3} / 정예 {4} / 보스 {5})"
+    },
+    {
+      "key": "combat_density.forecast_spawn_format",
+      "value": " · {0}×{1}"
+    },
+    {
+      "key": "combat_density.forecast_summon_format",
+      "value": " · 보스 보조 동시 최대 {0}"
+    },
+    {
+      "key": "combat_density.archetype.standard",
+      "value": "일반"
+    },
+    {
+      "key": "combat_density.archetype.swarm",
+      "value": "군집"
+    },
+    {
+      "key": "combat_density.archetype.elite_mix",
+      "value": "정예 혼합"
+    },
+    {
+      "key": "combat_density.archetype.rush",
+      "value": "질주"
+    },
+    {
+      "key": "combat_density.archetype.heavy_escort",
+      "value": "거체 호위"
+    },
+    {
+      "key": "combat_density.archetype.boss",
+      "value": "보스"
+    },
+    {
+      "key": "combat_density.archetype.containment",
+      "value": "봉쇄전"
+    },
+    {
+      "key": "hud.play_format",
+      "value": "웨이브 {0} 시작"
     },
     {
       "key": "hud.pause",
@@ -16,6 +68,10 @@
     {
       "key": "hud.resume",
       "value": "계속"
+    },
+    {
+      "key": "hud.continue_stage",
+      "value": "이어하기"
     },
     {
       "key": "speed.0_5x",
@@ -195,7 +251,11 @@
     },
     {
       "key": "status.victory",
-      "value": "스테이지를 방어했습니다!"
+      "value": "스테이지를 방어했습니다! 이어하기로 더 강한 스테이지에 도전할 수 있습니다."
+    },
+    {
+      "key": "status.endless_stage_started_format",
+      "value": "스테이지 {0} 시작 · 몬스터 수, 체력, 방어력이 2배 강화되었습니다."
     },
     {
       "key": "status.defeat",
@@ -214,8 +274,20 @@
       "value": "레벨 올리기 · {0}G"
     },
     {
+      "key": "tower_panel.level_up_compact",
+      "value": "강화"
+    },
+    {
+      "key": "tower_panel.level_up_cost_compact_format",
+      "value": "강화 · {0}G"
+    },
+    {
       "key": "tower_panel.max_level",
       "value": "최대 레벨"
+    },
+    {
+      "key": "tower_panel.max_level_compact",
+      "value": "최대"
     },
     {
       "key": "tower_panel.projectile",
@@ -292,6 +364,38 @@
     {
       "key": "tower_panel.subject_enemy_short",
       "value": "적"
+    },
+    {
+      "key": "tower_panel.subject_projectile_title",
+      "value": "탄환 효과 적용"
+    },
+    {
+      "key": "tower_panel.subject_enemy_title",
+      "value": "적 효과 적용"
+    },
+    {
+      "key": "tower_panel.subject_projectile_tooltip_format",
+      "value": "{0} 카드의 효과가 탄환에 부여됩니다.\n{1}"
+    },
+    {
+      "key": "tower_panel.subject_enemy_tooltip_format",
+      "value": "{0} 카드의 효과가 적에게 부여됩니다.\n{1}"
+    },
+    {
+      "key": "tower_panel.subject_projectile_empty_tooltip",
+      "value": "이 슬롯에 장착한 카드의 탄환 효과가 탄환에 부여됩니다."
+    },
+    {
+      "key": "tower_panel.subject_enemy_empty_tooltip",
+      "value": "이 슬롯에 장착한 카드의 적 효과가 적에게 부여됩니다."
+    },
+    {
+      "key": "tower_panel.usage_map_title_format",
+      "value": "{0} · 사용 중"
+    },
+    {
+      "key": "tower_panel.usage_map_body",
+      "value": "청록색 타워가 이 카드의 적용 위치입니다."
     },
     {
       "key": "card_symbol.split",
@@ -422,12 +526,120 @@
       "value": "공포"
     },
     {
+      "key": "card_symbol.duplicate",
+      "value": "복제"
+    },
+    {
+      "key": "card_symbol.sacrifice",
+      "value": "희생"
+    },
+    {
+      "key": "card_symbol.return",
+      "value": "환원"
+    },
+    {
+      "key": "card_symbol.retrograde",
+      "value": "역행"
+    },
+    {
+      "key": "card_symbol.resonance",
+      "value": "공명"
+    },
+    {
+      "key": "card_symbol.absorb",
+      "value": "흡수"
+    },
+    {
+      "key": "card_symbol.time_stop",
+      "value": "정지"
+    },
+    {
+      "key": "card_symbol.mutation",
+      "value": "변이"
+    },
+    {
+      "key": "card_symbol.execute",
+      "value": "처형"
+    },
+    {
+      "key": "card_symbol.parasite",
+      "value": "기생"
+    },
+    {
+      "key": "card_symbol.rebirth",
+      "value": "환생"
+    },
+    {
+      "key": "card_symbol.chain",
+      "value": "연쇄"
+    },
+    {
+      "key": "card_symbol.recursion",
+      "value": "재귀"
+    },
+    {
+      "key": "card_symbol.reverse_order",
+      "value": "역순"
+    },
+    {
+      "key": "card_symbol.dual_interpretation",
+      "value": "양면"
+    },
+    {
+      "key": "card_symbol.infinite_orbit",
+      "value": "무한궤도"
+    },
+    {
+      "key": "card_symbol.overclone",
+      "value": "과잉복제"
+    },
+    {
+      "key": "card_symbol.forbidden_deal",
+      "value": "거래"
+    },
+    {
+      "key": "card_symbol.last_command",
+      "value": "명령"
+    },
+    {
+      "key": "card_symbol.fate_lock",
+      "value": "운명"
+    },
+    {
+      "key": "card_symbol.overload",
+      "value": "과부하"
+    },
+    {
+      "key": "card_symbol.singularity",
+      "value": "특이점"
+    },
+    {
+      "key": "card_symbol.phoenix_core",
+      "value": "불사조"
+    },
+    {
+      "key": "card_symbol.time_rift",
+      "value": "균열"
+    },
+    {
+      "key": "card_symbol.mirror_world",
+      "value": "거울"
+    },
+    {
+      "key": "card_symbol.ouroboros",
+      "value": "우로보로스"
+    },
+    {
       "key": "tower_action.upgrade",
       "value": "타워 업그레이드"
     },
     {
       "key": "tower_action.upgrade_cost_format",
       "value": "타워 업그레이드 · {0}G"
+    },
+    {
+      "key": "tower_action.upgrade_cost_value_format",
+      "value": "비용 {0}G"
     },
     {
       "key": "tower_action.cards",
@@ -472,6 +684,702 @@
     {
       "key": "status.konami_gold_format",
       "value": "코나미 커맨드 발동! 골드 {0}을 획득했습니다."
+    },
+    {
+      "key": "status.enemy_selected",
+      "value": "선택한 몬스터의 체력, 능력치와 현재 디버프를 확인하세요."
+    },
+    {
+      "key": "enemy_inspector.level_type_format",
+      "value": "Lv.{0}  ·  {1}"
+    },
+    {
+      "key": "enemy_inspector.defeated_level_type_format",
+      "value": "Lv.{0}  ·  {1}  ·  사망"
+    },
+    {
+      "key": "enemy_inspector.overview_title",
+      "value": "몬스터 정보"
+    },
+    {
+      "key": "enemy_inspector.health_title",
+      "value": "생명력"
+    },
+    {
+      "key": "enemy_inspector.health_format",
+      "value": "{0} / {1}  ·  {2}%"
+    },
+    {
+      "key": "enemy_inspector.shield_format",
+      "value": "보호막 {0}"
+    },
+    {
+      "key": "enemy_inspector.changed_value_format",
+      "value": "{0} (기본 {1})"
+    },
+    {
+      "key": "enemy_inspector.combat_title",
+      "value": "전투 능력치"
+    },
+    {
+      "key": "enemy_inspector.primary_stats_format",
+      "value": "방어력  {0}    이동 속도  {1}/초\n둔화  {2}    크기  {3}"
+    },
+    {
+      "key": "enemy_inspector.resistance_title",
+      "value": "저항 및 보상"
+    },
+    {
+      "key": "enemy_inspector.resistance_stats_format",
+      "value": "화염 저항  {0}    독 저항  {1}\n제어 저항  {2}    처치 골드  {3}"
+    },
+    {
+      "key": "enemy_inspector.identity_title",
+      "value": "개체 상세"
+    },
+    {
+      "key": "enemy_inspector.identity_stats_format",
+      "value": "개체 ID  #{0}    가계 ID  #{1}\n분열 세대  {2}    사망 효과  {3}개"
+    },
+    {
+      "key": "enemy_inspector.control_not_applicable",
+      "value": "일반 적용"
+    },
+    {
+      "key": "enemy_inspector.control_gauge_format",
+      "value": "{0} / {1}"
+    },
+    {
+      "key": "enemy_inspector.boss_ability_format",
+      "value": "보스 고유 능력  ·  {0}"
+    },
+    {
+      "key": "enemy_inspector.debuffs_title",
+      "value": "현재 디버프"
+    },
+    {
+      "key": "enemy_inspector.debuffs_count_format",
+      "value": "현재 디버프  ·  {0}종"
+    },
+    {
+      "key": "enemy_inspector.no_debuffs",
+      "value": "현재 적용된 디버프가 없습니다."
+    },
+    {
+      "key": "enemy_inspector.debuff_summary_format",
+      "value": "{0}/{1}중첩  ·  {2}초"
+    },
+    {
+      "key": "enemy_inspector.tick_format",
+      "value": "{0}초마다 발동"
+    },
+    {
+      "key": "enemy_inspector.intensity_format",
+      "value": "강도 {0}"
+    },
+    {
+      "key": "enemy_inspector.armor_ignore_format",
+      "value": "방어 무시 {0}"
+    },
+    {
+      "key": "enemy_inspector.source_card_format",
+      "value": "출처 {0}"
+    },
+    {
+      "key": "enemy_inspector.source_tower_format",
+      "value": "출처 타워 #{0}"
+    },
+    {
+      "key": "enemy_inspector.source_count_format",
+      "value": "출처 {0}개"
+    },
+    {
+      "key": "enemy_inspector.elite_trait_format",
+      "value": "[{0}] {1}\n{2}\n추천 대응 · {3}"
+    },
+    {
+      "key": "wave_preview.title_format",
+      "value": "웨이브 {0} 예고"
+    },
+    {
+      "key": "wave_preview.no_shield",
+      "value": "없음"
+    },
+    {
+      "key": "wave_preview.total_format",
+      "value": "총 {0}마리"
+    },
+    {
+      "key": "wave_preview.composition_format",
+      "value": "일반 {0} · 정예 {1} · 보스 {2}"
+    },
+    {
+      "key": "wave_preview.detail_header_format",
+      "value": "{0} ×{1}  ·  {2}"
+    },
+    {
+      "key": "wave_preview.stats_format",
+      "value": "체력 {0}  ·  방어력 {1}\n이동 속도 {2} ({3}/초)  ·  방어막 {4}"
+    },
+    {
+      "key": "wave_preview.resistance_format",
+      "value": "상태이상 저항  ·  화염 {0}  ·  독 {1}  ·  제어 {2}"
+    },
+    {
+      "key": "wave_preview.stats_label",
+      "value": "능력치"
+    },
+    {
+      "key": "wave_preview.control_resistance_format",
+      "value": "게이지 {0}, 1회 +{1}"
+    },
+    {
+      "key": "wave_preview.control_resistance.none",
+      "value": "일반 적용"
+    },
+    {
+      "key": "wave_preview.features_label",
+      "value": "특징"
+    },
+    {
+      "key": "wave_preview.abilities_label",
+      "value": "특수 능력"
+    },
+    {
+      "key": "wave_preview.elite_traits_label",
+      "value": "엘리트 특성"
+    },
+    {
+      "key": "wave_preview.weaknesses_label",
+      "value": "약점"
+    },
+    {
+      "key": "wave_preview.recommendations_label",
+      "value": "추천 대응 카드"
+    },
+    {
+      "key": "wave_preview.recommended_tags_label",
+      "value": "추천 태그 ·"
+    },
+    {
+      "key": "wave_preview.recommendation_advisory",
+      "value": "추천은 대응 힌트이며 다른 카드도 자유롭게 장착할 수 있습니다."
+    },
+    {
+      "key": "wave_preview.elite_name_format",
+      "value": "{0} {1}"
+    },
+    {
+      "key": "wave_preview.elite_trait_format",
+      "value": "엘리트 특성 [{0}] {1}\n{2}\n대응 힌트 · {3}"
+    },
+    {
+      "key": "wave_preview.card_owned_format",
+      "value": "[보유] {0}"
+    },
+    {
+      "key": "wave_preview.card_equipped_format",
+      "value": "[장착 중] {0}"
+    },
+    {
+      "key": "wave_preview.coverage.good",
+      "value": "현재 조합 대응 양호"
+    },
+    {
+      "key": "wave_preview.coverage.partial",
+      "value": "보유 카드로 대응 보완 가능"
+    },
+    {
+      "key": "wave_preview.coverage.weak",
+      "value": "추천 대응 카드 부족"
+    },
+    {
+      "key": "wave_preview.loadout_locked",
+      "value": "전투 중에는 예고를 확인할 수 있지만 카드 변경은 잠겨 있습니다."
+    },
+    {
+      "key": "wave_preview.loadout_locked_label",
+      "value": "카드 편집 잠김"
+    },
+    {
+      "key": "wave_preview.close",
+      "value": "닫기"
+    },
+    {
+      "key": "wave_preview.speed.normal",
+      "value": "보통"
+    },
+    {
+      "key": "wave_preview.speed.very_fast",
+      "value": "매우 빠름"
+    },
+    {
+      "key": "wave_preview.speed.slow",
+      "value": "느림"
+    },
+    {
+      "key": "wave_preview.speed.very_slow",
+      "value": "매우 느림"
+    },
+    {
+      "key": "wave_preview.feature.raider",
+      "value": "고블린은 균형 잡힌 체력과 속도로 전열을 압박합니다."
+    },
+    {
+      "key": "wave_preview.feature.runner",
+      "value": "늑대는 내구력은 낮지만 매우 빠르게 경로를 돌파합니다."
+    },
+    {
+      "key": "wave_preview.feature.armored_knight",
+      "value": "높은 방어력으로 물리 피해를 줄여 받으며 이동은 느립니다."
+    },
+    {
+      "key": "wave_preview.feature.elite_golem",
+      "value": "슬라임은 높은 체력과 방어력, 누적 제어 저항 게이지를 지닌 정예입니다."
+    },
+    {
+      "key": "wave_preview.feature.boss_guardian",
+      "value": "주기적인 방어막과 강화 구간으로 집중 화력을 버팁니다."
+    },
+    {
+      "key": "wave_preview.feature.boss_summoner",
+      "value": "하수인을 계속 추가해 예약된 수보다 전장 개체 수가 늘어날 수 있습니다."
+    },
+    {
+      "key": "wave_preview.feature.boss_time_walker",
+      "value": "경로를 순간이동해 방어 구간 일부를 건너뜁니다."
+    },
+    {
+      "key": "wave_preview.ability.boss_guardian",
+      "value": "{0}초마다 최대 체력의 {1} 방어막을 전개합니다. 체력 {2} 이하에서는 {3}초마다 사용합니다."
+    },
+    {
+      "key": "wave_preview.ability.boss_summoner",
+      "value": "{0}초마다 체력 {3}의 {1} {2}마리를 소환합니다. 체력 {4} 이하에서는 {5}초마다 {6}마리, 동시에 최대 {7}마리까지 존재합니다."
+    },
+    {
+      "key": "wave_preview.ability.boss_time_walker",
+      "value": "{0}초 시전 후 {1}초마다 경로의 {2}를 순간이동합니다. 체력 {3} 이하에서는 {4}초마다 {5}를 이동합니다."
+    },
+    {
+      "key": "wave_preview.weakness.raider",
+      "value": "군집 범위 피해와 지속 피해에 효율적으로 정리됩니다."
+    },
+    {
+      "key": "wave_preview.weakness.runner",
+      "value": "둔화·속박·기절과 추적 공격으로 빠른 이동을 상쇄할 수 있습니다."
+    },
+    {
+      "key": "wave_preview.weakness.armored_knight",
+      "value": "관통·부식·중독처럼 방어력을 무시하거나 낮추는 효과에 취약합니다."
+    },
+    {
+      "key": "wave_preview.weakness.elite_golem",
+      "value": "부식과 지속 피해로 내구력을 깎은 뒤 처형으로 마무리하기 좋습니다."
+    },
+    {
+      "key": "wave_preview.weakness.boss_guardian",
+      "value": "봉인으로 방어막을 막거나 분열·감전·도탄의 다단 적중으로 빠르게 제거할 수 있습니다."
+    },
+    {
+      "key": "wave_preview.weakness.boss_summoner",
+      "value": "봉인으로 소환을 차단하고 범위·연쇄 효과로 하수인을 함께 정리할 수 있습니다."
+    },
+    {
+      "key": "wave_preview.weakness.boss_time_walker",
+      "value": "봉인과 이동 방해로 도약을 억제하고 지속 피해·처형으로 긴 체력전을 줄일 수 있습니다."
+    },
+    {
+      "key": "wave_preview.tag.area",
+      "value": "범위·군집"
+    },
+    {
+      "key": "wave_preview.tag.damage_over_time",
+      "value": "지속 피해"
+    },
+    {
+      "key": "wave_preview.tag.control",
+      "value": "이동 방해"
+    },
+    {
+      "key": "wave_preview.tag.homing",
+      "value": "추적·목표 지정"
+    },
+    {
+      "key": "wave_preview.tag.armor_break",
+      "value": "방어 무시·감소"
+    },
+    {
+      "key": "wave_preview.tag.execute",
+      "value": "처형"
+    },
+    {
+      "key": "wave_preview.tag.seal",
+      "value": "능력 봉인"
+    },
+    {
+      "key": "wave_preview.tag.multi_hit",
+      "value": "다단 적중"
+    },
+    {
+      "key": "elite_trait.ironclad.name",
+      "value": "철갑형"
+    },
+    {
+      "key": "elite_trait.ironclad.prefix",
+      "value": "철갑"
+    },
+    {
+      "key": "elite_trait.ironclad.description",
+      "value": "방어력은 2배지만 체력은 65%, 이동 속도는 85%로 낮아집니다."
+    },
+    {
+      "key": "elite_trait.ironclad.counter",
+      "value": "관통, 부식, 중독, 방어력 무시"
+    },
+    {
+      "key": "elite_trait.giant.name",
+      "value": "거체형"
+    },
+    {
+      "key": "elite_trait.giant.prefix",
+      "value": "거체"
+    },
+    {
+      "key": "elite_trait.giant.description",
+      "value": "체력은 2.2배지만 방어력은 40%, 이동 속도는 80%로 낮아집니다."
+    },
+    {
+      "key": "elite_trait.giant.counter",
+      "value": "화상, 중독, 출혈, 처형, 지속 피해"
+    },
+    {
+      "key": "elite_trait.rusher.name",
+      "value": "질주형"
+    },
+    {
+      "key": "elite_trait.rusher.prefix",
+      "value": "질주"
+    },
+    {
+      "key": "elite_trait.rusher.description",
+      "value": "이동 속도는 1.6배지만 체력은 55%, 방어력은 50%이며 방어막이 없습니다."
+    },
+    {
+      "key": "elite_trait.rusher.counter",
+      "value": "둔화, 속박, 기절, 추적, 표식"
+    },
+    {
+      "key": "elite_trait.barrier.name",
+      "value": "결계형"
+    },
+    {
+      "key": "elite_trait.barrier.prefix",
+      "value": "결계"
+    },
+    {
+      "key": "elite_trait.barrier.description",
+      "value": "기본 체력의 50% 방어막을 얻지만 체력은 70%, 방어력은 60%, 이동 속도는 90%로 낮아집니다."
+    },
+    {
+      "key": "elite_trait.barrier.counter",
+      "value": "봉인, 감전, 분열 탄환, 빠른 다단 적중"
+    },
+    {
+      "key": "enemy_rank.normal",
+      "value": "일반"
+    },
+    {
+      "key": "enemy_rank.elite",
+      "value": "정예"
+    },
+    {
+      "key": "enemy_rank.boss",
+      "value": "보스"
+    },
+    {
+      "key": "enemy_type.humanoid",
+      "value": "인간형"
+    },
+    {
+      "key": "enemy_type.construct",
+      "value": "마법 구조체"
+    },
+    {
+      "key": "enemy_type.arcane",
+      "value": "비전 생명체"
+    },
+    {
+      "key": "enemy_type.temporal",
+      "value": "시간 왜곡체"
+    },
+    {
+      "key": "boss_ability.shield",
+      "value": "수호 방벽"
+    },
+    {
+      "key": "boss_ability.summon",
+      "value": "하수인 소환"
+    },
+    {
+      "key": "boss_ability.teleport",
+      "value": "시간 도약"
+    },
+    {
+      "key": "enemy.raider.name",
+      "value": "고블린"
+    },
+    {
+      "key": "enemy.raider.description",
+      "value": "균형 잡힌 체력과 속도로 전열을 압박하는 고블린입니다."
+    },
+    {
+      "key": "enemy.runner.name",
+      "value": "늑대"
+    },
+    {
+      "key": "enemy.runner.description",
+      "value": "체력은 낮지만 빠르게 방어선을 돌파하는 늑대입니다."
+    },
+    {
+      "key": "enemy.armored_knight.name",
+      "value": "중갑 고블린"
+    },
+    {
+      "key": "enemy.armored_knight.description",
+      "value": "높은 방어력으로 물리 피해를 견디며 느리게 전진합니다."
+    },
+    {
+      "key": "enemy.elite_golem.name",
+      "value": "슬라임"
+    },
+    {
+      "key": "enemy.elite_golem.description",
+      "value": "강한 제어를 저항 게이지로 흡수하는 거대 슬라임입니다."
+    },
+    {
+      "key": "enemy.boss_guardian.name",
+      "value": "고블린 수호대장"
+    },
+    {
+      "key": "enemy.boss_guardian.description",
+      "value": "주기적으로 보호막을 전개해 집중 화력을 버티는 수호형 보스입니다."
+    },
+    {
+      "key": "enemy.boss_summoner.name",
+      "value": "여왕벌"
+    },
+    {
+      "key": "enemy.boss_summoner.description",
+      "value": "하수인을 계속 불러 전장을 넓게 압박하는 비전 보스입니다."
+    },
+    {
+      "key": "enemy.boss_time_walker.name",
+      "value": "시간 슬라임"
+    },
+    {
+      "key": "enemy.boss_time_walker.description",
+      "value": "시공간을 도약해 경로를 건너뛰는 최종 시간 왜곡 보스입니다."
+    },
+    {
+      "key": "status_effect.burn.name",
+      "value": "화상"
+    },
+    {
+      "key": "status_effect.burn.description",
+      "value": "짧은 간격으로 화염 피해를 받고 높은 중첩은 주변으로 번질 수 있습니다."
+    },
+    {
+      "key": "status_effect.poison.name",
+      "value": "중독"
+    },
+    {
+      "key": "status_effect.poison.description",
+      "value": "방어력을 일부 무시하는 지속 독 피해가 중첩됩니다."
+    },
+    {
+      "key": "status_effect.slow.name",
+      "value": "둔화"
+    },
+    {
+      "key": "status_effect.slow.description",
+      "value": "이동 속도가 감소하며 최종 둔화에는 상한이 적용됩니다."
+    },
+    {
+      "key": "status_effect.mark.name",
+      "value": "표식"
+    },
+    {
+      "key": "status_effect.mark.description",
+      "value": "받는 피해가 증가하고 타워의 우선 공격 대상이 됩니다."
+    },
+    {
+      "key": "status_effect.pierce.name",
+      "value": "천공"
+    },
+    {
+      "key": "status_effect.pierce.description",
+      "value": "탄환이 이 적을 통과하며 방어력 일부를 무시합니다."
+    },
+    {
+      "key": "status_effect.stun.name",
+      "value": "기절"
+    },
+    {
+      "key": "status_effect.stun.description",
+      "value": "행동이 중단되며 정예와 보스에게는 제어 저항 게이지가 누적됩니다."
+    },
+    {
+      "key": "status_effect.ricochet.name",
+      "value": "도탄"
+    },
+    {
+      "key": "status_effect.ricochet.description",
+      "value": "밀려날 때 주변 적에게 튕겨 충돌 피해를 줍니다."
+    },
+    {
+      "key": "status_effect.bleed.name",
+      "value": "출혈"
+    },
+    {
+      "key": "status_effect.bleed.description",
+      "value": "이동하거나 강제로 밀려날 때 추가 물리 피해를 받습니다."
+    },
+    {
+      "key": "status_effect.homing.name",
+      "value": "추적 표적"
+    },
+    {
+      "key": "status_effect.homing.description",
+      "value": "유도 탄환이 이 적을 우선적으로 추적합니다."
+    },
+    {
+      "key": "status_effect.delay.name",
+      "value": "지연"
+    },
+    {
+      "key": "status_effect.delay.description",
+      "value": "다음 이동이나 특수 능력 실행이 늦춰집니다."
+    },
+    {
+      "key": "status_effect.curse.name",
+      "value": "저주"
+    },
+    {
+      "key": "status_effect.curse.description",
+      "value": "상태이상 피해와 지속시간이 증가하고 사망 시 주변으로 옮겨갈 수 있습니다."
+    },
+    {
+      "key": "status_effect.bind.name",
+      "value": "속박"
+    },
+    {
+      "key": "status_effect.bind.description",
+      "value": "이동할 수 없지만 피격과 지속 피해는 정상 적용됩니다."
+    },
+    {
+      "key": "status_effect.airborne.name",
+      "value": "에어본"
+    },
+    {
+      "key": "status_effect.airborne.description",
+      "value": "공중에 떠올라 이동하지 못하고 착지할 때 충돌 피해를 줍니다."
+    },
+    {
+      "key": "status_effect.shock.name",
+      "value": "감전"
+    },
+    {
+      "key": "status_effect.shock.description",
+      "value": "충전 중첩이 최대가 되면 주변 적에게 전기를 방출합니다."
+    },
+    {
+      "key": "status_effect.freeze.name",
+      "value": "냉기·빙결"
+    },
+    {
+      "key": "status_effect.freeze.description",
+      "value": "냉기 중첩이 쌓이며 한계에 도달하면 일정 시간 얼어붙습니다."
+    },
+    {
+      "key": "status_effect.afterimage.name",
+      "value": "잔상"
+    },
+    {
+      "key": "status_effect.afterimage.description",
+      "value": "이동 경로에 남은 잔상이 받은 피해 일부를 원본에게 전달합니다."
+    },
+    {
+      "key": "status_effect.pulse.name",
+      "value": "파동"
+    },
+    {
+      "key": "status_effect.pulse.description",
+      "value": "주기적으로 보유한 상태이상 일부를 주변 적에게 퍼뜨립니다."
+    },
+    {
+      "key": "status_effect.magnet.name",
+      "value": "자석"
+    },
+    {
+      "key": "status_effect.magnet.description",
+      "value": "주변 아군 탄환을 자신에게 끌어당깁니다."
+    },
+    {
+      "key": "status_effect.reflect.name",
+      "value": "반사"
+    },
+    {
+      "key": "status_effect.reflect.description",
+      "value": "적중하거나 관통한 탄환을 가까운 다른 적에게 반사합니다."
+    },
+    {
+      "key": "status_effect.contagion.name",
+      "value": "전염"
+    },
+    {
+      "key": "status_effect.contagion.description",
+      "value": "일정 시간마다 보유한 디버프 하나를 가까운 적에게 옮깁니다."
+    },
+    {
+      "key": "status_effect.seal.name",
+      "value": "봉인"
+    },
+    {
+      "key": "status_effect.seal.description",
+      "value": "보호막, 치유, 순간이동과 소환 같은 특수 능력을 사용할 수 없습니다."
+    },
+    {
+      "key": "status_effect.corrosion.name",
+      "value": "부식"
+    },
+    {
+      "key": "status_effect.corrosion.description",
+      "value": "방어력과 최대 체력이 서서히 감소합니다."
+    },
+    {
+      "key": "status_effect.orbit.name",
+      "value": "회전"
+    },
+    {
+      "key": "status_effect.orbit.description",
+      "value": "현재 위치 주변을 회전하며 경로 진행이 느려지고 다른 적과 충돌합니다."
+    },
+    {
+      "key": "status_effect.lifesteal.name",
+      "value": "흡혈 표식"
+    },
+    {
+      "key": "status_effect.lifesteal.description",
+      "value": "이 적에게 가한 피해 일부가 본진 회복으로 전환됩니다."
+    },
+    {
+      "key": "status_effect.fear.name",
+      "value": "공포"
+    },
+    {
+      "key": "status_effect.fear.description",
+      "value": "경로 반대 방향으로 달아나며 종료 후 잠시 이동 속도가 증가합니다."
     }
   ],
   "cards": [
@@ -666,6 +1574,162 @@
       "name": "공포",
       "projectile": "적중한 적을 일정 시간 경로 반대 방향으로 달아나게 합니다.",
       "enemy": "즉시 뒤로 달아나며 공포가 끝나면 잠시 이동 속도가 증가합니다."
+    },
+    {
+      "id": "duplicate",
+      "name": "복제",
+      "projectile": "자신과 같은 유령 탄환을 하나 생성합니다. 복제 탄환은 다시 복제되지 않습니다.",
+      "enemy": "현재 상태를 나누어 가진 보상 없는 유령 복제체를 생성합니다."
+    },
+    {
+      "id": "sacrifice",
+      "name": "희생",
+      "projectile": "자신을 소멸시키고 가까운 아군 탄환에 피해와 남은 효과를 전달합니다.",
+      "enemy": "현재 체력 일부를 잃고 그만큼 주변 적에게 피해를 나누어 줍니다."
+    },
+    {
+      "id": "return",
+      "name": "환원",
+      "projectile": "소멸할 때 타워로 돌아가 한 번 다시 발사됩니다.",
+      "enemy": "체력과 상태이상을 유지한 채 몇 초 전의 경로 위치로 되돌아갑니다."
+    },
+    {
+      "id": "retrograde",
+      "name": "역행",
+      "projectile": "마지막 적중 뒤 지나온 경로를 반대로 이동하며 다시 피해를 줍니다.",
+      "enemy": "일정 시간 동안 경로를 반대 방향으로 이동합니다."
+    },
+    {
+      "id": "resonance",
+      "name": "공명",
+      "projectile": "같은 태그를 가진 가까운 탄환과 공명해 서로의 효과가 강화됩니다.",
+      "enemy": "같은 상태이상을 가진 적끼리 연결되어 상태 피해와 지속시간이 증가합니다."
+    },
+    {
+      "id": "absorb",
+      "name": "흡수",
+      "projectile": "가까운 아군 탄환을 흡수해 피해, 크기와 카드 효과 하나를 가져옵니다.",
+      "enemy": "체력이 낮은 주변 적을 흡수해 체력과 상태를 가져오며 총보상은 늘지 않습니다."
+    },
+    {
+      "id": "time_stop",
+      "name": "시간 정지",
+      "projectile": "공중에서 정지하며 저장한 파동과 지속 효과를 해제될 때 한꺼번에 방출합니다.",
+      "enemy": "완전히 정지하지만 화상, 중독과 출혈 피해는 계속 적용됩니다."
+    },
+    {
+      "id": "mutation",
+      "name": "변이",
+      "projectile": "장착 카드 하나가 같은 티어의 다른 카드 효과로 일시적으로 변합니다.",
+      "enemy": "다른 형태로 변해 약점 하나와 강화 효과 하나를 함께 얻습니다."
+    },
+    {
+      "id": "execute",
+      "name": "처형",
+      "projectile": "체력이 낮은 적에게 큰 피해를 주고 즉시 소멸합니다.",
+      "enemy": "처형 표식이 생기며 일정 체력 이하가 되면 즉시 사망합니다."
+    },
+    {
+      "id": "parasite",
+      "name": "기생",
+      "projectile": "적 내부에 박혀 일정 시간마다 남은 카드 효과를 반복합니다.",
+      "enemy": "주기적으로 피해를 받고 사망하면 기생체가 가까운 적에게 이동합니다."
+    },
+    {
+      "id": "rebirth",
+      "name": "환생",
+      "projectile": "소멸 후 한 번 유령 탄환으로 되살아납니다.",
+      "enemy": "사망 후 보상 없는 약한 영혼으로 되돌아와 경로를 반대로 이동합니다."
+    },
+    {
+      "id": "chain",
+      "name": "연쇄",
+      "projectile": "카드 실행이 끝나면 가까운 탄환 하나가 같은 순서를 약화된 위력으로 실행합니다.",
+      "enemy": "사망할 때 가까운 적에게 적용된 카드 순서를 약화된 위력으로 전달합니다."
+    },
+    {
+      "id": "recursion",
+      "name": "재귀",
+      "projectile": "마지막 카드 실행 후 첫 번째 카드를 한 번 더 실행합니다.",
+      "enemy": "모든 적 대상 카드가 끝난 뒤 첫 번째 카드를 한 번 더 실행합니다."
+    },
+    {
+      "id": "reverse_order",
+      "name": "역순 실행",
+      "projectile": "장착한 탄환 카드를 오른쪽에서 왼쪽 순서로 실행합니다.",
+      "enemy": "장착한 적 대상 카드를 오른쪽에서 왼쪽 순서로 실행합니다."
+    },
+    {
+      "id": "dual_interpretation",
+      "name": "이중 해석",
+      "projectile": "다음 카드의 탄환 효과와 적 효과를 함께 실행하며 적 효과는 적중 대상에 적용합니다.",
+      "enemy": "다음 카드의 적 효과를 실행하고 탄환 효과를 가진 유령 탄환을 생성합니다."
+    },
+    {
+      "id": "infinite_orbit",
+      "name": "무한 궤도",
+      "projectile": "최대 적중 횟수에 도달할 때까지 목표 주변을 순환하며 반복해서 적중합니다.",
+      "enemy": "정해진 횟수만큼 피격될 때까지 짧은 경로 구간을 반복해서 걷습니다."
+    },
+    {
+      "id": "overclone",
+      "name": "과잉 복제",
+      "projectile": "분열하거나 복제된 탄환이 생성 이전 카드 효과 일부를 물려받습니다.",
+      "enemy": "분열하거나 복제된 적이 상태이상과 사망 효과 일부를 물려받습니다."
+    },
+    {
+      "id": "forbidden_deal",
+      "name": "금단의 거래",
+      "projectile": "적중할 때 골드를 소비해 카드 순서를 한 번 더 실행하며 골드가 부족하면 소멸합니다.",
+      "enemy": "살아 있는 동안 골드를 생성하지만 시간이 지날수록 크기, 체력과 이동 속도가 증가합니다."
+    },
+    {
+      "id": "last_command",
+      "name": "마지막 명령",
+      "projectile": "소멸할 때 장착 카드를 역순으로 한 번 더 실행합니다.",
+      "enemy": "사망할 때 장착 카드를 역순으로 주변 적에게 적용합니다."
+    },
+    {
+      "id": "fate_lock",
+      "name": "운명 고정",
+      "projectile": "확률 효과가 무작위 대신 정해진 주기에 따라 반드시 발동합니다.",
+      "enemy": "다음 확률 효과를 반드시 발동시키지만 위력이 조금 감소합니다."
+    },
+    {
+      "id": "overload",
+      "name": "과부하",
+      "projectile": "모든 카드를 즉시 한 번 더 실행한 뒤 폭발하며 소멸합니다.",
+      "enemy": "모든 적 대상 카드를 한 번 더 실행하고 잠시 이동 속도와 상태이상 저항을 얻습니다."
+    },
+    {
+      "id": "singularity",
+      "name": "특이점",
+      "projectile": "주변 탄환을 끌어당겨 흡수하고 소멸할 때 흡수한 카드 효과를 범위로 방출합니다.",
+      "enemy": "주변 적을 끌어당기며 피해 일부를 공유하고 사망할 때 크게 폭발합니다."
+    },
+    {
+      "id": "phoenix_core",
+      "name": "불사조 코어",
+      "projectile": "소멸 후 한 번 더 강한 형태로 부활하며 다시 부활할 수 없습니다.",
+      "enemy": "사망 후 낮은 체력으로 한 번 부활하고 기존 상태이상은 취약 효과로 변환됩니다."
+    },
+    {
+      "id": "time_rift",
+      "name": "시간 균열",
+      "projectile": "현재 탄환의 과거 잔상과 미래 잔상을 각각 하나 생성합니다.",
+      "enemy": "과거 위치와 예상 미래 위치에 피해 일부를 전달하는 시간 잔상을 생성합니다."
+    },
+    {
+      "id": "mirror_world",
+      "name": "거울 세계",
+      "projectile": "타워 반대편 방향에 같은 카드 효과를 가진 거울 탄환을 생성합니다.",
+      "enemy": "체력을 공유하며 보상과 진행도를 주지 않는 환영 적을 생성합니다."
+    },
+    {
+      "id": "ouroboros",
+      "name": "우로보로스",
+      "projectile": "카드 순서가 끝나면 위력이 감소한 상태로 전체 순서를 제한 횟수만큼 반복합니다.",
+      "enemy": "카드 순서가 끝나면 가까운 다른 적에게 약화된 전체 순서를 제한 횟수만큼 전달합니다."
     }
   ],
   "towers": [

@@ -1,5 +1,6 @@
 using System;
 using RuleforgeTD.Battle;
+using RuleforgeTD.Rendering;
 using UnityEngine;
 
 namespace RuleforgeTD.Maps
@@ -143,6 +144,9 @@ namespace RuleforgeTD.Maps
                 return;
             }
 
+            WorldSortingLayers.Apply(
+                targetRenderer,
+                WorldSortingLayers.Route);
             targetRenderer.sprite = state ==
                 TowerBuildSiteVisualState.Locked
                 ? lockedSprite

@@ -1,48 +1,9 @@
-using System;
 using RuleforgeTD.GameLogic.Content;
 using RuleforgeTD.GameLogic.Simulation;
 using UnityEngine;
 
 namespace RuleforgeTD.Battle
 {
-    [Flags]
-    public enum StageOneEnemyEffectVisualFlags : uint
-    {
-        None = 0,
-        Ricochet = 1u << 0,
-        Bleed = 1u << 1,
-        Accelerate = 1u << 2,
-        Homing = 1u << 3,
-        Delay = 1u << 4,
-        Curse = 1u << 5,
-        Bind = 1u << 6,
-        Airborne = 1u << 7,
-        Shock = 1u << 8,
-        Freeze = 1u << 9,
-        Afterimage = 1u << 10,
-        Pulse = 1u << 11,
-        Magnet = 1u << 12,
-        Reflect = 1u << 13,
-        Contagion = 1u << 14,
-        Seal = 1u << 15,
-        Corrosion = 1u << 16,
-        Orbit = 1u << 17,
-        Lifesteal = 1u << 18,
-        Fear = 1u << 19,
-        Split = 1u << 20,
-        Pierce = 1u << 21,
-        Burn = 1u << 22,
-        Slow = 1u << 23,
-        Explode = 1u << 24,
-        Knockback = 1u << 25,
-        Mark = 1u << 26,
-        GoldBounty = 1u << 27,
-        Poison = 1u << 28,
-        Enlarge = 1u << 29,
-        Shrink = 1u << 30,
-        Stun = 1u << 31
-    }
-
     /// <summary>
     /// Persistent, view-only status presentation for the Common/Uncommon
     /// cards. It is intentionally separate from EnemyStatusVisualView so burn
@@ -56,10 +17,6 @@ namespace RuleforgeTD.Battle
 
         private const string TintOverlayName =
             "Card Effect Tint Overlay";
-        private const string AuraName =
-            "Card Effect Aura";
-        private const string GlyphName =
-            "Card Effect Glyph";
         private const string ShadowName =
             "Airborne Ground Shadow";
 
@@ -68,10 +25,8 @@ namespace RuleforgeTD.Battle
 
         private StageOneEnemyView enemyView;
         private SpriteRenderer tintOverlay;
-        private SpriteRenderer aura;
-        private SpriteRenderer glyph;
         private SpriteRenderer airborneShadow;
-        private StageOneEnemyEffectVisualFlags activeFlags;
+        private CardEffectVisualFlags activeFlags;
         private Vector3 appliedPresentationOffset;
         private int airborneInstanceId = -1;
         private int airborneRemainingTicks;
@@ -81,14 +36,14 @@ namespace RuleforgeTD.Battle
         private string dominantEffectId = string.Empty;
         private Color dominantColor = Color.white;
 
-        public StageOneEnemyEffectVisualFlags ActiveFlags =>
+        public CardEffectVisualFlags ActiveFlags =>
             activeFlags;
         public bool IsCursed =>
-            HasFlag(StageOneEnemyEffectVisualFlags.Curse);
+            HasFlag(CardEffectVisualFlags.Curse);
         public bool IsBound =>
-            HasFlag(StageOneEnemyEffectVisualFlags.Bind);
+            HasFlag(CardEffectVisualFlags.Bind);
         public bool IsAirborne =>
-            HasFlag(StageOneEnemyEffectVisualFlags.Airborne);
+            HasFlag(CardEffectVisualFlags.Airborne);
         public float AirborneLift =>
             appliedPresentationOffset.y;
         public string DominantEffectId =>
@@ -97,8 +52,6 @@ namespace RuleforgeTD.Battle
             dominantColor;
         public bool TintOverlayVisible =>
             tintOverlay != null && tintOverlay.enabled;
-        public bool AuraVisible =>
-            aura != null && aura.enabled;
         public bool AirborneShadowVisible =>
             airborneShadow != null && airborneShadow.enabled;
 
@@ -119,7 +72,6 @@ namespace RuleforgeTD.Battle
         {
             SynchronizeSourceSprite();
             SynchronizeSorting();
-            AnimatePersistentVisuals();
             ApplyPresentationOffset();
         }
 
@@ -181,7 +133,7 @@ namespace RuleforgeTD.Battle
                 if (status.Stacks > 0 &&
                     status.RemainingTicks > 0 &&
                     ToVisualFlag(status.Type) !=
-                    StageOneEnemyEffectVisualFlags.None)
+                    CardEffectVisualFlags.None)
                 {
                     return true;
                 }
@@ -196,8 +148,8 @@ namespace RuleforgeTD.Battle
         /// </summary>
         public void ApplyStatuses(StatusSnapshot[] statuses)
         {
-            StageOneEnemyEffectVisualFlags nextFlags =
-                StageOneEnemyEffectVisualFlags.None;
+            CardEffectVisualFlags nextFlags =
+                CardEffectVisualFlags.None;
             int nextAirborneInstanceId = -1;
             int nextAirborneRemainingTicks = 0;
 
@@ -234,7 +186,7 @@ namespace RuleforgeTD.Battle
         /// Direct presentation seam used by tests and non-simulation previews.
         /// </summary>
         public void SetVisualFlags(
-            StageOneEnemyEffectVisualFlags flags,
+            CardEffectVisualFlags flags,
             int remainingAirborneTicks = 0,
             int airborneStatusInstanceId = -1)
         {
@@ -254,7 +206,7 @@ namespace RuleforgeTD.Battle
             airborneRemainingTicks =
                 Mathf.Max(0, remainingAirborneTicks);
             if ((flags &
-                 StageOneEnemyEffectVisualFlags.Airborne) == 0)
+                 CardEffectVisualFlags.Airborne) == 0)
             {
                 airborneInstanceId = -1;
                 airbornePeakTicks = 0;
@@ -272,7 +224,7 @@ namespace RuleforgeTD.Battle
 
         public void ResetVisuals()
         {
-            activeFlags = StageOneEnemyEffectVisualFlags.None;
+            activeFlags = CardEffectVisualFlags.None;
             airborneInstanceId = -1;
             airborneRemainingTicks = 0;
             airbornePeakTicks = 0;
@@ -283,16 +235,6 @@ namespace RuleforgeTD.Battle
             if (tintOverlay != null)
             {
                 tintOverlay.enabled = false;
-            }
-
-            if (aura != null)
-            {
-                aura.enabled = false;
-            }
-
-            if (glyph != null)
-            {
-                glyph.enabled = false;
             }
 
             if (airborneShadow != null)
@@ -325,28 +267,10 @@ namespace RuleforgeTD.Battle
                 tintOverlay,
                 TintOverlayName,
                 targetRenderer.transform);
-            aura = EnsureSpriteRenderer(
-                aura,
-                AuraName,
-                transform);
-            glyph = EnsureSpriteRenderer(
-                glyph,
-                GlyphName,
-                transform);
             airborneShadow = EnsureSpriteRenderer(
                 airborneShadow,
                 ShadowName,
                 transform);
-
-            if (aura != null)
-            {
-                aura.sprite = SharedResources.RingSprite;
-            }
-
-            if (glyph != null)
-            {
-                glyph.sprite = SharedResources.RuneSprite;
-            }
 
             if (airborneShadow != null)
             {
@@ -409,16 +333,6 @@ namespace RuleforgeTD.Battle
                     tintOverlay.enabled = false;
                 }
 
-                if (aura != null)
-                {
-                    aura.enabled = false;
-                }
-
-                if (glyph != null)
-                {
-                    glyph.enabled = false;
-                }
-
                 if (airborneShadow != null)
                 {
                     airborneShadow.enabled = false;
@@ -434,23 +348,6 @@ namespace RuleforgeTD.Battle
                 tint.a = ResolveTintAlpha(activeFlags);
                 tintOverlay.color = tint;
                 tintOverlay.enabled = true;
-            }
-
-            if (aura != null)
-            {
-                Color auraColor = style.Primary;
-                auraColor.a = 0.74f;
-                aura.color = auraColor;
-                aura.enabled = true;
-            }
-
-            if (glyph != null)
-            {
-                glyph.sprite = ResolveGlyph(style.Shape);
-                Color glyphColor = style.Secondary;
-                glyphColor.a = 0.88f;
-                glyph.color = glyphColor;
-                glyph.enabled = true;
             }
 
             if (airborneShadow != null)
@@ -472,7 +369,7 @@ namespace RuleforgeTD.Battle
             tintOverlay.flipY = targetRenderer.flipY;
             tintOverlay.enabled =
                 activeFlags !=
-                    StageOneEnemyEffectVisualFlags.None &&
+                    CardEffectVisualFlags.None &&
                 targetRenderer.enabled &&
                 targetRenderer.sprite != null;
         }
@@ -506,83 +403,19 @@ namespace RuleforgeTD.Battle
                 tintOverlay.sortingOrder = order + 1;
             }
 
-            if (aura != null)
-            {
-                aura.sortingLayerID = layer;
-                aura.sortingOrder = order + 2;
-            }
-
-            if (glyph != null)
-            {
-                glyph.sortingLayerID = layer;
-                glyph.sortingOrder = order + 3;
-            }
-        }
-
-        private void AnimatePersistentVisuals()
-        {
-            if (activeFlags ==
-                StageOneEnemyEffectVisualFlags.None)
-            {
-                return;
-            }
-
-            float time = Time.unscaledTime;
-            float pulse = 0.92f +
-                          Mathf.Sin(time * 5.8f) * 0.08f;
-            if (aura != null)
-            {
-                aura.transform.localPosition =
-                    new Vector3(0f, 0.12f, -0.015f);
-                aura.transform.localScale =
-                    new Vector3(
-                        pulse,
-                        pulse * 0.58f,
-                        1f);
-                aura.transform.localRotation =
-                    Quaternion.Euler(
-                        0f,
-                        0f,
-                        time *
-                        (HasFlag(
-                             StageOneEnemyEffectVisualFlags.Orbit)
-                            ? 150f
-                            : 42f));
-            }
-
-            if (glyph != null)
-            {
-                float glyphHeight = IsAirborne ? 0.5f : 0.36f;
-                glyph.transform.localPosition =
-                    new Vector3(
-                        0f,
-                        glyphHeight +
-                        Mathf.Sin(time * 4.4f) * 0.035f,
-                        -0.02f);
-                glyph.transform.localScale =
-                    Vector3.one * (0.42f + pulse * 0.08f);
-                glyph.transform.localRotation =
-                    Quaternion.Euler(
-                        0f,
-                        0f,
-                        HasFlag(
-                            StageOneEnemyEffectVisualFlags.Fear)
-                            ? Mathf.Sin(time * 31f) * 9f
-                            : -time * 28f);
-            }
         }
 
         private void ApplyPresentationOffset()
         {
             RestorePresentationOffset();
             if (activeFlags ==
-                StageOneEnemyEffectVisualFlags.None)
+                CardEffectVisualFlags.None)
             {
                 return;
             }
 
             float horizontalOffset = 0f;
-            if (HasFlag(StageOneEnemyEffectVisualFlags.Fear))
+            if (HasFlag(CardEffectVisualFlags.Fear))
             {
                 int stableId =
                     enemyView == null
@@ -590,7 +423,7 @@ namespace RuleforgeTD.Battle
                         : enemyView.EntityId;
                 horizontalOffset =
                     Mathf.Sin(
-                        Time.unscaledTime * 34f +
+                        Time.time * 34f +
                         stableId * 0.73f) *
                     FearJitterDistance;
             }
@@ -658,233 +491,247 @@ namespace RuleforgeTD.Battle
         }
 
         private bool HasFlag(
-            StageOneEnemyEffectVisualFlags flag)
+            CardEffectVisualFlags flag)
         {
             return (activeFlags & flag) != 0;
         }
 
-        private static StageOneEnemyEffectVisualFlags ToVisualFlag(
+        private static CardEffectVisualFlags ToVisualFlag(
             StatusType type)
         {
-            switch (type)
-            {
-                case StatusType.Burn:
-                    return StageOneEnemyEffectVisualFlags.Burn;
-                case StatusType.Poison:
-                    return StageOneEnemyEffectVisualFlags.Poison;
-                case StatusType.Slow:
-                    return StageOneEnemyEffectVisualFlags.Slow;
-                case StatusType.Mark:
-                    return StageOneEnemyEffectVisualFlags.Mark;
-                case StatusType.Pierced:
-                    return StageOneEnemyEffectVisualFlags.Pierce;
-                case StatusType.Stun:
-                    return StageOneEnemyEffectVisualFlags.Stun;
-                case StatusType.Ricochet:
-                    return StageOneEnemyEffectVisualFlags.Ricochet;
-                case StatusType.Bleed:
-                    return StageOneEnemyEffectVisualFlags.Bleed;
-                case StatusType.HomingPriority:
-                    return StageOneEnemyEffectVisualFlags.Homing;
-                case StatusType.Delay:
-                    return StageOneEnemyEffectVisualFlags.Delay;
-                case StatusType.Curse:
-                    return StageOneEnemyEffectVisualFlags.Curse;
-                case StatusType.Bind:
-                    return StageOneEnemyEffectVisualFlags.Bind;
-                case StatusType.Airborne:
-                    return StageOneEnemyEffectVisualFlags.Airborne;
-                case StatusType.Shock:
-                    return StageOneEnemyEffectVisualFlags.Shock;
-                case StatusType.Chill:
-                case StatusType.Frozen:
-                case StatusType.FreezeImmunity:
-                    return StageOneEnemyEffectVisualFlags.Freeze;
-                case StatusType.Afterimage:
-                    return StageOneEnemyEffectVisualFlags.Afterimage;
-                case StatusType.Pulse:
-                    return StageOneEnemyEffectVisualFlags.Pulse;
-                case StatusType.Magnet:
-                    return StageOneEnemyEffectVisualFlags.Magnet;
-                case StatusType.Reflect:
-                    return StageOneEnemyEffectVisualFlags.Reflect;
-                case StatusType.Contagion:
-                    return StageOneEnemyEffectVisualFlags.Contagion;
-                case StatusType.Seal:
-                    return StageOneEnemyEffectVisualFlags.Seal;
-                case StatusType.Corrosion:
-                    return StageOneEnemyEffectVisualFlags.Corrosion;
-                case StatusType.Orbit:
-                    return StageOneEnemyEffectVisualFlags.Orbit;
-                case StatusType.Lifesteal:
-                    return StageOneEnemyEffectVisualFlags.Lifesteal;
-                case StatusType.Fear:
-                case StatusType.FearHaste:
-                    return StageOneEnemyEffectVisualFlags.Fear;
-                default:
-                    return StageOneEnemyEffectVisualFlags.None;
-            }
+            return StageOneStatusEffectVisualCatalog
+                .ToVisualFlag(type);
         }
 
         private static string ResolveDominantEffectId(
-            StageOneEnemyEffectVisualFlags flags)
+            CardEffectVisualFlags flags)
         {
-            if ((flags & StageOneEnemyEffectVisualFlags.Airborne) != 0)
+            string highTierEffect =
+                StageOneCardEffectPalette
+                    .ResolveHighestSetEffectId(
+                        flags,
+                        44);
+            if (!string.IsNullOrEmpty(highTierEffect))
+            {
+                return highTierEffect;
+            }
+
+            if ((flags & CardEffectVisualFlags.Rebirth) != 0)
+            {
+                return "rebirth";
+            }
+
+            if ((flags & CardEffectVisualFlags.Execute) != 0)
+            {
+                return "execute";
+            }
+
+            if ((flags & CardEffectVisualFlags.TimeStop) != 0)
+            {
+                return "time_stop";
+            }
+
+            if ((flags & CardEffectVisualFlags.Mutation) != 0)
+            {
+                return "mutation";
+            }
+
+            if ((flags & CardEffectVisualFlags.Parasite) != 0)
+            {
+                return "parasite";
+            }
+
+            if ((flags & CardEffectVisualFlags.Absorb) != 0)
+            {
+                return "absorb";
+            }
+
+            if ((flags & CardEffectVisualFlags.Resonance) != 0)
+            {
+                return "resonance";
+            }
+
+            if ((flags & CardEffectVisualFlags.Chain) != 0)
+            {
+                return "chain";
+            }
+
+            if ((flags & CardEffectVisualFlags.Retrograde) != 0)
+            {
+                return "retrograde";
+            }
+
+            if ((flags & CardEffectVisualFlags.Return) != 0)
+            {
+                return "return";
+            }
+
+            if ((flags & CardEffectVisualFlags.Sacrifice) != 0)
+            {
+                return "sacrifice";
+            }
+
+            if ((flags & CardEffectVisualFlags.Duplicate) != 0)
+            {
+                return "duplicate";
+            }
+
+            if ((flags & CardEffectVisualFlags.Airborne) != 0)
             {
                 return "airborne";
             }
 
-            if ((flags & StageOneEnemyEffectVisualFlags.Stun) != 0)
+            if ((flags & CardEffectVisualFlags.Stun) != 0)
             {
                 return "stun";
             }
 
-            if ((flags & StageOneEnemyEffectVisualFlags.Explode) != 0)
+            if ((flags & CardEffectVisualFlags.Explode) != 0)
             {
                 return "explode";
             }
 
-            if ((flags & StageOneEnemyEffectVisualFlags.Bind) != 0)
+            if ((flags & CardEffectVisualFlags.Bind) != 0)
             {
                 return "bind";
             }
 
-            if ((flags & StageOneEnemyEffectVisualFlags.Freeze) != 0)
+            if ((flags & CardEffectVisualFlags.Freeze) != 0)
             {
                 return "freeze";
             }
 
-            if ((flags & StageOneEnemyEffectVisualFlags.Curse) != 0)
+            if ((flags & CardEffectVisualFlags.Curse) != 0)
             {
                 return "curse";
             }
 
-            if ((flags & StageOneEnemyEffectVisualFlags.Shock) != 0)
+            if ((flags & CardEffectVisualFlags.Shock) != 0)
             {
                 return "shock";
             }
 
-            if ((flags & StageOneEnemyEffectVisualFlags.Corrosion) != 0)
+            if ((flags & CardEffectVisualFlags.Corrosion) != 0)
             {
                 return "corrosion";
             }
 
-            if ((flags & StageOneEnemyEffectVisualFlags.Burn) != 0)
+            if ((flags & CardEffectVisualFlags.Burn) != 0)
             {
                 return "burn";
             }
 
-            if ((flags & StageOneEnemyEffectVisualFlags.Poison) != 0)
+            if ((flags & CardEffectVisualFlags.Poison) != 0)
             {
                 return "poison";
             }
 
-            if ((flags & StageOneEnemyEffectVisualFlags.Fear) != 0)
+            if ((flags & CardEffectVisualFlags.Fear) != 0)
             {
                 return "fear";
             }
 
-            if ((flags & StageOneEnemyEffectVisualFlags.Bleed) != 0)
+            if ((flags & CardEffectVisualFlags.Bleed) != 0)
             {
                 return "bleed";
             }
 
-            if ((flags & StageOneEnemyEffectVisualFlags.Seal) != 0)
+            if ((flags & CardEffectVisualFlags.Seal) != 0)
             {
                 return "seal";
             }
 
-            if ((flags & StageOneEnemyEffectVisualFlags.Magnet) != 0)
+            if ((flags & CardEffectVisualFlags.Magnet) != 0)
             {
                 return "magnet";
             }
 
-            if ((flags & StageOneEnemyEffectVisualFlags.Reflect) != 0)
+            if ((flags & CardEffectVisualFlags.Reflect) != 0)
             {
                 return "reflect";
             }
 
-            if ((flags & StageOneEnemyEffectVisualFlags.Contagion) != 0)
+            if ((flags & CardEffectVisualFlags.Contagion) != 0)
             {
                 return "contagion";
             }
 
-            if ((flags & StageOneEnemyEffectVisualFlags.Orbit) != 0)
+            if ((flags & CardEffectVisualFlags.Orbit) != 0)
             {
                 return "orbit";
             }
 
-            if ((flags & StageOneEnemyEffectVisualFlags.Lifesteal) != 0)
+            if ((flags & CardEffectVisualFlags.Lifesteal) != 0)
             {
                 return "lifesteal";
             }
 
-            if ((flags & StageOneEnemyEffectVisualFlags.Pulse) != 0)
+            if ((flags & CardEffectVisualFlags.Pulse) != 0)
             {
                 return "pulse";
             }
 
-            if ((flags & StageOneEnemyEffectVisualFlags.Afterimage) != 0)
+            if ((flags & CardEffectVisualFlags.Afterimage) != 0)
             {
                 return "afterimage";
             }
 
-            if ((flags & StageOneEnemyEffectVisualFlags.Homing) != 0)
+            if ((flags & CardEffectVisualFlags.Homing) != 0)
             {
                 return "homing";
             }
 
-            if ((flags & StageOneEnemyEffectVisualFlags.Delay) != 0)
+            if ((flags & CardEffectVisualFlags.Delay) != 0)
             {
                 return "delay";
             }
 
-            if ((flags & StageOneEnemyEffectVisualFlags.Ricochet) != 0)
+            if ((flags & CardEffectVisualFlags.Ricochet) != 0)
             {
                 return "ricochet";
             }
 
-            if ((flags & StageOneEnemyEffectVisualFlags.Accelerate) != 0)
+            if ((flags & CardEffectVisualFlags.Accelerate) != 0)
             {
                 return "accelerate";
             }
 
-            if ((flags & StageOneEnemyEffectVisualFlags.Mark) != 0)
+            if ((flags & CardEffectVisualFlags.Mark) != 0)
             {
                 return "mark";
             }
 
-            if ((flags & StageOneEnemyEffectVisualFlags.Pierce) != 0)
+            if ((flags & CardEffectVisualFlags.Pierce) != 0)
             {
                 return "pierce";
             }
 
-            if ((flags & StageOneEnemyEffectVisualFlags.Slow) != 0)
+            if ((flags & CardEffectVisualFlags.Slow) != 0)
             {
                 return "slow";
             }
 
-            if ((flags & StageOneEnemyEffectVisualFlags.Knockback) != 0)
+            if ((flags & CardEffectVisualFlags.Knockback) != 0)
             {
                 return "knockback";
             }
 
-            if ((flags & StageOneEnemyEffectVisualFlags.GoldBounty) != 0)
+            if ((flags & CardEffectVisualFlags.GoldBounty) != 0)
             {
                 return "gold_bounty";
             }
 
-            if ((flags & StageOneEnemyEffectVisualFlags.Enlarge) != 0)
+            if ((flags & CardEffectVisualFlags.Enlarge) != 0)
             {
                 return "enlarge";
             }
 
-            if ((flags & StageOneEnemyEffectVisualFlags.Shrink) != 0)
+            if ((flags & CardEffectVisualFlags.Shrink) != 0)
             {
                 return "shrink";
             }
 
-            if ((flags & StageOneEnemyEffectVisualFlags.Split) != 0)
+            if ((flags & CardEffectVisualFlags.Split) != 0)
             {
                 return "split";
             }
@@ -893,19 +740,19 @@ namespace RuleforgeTD.Battle
         }
 
         private static float ResolveTintAlpha(
-            StageOneEnemyEffectVisualFlags flags)
+            CardEffectVisualFlags flags)
         {
-            if ((flags & StageOneEnemyEffectVisualFlags.Curse) != 0)
+            if ((flags & CardEffectVisualFlags.Curse) != 0)
             {
                 return 0.42f;
             }
 
-            if ((flags & StageOneEnemyEffectVisualFlags.Bind) != 0)
+            if ((flags & CardEffectVisualFlags.Bind) != 0)
             {
                 return 0.36f;
             }
 
-            if ((flags & StageOneEnemyEffectVisualFlags.Freeze) != 0)
+            if ((flags & CardEffectVisualFlags.Freeze) != 0)
             {
                 return 0.44f;
             }
@@ -913,61 +760,10 @@ namespace RuleforgeTD.Battle
             return 0.27f;
         }
 
-        private static Sprite ResolveGlyph(
-            StageOneCardEffectShape shape)
-        {
-            switch (shape)
-            {
-                case StageOneCardEffectShape.Chain:
-                    return SharedResources.ChainSprite;
-                case StageOneCardEffectShape.IceBurst:
-                    return SharedResources.SnowflakeSprite;
-                case StageOneCardEffectShape.Reticle:
-                    return SharedResources.ReticleSprite;
-                default:
-                    return SharedResources.RuneSprite;
-            }
-        }
-
         private static class SharedResources
         {
-            private static Sprite ringSprite;
-            private static Sprite runeSprite;
-            private static Sprite chainSprite;
-            private static Sprite snowflakeSprite;
-            private static Sprite reticleSprite;
             private static Sprite shadowSprite;
 
-            public static Sprite RingSprite =>
-                ringSprite ?? (ringSprite =
-                    CreateSprite(
-                        "Ruleforge Card Aura Ring",
-                        24,
-                        DrawRing));
-            public static Sprite RuneSprite =>
-                runeSprite ?? (runeSprite =
-                    CreateSprite(
-                        "Ruleforge Card Rune",
-                        20,
-                        DrawRune));
-            public static Sprite ChainSprite =>
-                chainSprite ?? (chainSprite =
-                    CreateSprite(
-                        "Ruleforge Bind Chain",
-                        20,
-                        DrawChain));
-            public static Sprite SnowflakeSprite =>
-                snowflakeSprite ?? (snowflakeSprite =
-                    CreateSprite(
-                        "Ruleforge Freeze Glyph",
-                        20,
-                        DrawSnowflake));
-            public static Sprite ReticleSprite =>
-                reticleSprite ?? (reticleSprite =
-                    CreateSprite(
-                        "Ruleforge Homing Reticle",
-                        20,
-                        DrawReticle));
             public static Sprite ShadowSprite =>
                 shadowSprite ?? (shadowSprite =
                     CreateSprite(
@@ -1009,86 +805,6 @@ namespace RuleforgeTD.Battle
                 return sprite;
             }
 
-            private static void DrawRing(
-                Color32[] pixels,
-                int size)
-            {
-                float center = (size - 1) * 0.5f;
-                float outer = center - 1f;
-                float inner = outer - 2f;
-                for (int y = 0; y < size; y++)
-                {
-                    for (int x = 0; x < size; x++)
-                    {
-                        float dx = x - center;
-                        float dy = y - center;
-                        float distance = Mathf.Sqrt(
-                            dx * dx + dy * dy);
-                        if (distance >= inner &&
-                            distance <= outer)
-                        {
-                            Set(pixels, size, x, y);
-                        }
-                    }
-                }
-            }
-
-            private static void DrawRune(
-                Color32[] pixels,
-                int size)
-            {
-                int center = size / 2;
-                for (int i = 2; i < size - 2; i++)
-                {
-                    int delta = Mathf.Abs(center - i);
-                    Set(pixels, size, i, center - delta);
-                    Set(pixels, size, i, center + delta);
-                    Set(pixels, size, center, i);
-                }
-            }
-
-            private static void DrawChain(
-                Color32[] pixels,
-                int size)
-            {
-                DrawBox(pixels, size, 2, 5, 10, 14);
-                DrawBox(pixels, size, 9, 5, 17, 14);
-                for (int x = 7; x <= 12; x++)
-                {
-                    Set(pixels, size, x, 9);
-                    Set(pixels, size, x, 10);
-                }
-            }
-
-            private static void DrawSnowflake(
-                Color32[] pixels,
-                int size)
-            {
-                int center = size / 2;
-                for (int i = 2; i < size - 2; i++)
-                {
-                    Set(pixels, size, center, i);
-                    Set(pixels, size, i, center);
-                    Set(pixels, size, i, i);
-                    Set(pixels, size, i, size - 1 - i);
-                }
-            }
-
-            private static void DrawReticle(
-                Color32[] pixels,
-                int size)
-            {
-                DrawRing(pixels, size);
-                int center = size / 2;
-                for (int i = 0; i < 6; i++)
-                {
-                    Set(pixels, size, center, i);
-                    Set(pixels, size, center, size - 1 - i);
-                    Set(pixels, size, i, center);
-                    Set(pixels, size, size - 1 - i, center);
-                }
-            }
-
             private static void DrawShadow(
                 Color32[] pixels,
                 int size)
@@ -1107,27 +823,6 @@ namespace RuleforgeTD.Battle
                             Set(pixels, size, x, y);
                         }
                     }
-                }
-            }
-
-            private static void DrawBox(
-                Color32[] pixels,
-                int size,
-                int minX,
-                int minY,
-                int maxX,
-                int maxY)
-            {
-                for (int x = minX; x <= maxX; x++)
-                {
-                    Set(pixels, size, x, minY);
-                    Set(pixels, size, x, maxY);
-                }
-
-                for (int y = minY; y <= maxY; y++)
-                {
-                    Set(pixels, size, minX, y);
-                    Set(pixels, size, maxX, y);
                 }
             }
 

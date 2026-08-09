@@ -1,4 +1,5 @@
 using RuleforgeTD.GameLogic.Simulation;
+using RuleforgeTD.Rendering;
 using RuleforgeTD.Towers.Archer;
 using UnityEngine;
 
@@ -71,7 +72,7 @@ namespace RuleforgeTD.Battle
                 return;
             }
 
-            impactElapsed += Time.unscaledDeltaTime;
+            impactElapsed += Time.deltaTime;
             if (impactElapsed < impactTravelDuration)
             {
                 float progress = Mathf.Clamp01(
@@ -117,6 +118,9 @@ namespace RuleforgeTD.Battle
                 targetRenderer = GetComponent<SpriteRenderer>();
             }
 
+            WorldSortingLayers.Apply(
+                targetRenderer,
+                WorldSortingLayers.Effects);
             targetRenderer.sortingOrder = 40;
             CaptureRendererColor();
         }
@@ -382,10 +386,7 @@ namespace RuleforgeTD.Battle
                 trackedAimTarget.LogicalImpactCenter;
             desiredAim.z = presentationLaunchPosition.z;
             float maximumCorrection =
-                AimCorrectionSpeed *
-                Mathf.Max(
-                    Time.unscaledDeltaTime,
-                    1f / 240f);
+                AimCorrectionSpeed * Time.deltaTime;
             presentationAimPoint = Vector3.MoveTowards(
                 presentationAimPoint,
                 desiredAim,

@@ -1,4 +1,5 @@
 using RuleforgeTD.Enemies;
+using RuleforgeTD.GameLogic.Content;
 using RuleforgeTD.GameLogic.Core;
 using RuleforgeTD.GameLogic.Simulation;
 using RuleforgeTD.Rendering;
@@ -12,7 +13,7 @@ namespace RuleforgeTD.Battle
     {
         private const float DeathPresentationSeconds = 0.55f;
         public const float HitStaggerSeconds = 0.22f;
-        public const float HitFlashHoldSeconds = 0.07f;
+        public const float HitFlashHoldSeconds = 0.18f;
         public const float HitRecoilDistance = 0.16f;
         public const float HitSquashStrength = 0.1f;
 
@@ -27,6 +28,13 @@ namespace RuleforgeTD.Battle
 
         [SerializeField]
         private EnemyStatusVisualView statusVisual;
+
+        private EliteEnemyVisualView eliteVisual;
+
+        private EnemyHealthBarView healthBar;
+
+        [SerializeField]
+        private EnemySelectionView selectionView;
 
         private int entityId = -1;
         private string definitionId = string.Empty;
@@ -83,6 +91,7 @@ namespace RuleforgeTD.Battle
             }
         }
         public EnemyStatusVisualView StatusVisual => statusVisual;
+        public EnemySelectionView SelectionView => selectionView;
 
         private void Awake()
         {
@@ -104,7 +113,7 @@ namespace RuleforgeTD.Battle
                 hitFeedbackRemaining = Mathf.Max(
                     0f,
                     hitFeedbackRemaining -
-                    Time.unscaledDeltaTime);
+                    Time.deltaTime);
                 ApplyHitPresentation();
             }
         }
@@ -113,6 +122,21 @@ namespace RuleforgeTD.Battle
             int id,
             string stableDefinitionId,
             float scaleMultiplier)
+        {
+            Configure(
+                id,
+                stableDefinitionId,
+                scaleMultiplier,
+                null,
+                null);
+        }
+
+        public void Configure(
+            int id,
+            string stableDefinitionId,
+            float scaleMultiplier,
+            CompiledEliteTraitDefinition eliteTrait,
+            Font uiFont)
         {
             CacheComponents();
             entityId = id;
@@ -148,8 +172,45 @@ namespace RuleforgeTD.Battle
                     gameObject.AddComponent<EnemyStatusVisualView>();
             }
 
+            if (eliteVisual == null)
+            {
+                eliteVisual =
+                    GetComponent<EliteEnemyVisualView>();
+                if (eliteVisual == null)
+                {
+                    eliteVisual =
+                        gameObject.AddComponent<
+                            EliteEnemyVisualView>();
+                }
+            }
+            if (healthBar == null)
+            {
+                healthBar =
+                    GetComponent<EnemyHealthBarView>();
+            }
+
+            eliteVisual.Configure(
+                targetRenderer,
+                healthBar,
+                eliteTrait,
+                uiFont);
+            if (healthBar != null)
+            {
+                healthBar.ConfigureElitePresentation(eliteTrait);
+                healthBar.ApplyShield(0L, 1L);
+            }
             statusVisual.Configure(targetRenderer);
             statusVisual.ResetVisuals();
+            if (selectionView == null)
+            {
+                selectionView =
+                    gameObject.AddComponent<EnemySelectionView>();
+            }
+
+            selectionView.Configure(id);
+            WorldSortingLayers.ApplyToHierarchy(
+                transform,
+                WorldSortingLayers.Enemy);
             gameObject.SetActive(true);
         }
 
@@ -177,7 +238,10 @@ namespace RuleforgeTD.Battle
             }
 
             float sizeMultiplier =
-                Mathf.Max(0.1f, snapshot.SizeMultiplierBps / 10000f);
+                Mathf.Max(0.1f, snapshot.SizeMultiplierBps / 10000f) *
+                Mathf.Max(
+                    0.1f,
+                    snapshot.EliteRenderScaleBps / 10000f);
             logicalScale =
                 authoredScale * sizeMultiplier;
             transform.localScale = logicalScale;
@@ -273,6 +337,21 @@ namespace RuleforgeTD.Battle
                 statusVisual.ResetVisuals();
             }
 
+            if (eliteVisual != null)
+            {
+                eliteVisual.ResetVisuals();
+            }
+            if (healthBar != null)
+            {
+                healthBar.ConfigureElitePresentation(null);
+                healthBar.ApplyShield(0L, 1L);
+            }
+
+            if (selectionView != null)
+            {
+                selectionView.ResetForPool();
+            }
+
             entityId = -1;
             definitionId = string.Empty;
             displayedHealth = -1;
@@ -300,6 +379,12 @@ namespace RuleforgeTD.Battle
                 ? 0
                 : ToDisplayedHealth(snapshot.HealthMilli);
             current = Mathf.Clamp(current, 0, maximum);
+            if (healthBar != null)
+            {
+                healthBar.ApplyShield(
+                    snapshot.ShieldMilli,
+                    snapshot.MaxHealthMilli);
+            }
             if (maximum == displayedMaxHealth &&
                 current == displayedHealth &&
                 !health.IsDead)
@@ -337,6 +422,23 @@ namespace RuleforgeTD.Battle
             {
                 statusVisual =
                     GetComponent<EnemyStatusVisualView>();
+            }
+
+            if (eliteVisual == null)
+            {
+                eliteVisual =
+                    GetComponent<EliteEnemyVisualView>();
+            }
+            if (healthBar == null)
+            {
+                healthBar =
+                    GetComponent<EnemyHealthBarView>();
+            }
+
+            if (selectionView == null)
+            {
+                selectionView =
+                    GetComponent<EnemySelectionView>();
             }
         }
 

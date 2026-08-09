@@ -1,5 +1,7 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
+using System.Reflection;
 using NUnit.Framework;
 using RuleforgeTD.Battle;
 using RuleforgeTD.GameLogic.Content;
@@ -12,6 +14,126 @@ namespace RuleforgeTD.Tests.PlayMode
 {
     public sealed class StageOneImpactPresentationTests
     {
+        [Test]
+        public void
+            EnemyAreaIndicator_UsesLogicalSpriteCenterOverEventPosition()
+        {
+            var controllerObject = new GameObject(
+                "Area Center Controller",
+                typeof(StageOneBattleController));
+            controllerObject.SetActive(false);
+            var vfxObject = new GameObject(
+                "Area Center VFX",
+                typeof(StageOneCardEffectVfxView));
+            vfxObject.transform.SetParent(
+                controllerObject.transform,
+                false);
+            var enemyObject = new GameObject(
+                "Tall Area Center Enemy",
+                typeof(SpriteRenderer),
+                typeof(StageOneEnemyView));
+            Texture2D texture = null;
+            Sprite sprite = null;
+            try
+            {
+                texture = new Texture2D(
+                    2,
+                    4,
+                    TextureFormat.RGBA32,
+                    false);
+                texture.SetPixels(new Color[8]);
+                texture.Apply();
+                sprite = Sprite.Create(
+                    texture,
+                    new Rect(0f, 0f, 2f, 4f),
+                    new Vector2(0.5f, 0f),
+                    1f);
+
+                SpriteRenderer renderer =
+                    enemyObject.GetComponent<SpriteRenderer>();
+                renderer.sprite = sprite;
+                StageOneEnemyView enemy =
+                    enemyObject.GetComponent<StageOneEnemyView>();
+                enemy.Configure(707, "tall_enemy", 1f);
+                enemy.ApplySnapshot(
+                    CreateEnemySnapshot(
+                        707,
+                        2000,
+                        3000,
+                        10000,
+                        10000,
+                        Array.Empty<StatusSnapshot>()));
+
+                StageOneBattleController controller =
+                    controllerObject.GetComponent<
+                        StageOneBattleController>();
+                StageOneCardEffectVfxView vfx =
+                    vfxObject.GetComponent<
+                        StageOneCardEffectVfxView>();
+                vfx.InitializeNow(16);
+
+                FieldInfo viewsField =
+                    typeof(StageOneBattleController).GetField(
+                        "enemyViews",
+                        BindingFlags.Instance |
+                        BindingFlags.NonPublic);
+                Assert.That(viewsField, Is.Not.Null);
+                var views =
+                    (Dictionary<int, StageOneEnemyView>)
+                    viewsField.GetValue(controller);
+                views.Add(enemy.EntityId, enemy);
+
+                FieldInfo vfxField =
+                    typeof(StageOneBattleController).GetField(
+                        "cardEffectVfx",
+                        BindingFlags.Instance |
+                        BindingFlags.NonPublic);
+                Assert.That(vfxField, Is.Not.Null);
+                vfxField.SetValue(controller, vfx);
+
+                var areaEvent = new SimulationPresentationEvent(
+                    1,
+                    PresentationEventType.AreaEffectTriggered,
+                    enemy.EntityId,
+                    999,
+                    1400,
+                    "explode",
+                    effectPosition:
+                        SimPosition.FromMilliUnits(-9000, -9000),
+                    hasEffectPosition: true);
+                MethodInfo playMethod =
+                    typeof(StageOneBattleController).GetMethod(
+                        "PlayAreaEffectIndicator",
+                        BindingFlags.Instance |
+                        BindingFlags.NonPublic);
+                Assert.That(playMethod, Is.Not.Null);
+                playMethod.Invoke(
+                    controller,
+                    new object[] { areaEvent });
+
+                Vector3 expected = enemy.LogicalImpactCenter;
+                Assert.That(
+                    vfx.LastStartPosition.x,
+                    Is.EqualTo(expected.x).Within(0.001f));
+                Assert.That(
+                    vfx.LastStartPosition.y,
+                    Is.EqualTo(expected.y).Within(0.001f));
+                Assert.That(
+                    vfx.LastPlayedAreaRadius,
+                    Is.EqualTo(1.4f).Within(0.001f));
+                Assert.That(
+                    vfx.LastStartPosition.y,
+                    Is.Not.EqualTo(-9f).Within(0.001f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(enemyObject);
+                UnityEngine.Object.DestroyImmediate(controllerObject);
+                UnityEngine.Object.DestroyImmediate(sprite);
+                UnityEngine.Object.DestroyImmediate(texture);
+            }
+        }
+
         [UnityTest]
         public IEnumerator
             DamageSnapshot_FlashesWhiteAndRecoilsWithoutMovingLogic()

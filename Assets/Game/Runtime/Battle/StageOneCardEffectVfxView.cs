@@ -1,4 +1,6 @@
+using RuleforgeTD.Enemies;
 using RuleforgeTD.GameLogic.Simulation;
+using RuleforgeTD.Rendering;
 using UnityEngine;
 
 namespace RuleforgeTD.Battle
@@ -13,46 +15,15 @@ namespace RuleforgeTD.Battle
     public sealed class StageOneCardEffectVfxView : MonoBehaviour
     {
         public const int DefaultPoolCapacity = 64;
+        public const int MaximumPoolCapacity = 256;
         public const int MaximumLinePoints = 24;
         public const int MaximumPixelBlocks = 112;
         public const float PixelWorldSize = 0.0625f;
         public const float StandardPlaybackRadius = 0.36f;
-
-        private static readonly string[] FlagEffectIds =
-        {
-            "ricochet",
-            "bleed",
-            "accelerate",
-            "homing",
-            "delay",
-            "curse",
-            "bind",
-            "airborne",
-            "shock",
-            "freeze",
-            "afterimage",
-            "pulse",
-            "magnet",
-            "reflect",
-            "contagion",
-            "seal",
-            "corrosion",
-            "orbit",
-            "lifesteal",
-            "fear",
-            "split",
-            "pierce",
-            "burn",
-            "slow",
-            "explode",
-            "knockback",
-            "mark",
-            "gold_bounty",
-            "poison",
-            "enlarge",
-            "shrink",
-            "stun"
-        };
+        public const float AreaIndicatorPeakOpacity = 0.98f;
+        public const int AreaIndicatorResolutionMultiplier = 1;
+        public const int AreaIndicatorTextureSize = 129;
+        public const int AreaIndicatorBorderPixels = 1;
 
         private static readonly float[] PoisonBubbleXOffsets =
         {
@@ -70,7 +41,7 @@ namespace RuleforgeTD.Battle
         };
 
         [SerializeField]
-        [Range(16, 96)]
+        [Range(16, MaximumPoolCapacity)]
         private int poolCapacity = DefaultPoolCapacity;
 
         private EffectInstance[] pool;
@@ -82,6 +53,8 @@ namespace RuleforgeTD.Battle
         private float lastPlayedRadius;
         private Vector3 lastStartPosition;
         private Vector3 lastEndPosition;
+        private float lastPlayedAreaRadius;
+        private int semanticEventPlayCount;
         private bool manualPreviewEnabled;
         private float manualPreviewElapsedTime;
 
@@ -141,6 +114,10 @@ namespace RuleforgeTD.Battle
             lastStartPosition;
         public Vector3 LastEndPosition =>
             lastEndPosition;
+        public float LastPlayedAreaRadius =>
+            lastPlayedAreaRadius;
+        public int SemanticEventPlayCount =>
+            semanticEventPlayCount;
         public bool IsManualPreviewEnabled =>
             manualPreviewEnabled;
         public float ManualPreviewElapsedTime =>
@@ -164,7 +141,7 @@ namespace RuleforgeTD.Battle
                 return;
             }
 
-            float now = Time.unscaledTime;
+            float now = Time.time;
             for (int i = 0; i < pool.Length; i++)
             {
                 EffectInstance instance = pool[i];
@@ -192,7 +169,8 @@ namespace RuleforgeTD.Battle
 
         /// <summary>
         /// Freezes active effects at an exact elapsed time. This is used only
-        /// by review tools; Stage 01 continues to advance from unscaled time.
+        /// by review tools; Stage 01 continues to advance from scaled game
+        /// time so pause and combat speed affect every transient together.
         /// Instances remain active while hidden so the reviewer can scrub
         /// backwards without reallocating the bounded pool.
         /// </summary>
@@ -237,7 +215,7 @@ namespace RuleforgeTD.Battle
                 poolCapacity = Mathf.Clamp(
                     requestedCapacity,
                     16,
-                    96);
+                    MaximumPoolCapacity);
             }
 
             InitializePool();
@@ -259,15 +237,26 @@ namespace RuleforgeTD.Battle
             StageOneEnemyCardEffectVisual visual =
                 enemy.GetComponent<
                     StageOneEnemyCardEffectVisual>();
+            StageOneEnemyStatusIconStackView iconStack =
+                enemy.GetComponent<
+                    StageOneEnemyStatusIconStackView>();
             bool hasEffect =
                 StageOneEnemyCardEffectVisual.HasSupportedEffect(
                     snapshot.StatusDetails);
-            if (visual == null && !hasEffect)
+            bool hasVisibleDebuff =
+                StageOneEnemyStatusIconStackView
+                    .HasVisibleDebuff(
+                        snapshot.StatusDetails);
+            if (visual == null &&
+                iconStack == null &&
+                !hasEffect &&
+                !hasVisibleDebuff)
             {
                 return null;
             }
 
-            if (visual == null)
+            if (visual == null &&
+                hasEffect)
             {
                 visual =
                     enemy.gameObject.AddComponent<
@@ -275,12 +264,47 @@ namespace RuleforgeTD.Battle
                 visual.Configure(enemy);
             }
 
-            visual.enabled = true;
-            visual.ApplySnapshot(snapshot);
-            if (!hasEffect)
+            if (iconStack == null &&
+                hasVisibleDebuff)
             {
-                visual.enabled = false;
+                iconStack =
+                    enemy.gameObject.AddComponent<
+                        StageOneEnemyStatusIconStackView>();
+                float healthBarTopLocalY = float.NaN;
+                EnemyHealthBarView healthBar =
+                    enemy.GetComponent<EnemyHealthBarView>();
+                if (healthBar != null &&
+                    healthBar.TryGetVisualTopLocalY(
+                        out float resolvedHealthBarTop))
+                {
+                    healthBarTopLocalY =
+                        resolvedHealthBarTop;
+                }
+
+                iconStack.Configure(
+                    enemy.GetComponent<SpriteRenderer>(),
+                    healthBarTopLocalY);
             }
+
+            if (visual != null)
+            {
+                visual.enabled = true;
+                visual.ApplySnapshot(snapshot);
+                if (!hasEffect)
+                {
+                    visual.enabled = false;
+                }
+            }
+            if (iconStack != null)
+            {
+                iconStack.enabled = true;
+                iconStack.ApplySnapshot(snapshot);
+                if (!hasVisibleDebuff)
+                {
+                    iconStack.enabled = false;
+                }
+            }
+
             return visual;
         }
 
@@ -320,7 +344,7 @@ namespace RuleforgeTD.Battle
                     StageOneProjectileCardEffectVisual>();
             bool hasEffect =
                 snapshot.VisualFlags !=
-                ProjectileEffectVisualFlags.None;
+                CardEffectVisualFlags.None;
             if (visual == null && !hasEffect)
             {
                 return null;
@@ -378,9 +402,16 @@ namespace RuleforgeTD.Battle
                 return false;
             }
 
-            if (!StageOneCardEffectPalette.TryGetStyle(
-                    item.ContentId,
-                    out StageOneCardEffectStyle style))
+            StageOneCardEffectStyle style;
+            bool hasStyle =
+                item.Type == PresentationEventType.CardExecuted
+                    ? StageOneCardEffectPalette.TryGetCardStyle(
+                        item.ContentId,
+                        out style)
+                    : StageOneCardEffectPalette.TryGetEventStyle(
+                        item.ContentId,
+                        out style);
+            if (!hasStyle)
             {
                 return false;
             }
@@ -396,25 +427,41 @@ namespace RuleforgeTD.Battle
                     subjectPosition - sourcePosition) >
                 0.0001f;
 
+            bool played;
             if (hasLink)
             {
-                return PlayLink(
-                    style.Id,
+                played = PlayInternal(
+                    style,
                     sourcePosition,
-                    subjectPosition);
+                    subjectPosition,
+                    null);
             }
-
-            if (hasSubjectPosition)
+            else if (hasSubjectPosition)
             {
-                return Play(style.Id, subjectPosition);
+                played = PlayInternal(
+                    style,
+                    subjectPosition,
+                    subjectPosition,
+                    null);
             }
-
-            if (hasSourcePosition)
+            else if (hasSourcePosition)
             {
-                return Play(style.Id, sourcePosition);
+                played = PlayInternal(
+                    style,
+                    sourcePosition,
+                    sourcePosition,
+                    null);
+            }
+            else
+            {
+                played = false;
             }
 
-            return false;
+            if (played)
+            {
+                semanticEventPlayCount++;
+            }
+            return played;
         }
 
         public bool Play(
@@ -428,30 +475,74 @@ namespace RuleforgeTD.Battle
         }
 
         /// <summary>
+        /// 시뮬레이션이 확정한 실제 범위를 카드 VFX 색상의
+        /// 높은 가시성 픽셀 원으로 표시한다. 반경은 표현 계층에서
+        /// 추측하지 않고 범위 판정 이벤트의 값을 그대로 사용한다.
+        /// </summary>
+        public bool PlayAreaIndicator(
+            string effectId,
+            Vector3 worldPosition,
+            float radius)
+        {
+            if (radius <= 0f ||
+                !StageOneCardEffectPalette.TryGetEventStyle(
+                    effectId,
+                    out StageOneCardEffectStyle style))
+            {
+                return false;
+            }
+
+            InitializePool();
+            EffectInstance instance = AcquireInstance();
+            worldPosition.z = -0.06f;
+            instance.Play(
+                style,
+                worldPosition,
+                worldPosition,
+                Time.time,
+                ++playSequence);
+            instance.SetAreaIndicator(radius);
+            RenderInstance(instance, 0f);
+
+            lastPlayedEffectId = style.Id;
+            lastPlayedShape = style.Shape;
+            lastPlayedColor = style.Primary;
+            lastPlayedRadius = style.Radius;
+            lastPlayedAreaRadius = radius;
+            lastStartPosition = worldPosition;
+            lastEndPosition = worldPosition;
+            return true;
+        }
+
+        /// <summary>
         /// Plays every card VFX bit at the enemy impact center. The effect
         /// remains attached to the same enemy entity for its full lifetime,
         /// including hit recoil and death animation movement.
         /// </summary>
         public int PlayFlagSet(
-            uint effectVisualFlags,
+            ulong effectVisualFlags,
             StageOneEnemyView target)
         {
-            if (effectVisualFlags == 0u || target == null)
+            if (effectVisualFlags == 0UL || target == null)
             {
                 return 0;
             }
 
             int played = 0;
-            for (int bit = 0; bit < FlagEffectIds.Length; bit++)
+            for (int bit = 0;
+                 bit < StageOneCardEffectPalette.StyleCount;
+                 bit++)
             {
-                uint mask = 1u << bit;
-                if ((effectVisualFlags & mask) == 0u)
+                ulong mask = 1UL << bit;
+                if ((effectVisualFlags & mask) == 0UL)
                 {
                     continue;
                 }
 
                 if (PlayAttached(
-                        FlagEffectIds[bit],
+                        StageOneCardEffectPalette
+                            .GetStyle(bit)
+                            .Id,
                         target))
                 {
                     played++;
@@ -502,13 +593,27 @@ namespace RuleforgeTD.Battle
             Vector3 targetPosition,
             StageOneEnemyView followTarget)
         {
-            InitializePool();
             if (!StageOneCardEffectPalette.TryGetStyle(
                     effectId,
                     out StageOneCardEffectStyle style))
             {
                 return false;
             }
+
+            return PlayInternal(
+                style,
+                sourcePosition,
+                targetPosition,
+                followTarget);
+        }
+
+        private bool PlayInternal(
+            in StageOneCardEffectStyle style,
+            Vector3 sourcePosition,
+            Vector3 targetPosition,
+            StageOneEnemyView followTarget)
+        {
+            InitializePool();
 
             EffectInstance instance = AcquireInstance();
             StageOneCardEffectStyle playbackStyle =
@@ -519,7 +624,7 @@ namespace RuleforgeTD.Battle
                 playbackStyle,
                 sourcePosition,
                 targetPosition,
-                Time.unscaledTime,
+                Time.time,
                 ++playSequence);
             if (followTarget != null)
             {
@@ -536,6 +641,7 @@ namespace RuleforgeTD.Battle
             lastPlayedShape = playbackStyle.Shape;
             lastPlayedColor = playbackStyle.Primary;
             lastPlayedRadius = playbackStyle.Radius;
+            lastPlayedAreaRadius = 0f;
             lastStartPosition = sourcePosition;
             lastEndPosition = targetPosition;
             return true;
@@ -616,6 +722,9 @@ namespace RuleforgeTD.Battle
                     UnityEngine.Rendering.ShadowCastingMode.Off;
                 line.receiveShadows = false;
                 line.sharedMaterial = material;
+                WorldSortingLayers.Apply(
+                    line,
+                    WorldSortingLayers.Effects);
                 line.sortingOrder = 60;
                 line.enabled = false;
 
@@ -634,18 +743,42 @@ namespace RuleforgeTD.Battle
                 meshFilter.sharedMesh = pixelMesh;
                 meshRenderer.sharedMaterial =
                     SharedResources.PixelMaterial;
+                WorldSortingLayers.Apply(
+                    meshRenderer,
+                    WorldSortingLayers.Effects);
                 meshRenderer.sortingOrder = 60;
                 meshRenderer.shadowCastingMode =
                     UnityEngine.Rendering.ShadowCastingMode.Off;
                 meshRenderer.receiveShadows = false;
                 meshRenderer.enabled = false;
+                SpriteRenderer areaIndicator =
+                    CreateAreaIndicator(child.transform);
                 pool[i] = new EffectInstance(
                     child,
                     line,
                     meshRenderer,
                     pixelMesh,
-                    CreateSplitSparks(child.transform));
+                    CreateSplitSparks(child.transform),
+                    areaIndicator);
             }
+        }
+
+        private static SpriteRenderer CreateAreaIndicator(
+            Transform parent)
+        {
+            var areaObject = new GameObject(
+                "Pixel Area Indicator",
+                typeof(SpriteRenderer));
+            areaObject.transform.SetParent(parent, false);
+            SpriteRenderer renderer =
+                areaObject.GetComponent<SpriteRenderer>();
+            renderer.sprite = SharedResources.PixelCircleSprite;
+            WorldSortingLayers.Apply(
+                renderer,
+                WorldSortingLayers.Effects);
+            renderer.sortingOrder = 15;
+            renderer.enabled = false;
+            return renderer;
         }
 
         private static SpriteRenderer[] CreateSplitSparks(
@@ -661,6 +794,9 @@ namespace RuleforgeTD.Battle
                 SpriteRenderer renderer =
                     sparkObject.AddComponent<SpriteRenderer>();
                 renderer.sprite = SharedResources.PixelSprite;
+                WorldSortingLayers.Apply(
+                    renderer,
+                    WorldSortingLayers.Effects);
                 renderer.sortingOrder = 61;
                 renderer.enabled = false;
                 sparks[i] = renderer;
@@ -698,6 +834,13 @@ namespace RuleforgeTD.Battle
             float progress)
         {
             instance.Show();
+            if (instance.AreaRadius > 0f)
+            {
+                RenderAreaIndicator(instance, progress);
+                return;
+            }
+
+            instance.AreaIndicator.enabled = false;
             if (instance.Style.Shape ==
                 StageOneCardEffectShape.Branch)
             {
@@ -863,6 +1006,108 @@ namespace RuleforgeTD.Battle
                         1.75f,
                         0.18f);
                     break;
+                case StageOneCardEffectShape.Twin:
+                    count = BuildEcho(instance, eased);
+                    break;
+                case StageOneCardEffectShape.Sacrifice:
+                    count = BuildHeart(instance, 1f - eased);
+                    break;
+                case StageOneCardEffectShape.Return:
+                    count = BuildArc(
+                        instance,
+                        1f - progress,
+                        16,
+                        0.82f);
+                    break;
+                case StageOneCardEffectShape.Rewind:
+                    count = BuildClock(instance, 1f - eased);
+                    break;
+                case StageOneCardEffectShape.Resonance:
+                    count = BuildStar(instance, eased, 6);
+                    break;
+                case StageOneCardEffectShape.Absorb:
+                    count = BuildRing(
+                        instance,
+                        eased,
+                        1.9f,
+                        0.08f);
+                    break;
+                case StageOneCardEffectShape.TimeStop:
+                    count = BuildClock(instance, Mathf.Min(0.35f, eased));
+                    break;
+                case StageOneCardEffectShape.Mutate:
+                    count = BuildRune(
+                        instance,
+                        Mathf.Repeat(eased * 1.5f, 1f));
+                    break;
+                case StageOneCardEffectShape.Execute:
+                    count = BuildTarget(instance, eased);
+                    break;
+                case StageOneCardEffectShape.Parasite:
+                    count = BuildCorrosion(instance, eased);
+                    break;
+                case StageOneCardEffectShape.Rebirth:
+                    count = BuildStar(instance, eased, 10);
+                    break;
+                case StageOneCardEffectShape.Relay:
+                    count = BuildLightning(instance, eased);
+                    break;
+                case StageOneCardEffectShape.Recursion:
+                    count = BuildLightning(
+                        instance,
+                        Mathf.Repeat(eased * 1.5f, 1f));
+                    break;
+                case StageOneCardEffectShape.ReverseOrder:
+                    count = BuildClock(instance, 1f - eased);
+                    break;
+                case StageOneCardEffectShape.DualInterpretation:
+                    count = BuildMirror(instance, eased);
+                    break;
+                case StageOneCardEffectShape.InfiniteOrbit:
+                    count = BuildOrbit(
+                        instance,
+                        Mathf.Repeat(eased * 2f, 1f));
+                    break;
+                case StageOneCardEffectShape.Overclone:
+                    count = BuildEcho(
+                        instance,
+                        Mathf.Repeat(eased * 1.35f, 1f));
+                    break;
+                case StageOneCardEffectShape.ForbiddenDeal:
+                    count = BuildPolygon(instance, eased, 8);
+                    break;
+                case StageOneCardEffectShape.LastCommand:
+                    count = BuildLightning(instance, 1f - eased);
+                    break;
+                case StageOneCardEffectShape.FateLock:
+                    count = BuildTarget(
+                        instance,
+                        Mathf.Min(0.72f, eased));
+                    break;
+                case StageOneCardEffectShape.Overload:
+                    count = BuildStar(instance, eased, 12);
+                    break;
+                case StageOneCardEffectShape.Singularity:
+                    count = BuildRing(
+                        instance,
+                        eased,
+                        2.1f,
+                        0.03f);
+                    break;
+                case StageOneCardEffectShape.PhoenixCore:
+                    count = BuildStar(instance, eased, 11);
+                    break;
+                case StageOneCardEffectShape.TimeRift:
+                    count = BuildEcho(instance, 1f - eased);
+                    break;
+                case StageOneCardEffectShape.MirrorWorld:
+                    count = BuildMirror(instance, 1f - eased);
+                    break;
+                case StageOneCardEffectShape.Ouroboros:
+                    count = BuildOrbit(
+                        instance,
+                        Mathf.Repeat(eased * 1.5f, 1f));
+                    break;
                 default:
                     count = BuildRing(
                         instance,
@@ -879,6 +1124,577 @@ namespace RuleforgeTD.Battle
                 endColor,
                 alpha,
                 widthPulse);
+        }
+
+        private static void RenderAreaIndicator(
+            EffectInstance instance,
+            float progress)
+        {
+            instance.Line.positionCount = 0;
+            instance.Line.enabled = false;
+            instance.SetSplitSparksVisible(false);
+
+            SpriteRenderer renderer = instance.AreaIndicator;
+            renderer.enabled = true;
+            renderer.transform.position = ResolveCenter(instance);
+            float diameter = instance.AreaRadius * 2f;
+            renderer.transform.localScale =
+                new Vector3(
+                    diameter,
+                    diameter,
+                    1f);
+            float fade = progress < 0.84f
+                ? 1f
+                : Mathf.Clamp01(
+                    (1f - progress) / 0.16f);
+            Color color = instance.Style.Primary;
+            color.a = AreaIndicatorPeakOpacity * fade;
+            renderer.color = color;
+
+            RenderAreaAnimation(instance, progress);
+        }
+
+        /// <summary>
+        /// Draws the semantic animation inside the authoritative gameplay
+        /// radius. The thin SpriteRenderer ring above is kept independent so
+        /// even a visually dense burst never obscures the exact hit boundary.
+        /// Every authored point is clamped inside AreaRadius and shares the
+        /// bounded WebGL pixel-mesh budget.
+        /// </summary>
+        private static void RenderAreaAnimation(
+            EffectInstance instance,
+            float progress)
+        {
+            switch (instance.Style.Shape)
+            {
+                case StageOneCardEffectShape.Blast:
+                    RenderAreaExplosionMushroom(instance, progress);
+                    break;
+                case StageOneCardEffectShape.Toxic:
+                    RenderAreaPoisonBubbles(instance, progress);
+                    break;
+                case StageOneCardEffectShape.Flame:
+                    RenderAreaFlameBurst(instance, progress);
+                    break;
+                case StageOneCardEffectShape.Pulse:
+                    RenderAreaPulse(instance, progress);
+                    break;
+                case StageOneCardEffectShape.Launch:
+                    RenderAreaWhirlwind(instance, progress);
+                    break;
+                case StageOneCardEffectShape.IceBurst:
+                    RenderAreaIceShards(instance, progress);
+                    break;
+                case StageOneCardEffectShape.Chain:
+                    RenderAreaBindChains(instance, progress);
+                    break;
+                case StageOneCardEffectShape.Lightning:
+                    RenderAreaLightning(instance, progress);
+                    break;
+                case StageOneCardEffectShape.Overload:
+                    RenderAreaOverload(instance, progress);
+                    break;
+                case StageOneCardEffectShape.Singularity:
+                    RenderAreaSingularity(instance, progress);
+                    break;
+                case StageOneCardEffectShape.LastCommand:
+                    RenderAreaLastCommand(instance, progress);
+                    break;
+                case StageOneCardEffectShape.Sacrifice:
+                    RenderAreaSacrifice(instance, progress);
+                    break;
+                default:
+                    RenderAreaPulse(instance, progress);
+                    break;
+            }
+        }
+
+        private static void RenderAreaExplosionMushroom(
+            EffectInstance instance,
+            float progress)
+        {
+            instance.BeginPixelMesh();
+            Vector3 center = ResolveCenter(instance);
+            float pixel = ResolveAreaPixelSize(instance.AreaRadius);
+            float radius = ResolveContainedRadius(
+                instance.AreaRadius,
+                pixel);
+            float alpha = ResolveVisibleAlpha(progress);
+            RenderPixelMushroomExplosion(
+                instance,
+                center,
+                radius,
+                pixel,
+                progress,
+                alpha);
+            instance.EndPixelMesh();
+        }
+
+        private static void RenderAreaPoisonBubbles(
+            EffectInstance instance,
+            float progress)
+        {
+            instance.BeginPixelMesh();
+            Vector3 center = ResolveCenter(instance);
+            float pixel = ResolveAreaPixelSize(instance.AreaRadius);
+            float radius = ResolveContainedRadius(
+                instance.AreaRadius,
+                pixel);
+            float alpha = ResolveVisibleAlpha(progress);
+            Color pool = instance.Style.Primary;
+            Color bubble = instance.Style.Secondary;
+            pool.a = QuantizeAlpha(alpha * 0.68f);
+            bubble.a = QuantizeAlpha(alpha);
+            AddPixelCircle(
+                instance,
+                center,
+                radius * 0.86f,
+                pixel,
+                pool,
+                28);
+
+            const int bubbleCount = 7;
+            for (int i = 0; i < bubbleCount; i++)
+            {
+                float phase = Mathf.Repeat(
+                    progress + i * 0.137f,
+                    1f);
+                float rise = Mathf.SmoothStep(0f, 1f, phase);
+                float x = HashSigned(instance.Sequence, i) *
+                    radius * 0.56f;
+                float y = Mathf.Lerp(
+                    -radius * 0.42f,
+                    radius * 0.58f,
+                    rise);
+                float bubbleRadius = pixel *
+                    Mathf.Lerp(1.1f, 2.2f, rise);
+                AddPixelCircle(
+                    instance,
+                    center + new Vector3(x, y, 0f),
+                    bubbleRadius,
+                    pixel,
+                    bubble,
+                    8);
+            }
+            instance.EndPixelMesh();
+        }
+
+        private static void RenderAreaFlameBurst(
+            EffectInstance instance,
+            float progress)
+        {
+            instance.BeginPixelMesh();
+            Vector3 center = ResolveCenter(instance);
+            float pixel = ResolveAreaPixelSize(instance.AreaRadius);
+            float radius = ResolveContainedRadius(instance.AreaRadius, pixel);
+            float alpha = ResolveVisibleAlpha(progress);
+            Color outer = instance.Style.Primary;
+            Color core = instance.Style.Secondary;
+            outer.a = QuantizeAlpha(alpha);
+            core.a = QuantizeAlpha(alpha);
+            const int flameCount = 12;
+            for (int i = 0; i < flameCount; i++)
+            {
+                float angle = Mathf.PI * 2f * i / flameCount;
+                float distance = radius * Mathf.Lerp(
+                    0.12f,
+                    0.82f,
+                    Mathf.SmoothStep(0f, 1f, progress));
+                Vector3 point = center + new Vector3(
+                    Mathf.Cos(angle) * distance,
+                    Mathf.Sin(angle) * distance,
+                    0f);
+                instance.AddPixelBlock(
+                    SnapToPixelGrid(point),
+                    pixel * 1.8f,
+                    i % 2 == 0 ? core : outer);
+            }
+            instance.EndPixelMesh();
+        }
+
+        private static void RenderAreaPulse(
+            EffectInstance instance,
+            float progress)
+        {
+            instance.BeginPixelMesh();
+            Vector3 center = ResolveCenter(instance);
+            float pixel = ResolveAreaPixelSize(instance.AreaRadius);
+            float radius = ResolveContainedRadius(instance.AreaRadius, pixel);
+            float eased = Mathf.SmoothStep(0f, 1f, progress);
+            float alpha = ResolveVisibleAlpha(progress);
+            Color primary = instance.Style.Primary;
+            Color secondary = instance.Style.Secondary;
+            primary.a = QuantizeAlpha(alpha);
+            secondary.a = QuantizeAlpha(alpha * 0.75f);
+            AddPixelCircle(
+                instance,
+                center,
+                radius * Mathf.Lerp(0.04f, 0.96f, eased),
+                pixel,
+                primary,
+                32);
+            AddPixelCircle(
+                instance,
+                center,
+                radius * Mathf.Lerp(0.02f, 0.72f, eased),
+                pixel,
+                secondary,
+                24);
+            instance.EndPixelMesh();
+        }
+
+        private static void RenderAreaWhirlwind(
+            EffectInstance instance,
+            float progress)
+        {
+            instance.BeginPixelMesh();
+            Vector3 center = ResolveCenter(instance);
+            float pixel = ResolveAreaPixelSize(instance.AreaRadius);
+            float radius = ResolveContainedRadius(instance.AreaRadius, pixel);
+            float alpha = ResolveVisibleAlpha(progress);
+            Color wind = instance.Style.Primary;
+            Color highlight = instance.Style.Secondary;
+            wind.a = QuantizeAlpha(alpha * 0.84f);
+            highlight.a = QuantizeAlpha(alpha);
+            const int arms = 3;
+            const int pointsPerArm = 12;
+            for (int arm = 0; arm < arms; arm++)
+            {
+                for (int point = 0; point < pointsPerArm; point++)
+                {
+                    float t = point / (float)(pointsPerArm - 1);
+                    float angle =
+                        arm * Mathf.PI * 2f / arms +
+                        t * Mathf.PI * 2.6f -
+                        progress * Mathf.PI * 5f;
+                    float distance = radius * t * 0.9f;
+                    Vector3 position = center + new Vector3(
+                        Mathf.Cos(angle) * distance,
+                        Mathf.Sin(angle) * distance * 0.72f,
+                        0f);
+                    instance.AddPixelBlock(
+                        SnapToPixelGrid(position),
+                        pixel,
+                        point > 7 ? highlight : wind);
+                }
+            }
+            instance.EndPixelMesh();
+        }
+
+        private static void RenderAreaIceShards(
+            EffectInstance instance,
+            float progress)
+        {
+            instance.BeginPixelMesh();
+            Vector3 center = ResolveCenter(instance);
+            float pixel = ResolveAreaPixelSize(instance.AreaRadius);
+            float radius = ResolveContainedRadius(instance.AreaRadius, pixel);
+            float expansion = Mathf.SmoothStep(0f, 1f, progress);
+            float alpha = ResolveVisibleAlpha(progress);
+            Color ice = instance.Style.Primary;
+            Color snow = instance.Style.Secondary;
+            ice.a = QuantizeAlpha(alpha);
+            snow.a = QuantizeAlpha(alpha * 0.88f);
+            const int shardCount = 8;
+            const int shardSteps = 8;
+            for (int shard = 0; shard < shardCount; shard++)
+            {
+                float angle = Mathf.PI * 2f * shard / shardCount;
+                Vector3 direction = new Vector3(
+                    Mathf.Cos(angle),
+                    Mathf.Sin(angle),
+                    0f);
+                for (int step = 1; step <= shardSteps; step++)
+                {
+                    float t = step / (float)shardSteps;
+                    instance.AddPixelBlock(
+                        SnapToPixelGrid(
+                            center + direction * radius * t * expansion),
+                        pixel * Mathf.Lerp(1.45f, 0.7f, t),
+                        ice);
+                }
+            }
+
+            const int snowCount = 18;
+            for (int i = 0; i < snowCount; i++)
+            {
+                float angle = Mathf.PI * 2f * i / snowCount +
+                    HashSigned(instance.Sequence, i + 40) * 0.2f;
+                float distance = radius *
+                    (0.22f + 0.68f * Mathf.Repeat(
+                        progress * 0.72f + i * 0.173f,
+                        1f));
+                instance.AddPixelBlock(
+                    SnapToPixelGrid(
+                        center + new Vector3(
+                            Mathf.Cos(angle) * distance,
+                            Mathf.Sin(angle) * distance,
+                            0f)),
+                    pixel * 0.75f,
+                    snow);
+            }
+            instance.EndPixelMesh();
+        }
+
+        private static void RenderAreaBindChains(
+            EffectInstance instance,
+            float progress)
+        {
+            instance.BeginPixelMesh();
+            Vector3 center = ResolveCenter(instance);
+            float pixel = ResolveAreaPixelSize(instance.AreaRadius);
+            float radius = ResolveContainedRadius(instance.AreaRadius, pixel);
+            float pull = Mathf.SmoothStep(0f, 1f, progress);
+            float alpha = ResolveVisibleAlpha(progress);
+            Color gold = new Color32(245, 187, 48, 255);
+            Color highlight = new Color32(255, 241, 150, 255);
+            gold.a = QuantizeAlpha(alpha);
+            highlight.a = QuantizeAlpha(alpha);
+            const int chains = 6;
+            const int links = 8;
+            for (int chain = 0; chain < chains; chain++)
+            {
+                float angle = Mathf.PI * 2f * chain / chains;
+                Vector3 anchor = center + new Vector3(
+                    Mathf.Cos(angle) * radius * 0.88f,
+                    Mathf.Sin(angle) * radius * 0.88f,
+                    0f);
+                Vector3 target = Vector3.Lerp(
+                    anchor,
+                    center,
+                    pull);
+                for (int link = 0; link <= links; link++)
+                {
+                    float t = link / (float)links;
+                    Vector3 point = Vector3.Lerp(anchor, target, t);
+                    Vector3 tangent = (target - anchor).normalized;
+                    Vector3 normal = new Vector3(
+                        -tangent.y,
+                        tangent.x,
+                        0f);
+                    point += normal *
+                        (link % 2 == 0 ? pixel * 0.38f : -pixel * 0.38f);
+                    instance.AddPixelBlock(
+                        SnapToPixelGrid(point),
+                        pixel * (link % 2 == 0 ? 1.35f : 0.9f),
+                        link % 2 == 0 ? gold : highlight);
+                }
+                instance.AddPixelBlock(
+                    SnapToPixelGrid(anchor),
+                    pixel * 2f,
+                    highlight);
+            }
+            instance.EndPixelMesh();
+        }
+
+        private static void RenderAreaLightning(
+            EffectInstance instance,
+            float progress)
+        {
+            instance.BeginPixelMesh();
+            Vector3 center = ResolveCenter(instance);
+            float pixel = ResolveAreaPixelSize(instance.AreaRadius);
+            float radius = ResolveContainedRadius(instance.AreaRadius, pixel);
+            float alpha = ResolveVisibleAlpha(progress);
+            Color bolt = instance.Style.Primary;
+            Color core = instance.Style.Secondary;
+            bolt.a = QuantizeAlpha(alpha);
+            core.a = QuantizeAlpha(alpha);
+            const int bolts = 7;
+            const int steps = 8;
+            for (int boltIndex = 0; boltIndex < bolts; boltIndex++)
+            {
+                float angle = Mathf.PI * 2f * boltIndex / bolts;
+                Vector3 direction = new Vector3(
+                    Mathf.Cos(angle),
+                    Mathf.Sin(angle),
+                    0f);
+                Vector3 normal = new Vector3(-direction.y, direction.x, 0f);
+                for (int step = 1; step <= steps; step++)
+                {
+                    float t = step / (float)steps;
+                    float jitter = HashSigned(
+                        instance.Sequence + (uint)(progress * 12f),
+                        boltIndex * steps + step) * pixel * 0.75f;
+                    instance.AddPixelBlock(
+                        SnapToPixelGrid(
+                            center + direction * radius * t * 0.92f +
+                            normal * jitter),
+                        pixel,
+                        step % 3 == 0 ? core : bolt);
+                }
+            }
+            instance.EndPixelMesh();
+        }
+
+        private static void RenderAreaOverload(
+            EffectInstance instance,
+            float progress)
+        {
+            RenderAreaRadialGlyph(
+                instance,
+                progress,
+                12,
+                0.94f,
+                true);
+        }
+
+        private static void RenderAreaSingularity(
+            EffectInstance instance,
+            float progress)
+        {
+            instance.BeginPixelMesh();
+            Vector3 center = ResolveCenter(instance);
+            float pixel = ResolveAreaPixelSize(instance.AreaRadius);
+            float radius = ResolveContainedRadius(instance.AreaRadius, pixel);
+            float alpha = ResolveVisibleAlpha(progress);
+            Color voidColor = instance.Style.Primary;
+            Color energy = instance.Style.Secondary;
+            voidColor.a = QuantizeAlpha(alpha);
+            energy.a = QuantizeAlpha(alpha);
+            float collapse = 1f - Mathf.SmoothStep(0f, 1f, progress);
+            AddPixelCircle(
+                instance,
+                center,
+                radius * Mathf.Lerp(0.14f, 0.86f, collapse),
+                pixel,
+                energy,
+                30);
+            const int particleCount = 24;
+            for (int i = 0; i < particleCount; i++)
+            {
+                float phase = Mathf.Repeat(
+                    collapse + i * 0.113f,
+                    1f);
+                float angle = i * 2.399963f + progress * 5f;
+                float distance = radius * (0.12f + 0.8f * phase);
+                instance.AddPixelBlock(
+                    SnapToPixelGrid(
+                        center + new Vector3(
+                            Mathf.Cos(angle) * distance,
+                            Mathf.Sin(angle) * distance,
+                            0f)),
+                    pixel,
+                    i % 3 == 0 ? energy : voidColor);
+            }
+            instance.AddPixelBlock(
+                SnapToPixelGrid(center),
+                pixel * 3f,
+                voidColor);
+            instance.EndPixelMesh();
+        }
+
+        private static void RenderAreaLastCommand(
+            EffectInstance instance,
+            float progress)
+        {
+            RenderAreaRadialGlyph(
+                instance,
+                1f - progress,
+                8,
+                0.9f,
+                false);
+        }
+
+        private static void RenderAreaSacrifice(
+            EffectInstance instance,
+            float progress)
+        {
+            instance.BeginPixelMesh();
+            Vector3 center = ResolveCenter(instance);
+            float pixel = ResolveAreaPixelSize(instance.AreaRadius);
+            float radius = ResolveContainedRadius(instance.AreaRadius, pixel);
+            float alpha = ResolveVisibleAlpha(progress);
+            Color blood = instance.Style.Primary;
+            Color gift = instance.Style.Secondary;
+            blood.a = QuantizeAlpha(alpha);
+            gift.a = QuantizeAlpha(alpha);
+            const int packets = 10;
+            for (int i = 0; i < packets; i++)
+            {
+                float angle = Mathf.PI * 2f * i / packets;
+                float distance = radius * 0.88f *
+                    Mathf.SmoothStep(0f, 1f, progress);
+                Vector3 direction = new Vector3(
+                    Mathf.Cos(angle),
+                    Mathf.Sin(angle),
+                    0f);
+                for (int trail = 0; trail < 4; trail++)
+                {
+                    float trailDistance = Mathf.Max(
+                        0f,
+                        distance - trail * pixel * 1.5f);
+                    instance.AddPixelBlock(
+                        SnapToPixelGrid(center + direction * trailDistance),
+                        pixel * (trail == 0 ? 1.6f : 0.8f),
+                        trail == 0 ? gift : blood);
+                }
+            }
+            instance.EndPixelMesh();
+        }
+
+        private static void RenderAreaRadialGlyph(
+            EffectInstance instance,
+            float progress,
+            int spokeCount,
+            float radiusScale,
+            bool rotate)
+        {
+            instance.BeginPixelMesh();
+            Vector3 center = ResolveCenter(instance);
+            float pixel = ResolveAreaPixelSize(instance.AreaRadius);
+            float radius = ResolveContainedRadius(instance.AreaRadius, pixel);
+            float alpha = ResolveVisibleAlpha(
+                rotate ? progress : 1f - progress);
+            Color primary = instance.Style.Primary;
+            Color secondary = instance.Style.Secondary;
+            primary.a = QuantizeAlpha(alpha);
+            secondary.a = QuantizeAlpha(alpha);
+            const int steps = 7;
+            for (int spoke = 0; spoke < spokeCount; spoke++)
+            {
+                float angle = Mathf.PI * 2f * spoke / spokeCount +
+                    (rotate ? progress * Mathf.PI * 1.5f : 0f);
+                Vector3 direction = new Vector3(
+                    Mathf.Cos(angle),
+                    Mathf.Sin(angle),
+                    0f);
+                for (int step = 1; step <= steps; step++)
+                {
+                    float t = step / (float)steps;
+                    instance.AddPixelBlock(
+                        SnapToPixelGrid(
+                            center + direction * radius * radiusScale * t),
+                        pixel,
+                        step == steps ? secondary : primary);
+                }
+            }
+            AddPixelCircle(
+                instance,
+                center,
+                radius * radiusScale * 0.55f,
+                pixel,
+                secondary,
+                24);
+            instance.EndPixelMesh();
+        }
+
+        private static float ResolveAreaPixelSize(float radius)
+        {
+            return QuantizeSize(
+                Mathf.Clamp(
+                    radius / 22f,
+                    PixelWorldSize,
+                    PixelWorldSize * 2f));
+        }
+
+        private static float ResolveContainedRadius(
+            float radius,
+            float pixelSize)
+        {
+            return Mathf.Max(
+                PixelWorldSize,
+                radius - pixelSize * 1.5f);
         }
 
         private void RenderManualPreview()
@@ -1294,92 +2110,201 @@ namespace RuleforgeTD.Battle
             instance.BeginPixelMesh();
             Vector3 center = ResolveCenter(instance);
             float pixelSize = PixelWorldSize;
-            float expansion =
-                Mathf.SmoothStep(
-                    0f,
-                    1f,
-                    Mathf.InverseLerp(0f, 0.72f, progress));
+            float containedRadius = Mathf.Max(
+                pixelSize * 2f,
+                instance.Style.Radius - pixelSize);
+            RenderPixelMushroomExplosion(
+                instance,
+                center,
+                containedRadius,
+                pixelSize,
+                progress,
+                alpha);
+            instance.EndPixelMesh();
+        }
+
+        /// <summary>
+        /// Three readable pixel-art phases shared by impact and area blasts:
+        /// a hot flash with a shock ring, a rising fire column, then a broad
+        /// rolling cap. Phase-specific geometry keeps the silhouette detailed
+        /// without exceeding the fixed WebGL block budget.
+        /// </summary>
+        private static void RenderPixelMushroomExplosion(
+            EffectInstance instance,
+            Vector3 center,
+            float radius,
+            float pixelSize,
+            float progress,
+            float alpha)
+        {
             Color hot = instance.Style.Secondary;
             Color flame = instance.Style.Primary;
+            Color ember = Color.Lerp(hot, flame, 0.58f);
             Color smoke = Color.Lerp(
-                instance.Style.Primary,
-                new Color(0.38f, 0.22f, 0.18f, 1f),
-                0.46f);
+                flame,
+                new Color(0.22f, 0.17f, 0.16f, 1f),
+                0.72f);
             hot.a = QuantizeAlpha(alpha);
             flame.a = QuantizeAlpha(alpha);
-            smoke.a = QuantizeAlpha(alpha * 0.82f);
+            ember.a = QuantizeAlpha(alpha * 0.94f);
+            smoke.a = QuantizeAlpha(alpha * 0.84f);
 
-            // A short, round core flash starts the blast. It contracts while
-            // the surrounding puffs expand, preventing a spiky star read.
-            float coreRadius =
-                instance.Style.Radius *
-                Mathf.Lerp(
-                    0.34f,
-                    0.10f,
-                    Mathf.Clamp01(progress / 0.48f));
-            if (progress < 0.62f)
+            float flash = Mathf.SmoothStep(
+                0f,
+                1f,
+                Mathf.InverseLerp(0f, 0.20f, progress));
+            float rise = Mathf.SmoothStep(
+                0f,
+                1f,
+                Mathf.InverseLerp(0.12f, 0.66f, progress));
+            float roll = Mathf.SmoothStep(
+                0f,
+                1f,
+                Mathf.InverseLerp(0.22f, 0.82f, progress));
+
+            if (progress < 0.22f)
             {
+                float coreRadius = Mathf.Min(
+                    radius * Mathf.Lerp(0.12f, 0.30f, flash),
+                    pixelSize * 3.25f);
                 AddFilledPixelCircle(
                     instance,
                     center,
                     coreRadius,
                     pixelSize,
                     hot);
-            }
-
-            const int puffCount = 8;
-            for (int i = 0; i < puffCount; i++)
-            {
-                float angle =
-                    Mathf.PI * 2f * i / puffCount +
-                    (i % 2 == 0 ? 0.08f : -0.06f);
-                float stagger =
-                    Mathf.Clamp01(
-                        (progress - i * 0.018f) / 0.70f);
-                float puffExpansion =
-                    Mathf.SmoothStep(0f, 1f, stagger);
-                float distance =
-                    instance.Style.Radius *
-                    Mathf.Lerp(0.08f, 0.68f, puffExpansion);
-                float irregularity =
-                    0.82f +
-                    (i % 3) * 0.12f;
-                float radius =
-                    instance.Style.Radius *
-                    Mathf.Lerp(
-                        0.10f,
-                        0.27f * irregularity,
-                        puffExpansion);
-                Vector3 puffCenter =
-                    center +
-                    new Vector3(
-                        Mathf.Cos(angle) * distance,
-                        Mathf.Sin(angle) * distance * 0.78f +
-                        Mathf.Sin(progress * Mathf.PI + i) *
-                        pixelSize * 0.35f,
-                        0f);
-                Color puffColor =
-                    expansion < 0.58f || i % 3 == 0
-                        ? flame
-                        : smoke;
                 AddPixelCircle(
                     instance,
-                    puffCenter,
-                    radius,
+                    center,
+                    radius * Mathf.Lerp(0.18f, 0.74f, flash),
                     pixelSize,
-                    puffColor,
-                    puffExpansion < 0.48f ? 8 : 12);
+                    flame,
+                    28);
 
-                if (i % 2 == 0 && progress < 0.72f)
+                const int rayCount = 10;
+                for (int ray = 0; ray < rayCount; ray++)
+                {
+                    float angle = Mathf.PI * 2f * ray / rayCount;
+                    Vector3 direction = new Vector3(
+                        Mathf.Cos(angle),
+                        Mathf.Sin(angle),
+                        0f);
+                    for (int step = 1; step <= 3; step++)
+                    {
+                        float distance = radius *
+                            Mathf.Lerp(0.24f, 0.82f, step / 3f) *
+                            flash;
+                        instance.AddPixelBlock(
+                            SnapToPixelGrid(center + direction * distance),
+                            pixelSize * (step == 1 ? 1.5f : 1f),
+                            step == 3 ? ember : hot);
+                    }
+                }
+                return;
+            }
+
+            if (progress < 0.54f)
+            {
+                float shock = Mathf.SmoothStep(
+                    0f,
+                    1f,
+                    Mathf.InverseLerp(0.16f, 0.54f, progress));
+                AddPixelCircle(
+                    instance,
+                    center,
+                    radius * Mathf.Lerp(0.48f, 0.94f, shock),
+                    pixelSize,
+                    ember,
+                    24);
+            }
+
+            Vector3 capCenter = center + Vector3.up *
+                radius * Mathf.Lerp(0.12f, 0.43f, rise);
+            float stemBottom = -radius * 0.38f;
+            float stemTop = radius * Mathf.Lerp(0.16f, 0.41f, rise);
+            const int stemRows = 15;
+            for (int row = 0; row < stemRows; row++)
+            {
+                float t = row / (float)(stemRows - 1);
+                float y = Mathf.Lerp(stemBottom, stemTop, t);
+                int halfWidth = row < 2 || row > 12 ? 1 : 0;
+                int sway = row > 7 && ((row + (int)(progress * 18f)) & 1) == 0
+                    ? 1
+                    : 0;
+                for (int x = -halfWidth; x <= halfWidth; x++)
                 {
                     instance.AddPixelBlock(
-                        SnapToPixelGrid(puffCenter),
+                        SnapToPixelGrid(
+                            center + new Vector3(
+                                (x + sway) * pixelSize,
+                                y,
+                                0f)),
                         pixelSize,
-                        hot);
+                        row < 5 && x == 0 ? hot : flame);
                 }
             }
 
-            instance.EndPixelMesh();
+            // The fully rolled cloud reaches almost the authoritative ring.
+            // Its lobes still retain a pixel margin, so the visual reads at
+            // the same scale as the gameplay area without crossing it.
+            float capWidth = radius * Mathf.Lerp(0.50f, 0.96f, roll);
+            float capHeight = radius * Mathf.Lerp(0.20f, 0.36f, roll);
+            AddPixelEllipse(
+                instance,
+                capCenter,
+                capWidth,
+                capHeight,
+                pixelSize,
+                smoke,
+                28);
+
+            const int lobeCount = 5;
+            for (int lobe = 0; lobe < lobeCount; lobe++)
+            {
+                float normalized = (lobe - 2f) / 2f;
+                Vector3 lobeCenter = capCenter + new Vector3(
+                    normalized * capWidth * 0.72f,
+                    (1f - normalized * normalized) * capHeight * 0.42f,
+                    0f);
+                AddPixelCircle(
+                    instance,
+                    lobeCenter,
+                    Mathf.Lerp(
+                        capHeight * 0.62f,
+                        capHeight,
+                        1f - Mathf.Abs(normalized)),
+                    pixelSize,
+                    lobe == 2 && progress < 0.62f ? hot : smoke,
+                    7);
+            }
+
+            if (progress >= 0.54f)
+            {
+                AddPixelEllipse(
+                    instance,
+                    capCenter + Vector3.down * capHeight * 0.12f,
+                    capWidth * 0.66f,
+                    capHeight * 0.46f,
+                    pixelSize,
+                    ember,
+                    16);
+                for (int i = 0; i < 9; i++)
+                {
+                    float angle = Mathf.PI * 2f * i / 9f;
+                    float drift = radius * Mathf.Lerp(
+                        0.30f,
+                        0.76f,
+                        Mathf.Repeat(progress + i * 0.13f, 1f));
+                    instance.AddPixelBlock(
+                        SnapToPixelGrid(
+                            center + new Vector3(
+                                Mathf.Cos(angle) * drift,
+                                Mathf.Sin(angle) * drift * 0.46f,
+                                0f)),
+                        pixelSize,
+                        i % 3 == 0 ? hot : flame);
+                }
+            }
         }
 
         private static void RenderMagnetConvergence(
@@ -2057,6 +2982,30 @@ namespace RuleforgeTD.Battle
                         new Vector3(
                             Mathf.Cos(angle) * radius,
                             Mathf.Sin(angle) * radius,
+                            0f)),
+                    pixelSize,
+                    color);
+            }
+        }
+
+        private static void AddPixelEllipse(
+            EffectInstance instance,
+            Vector3 center,
+            float horizontalRadius,
+            float verticalRadius,
+            float pixelSize,
+            Color color,
+            int pointCount)
+        {
+            int count = Mathf.Max(4, pointCount);
+            for (int i = 0; i < count; i++)
+            {
+                float angle = Mathf.PI * 2f * i / count;
+                instance.AddPixelBlock(
+                    SnapToPixelGrid(
+                        center + new Vector3(
+                            Mathf.Cos(angle) * horizontalRadius,
+                            Mathf.Sin(angle) * verticalRadius,
                             0f)),
                     pixelSize,
                     color);
@@ -2988,7 +3937,8 @@ namespace RuleforgeTD.Battle
                 LineRenderer line,
                 MeshRenderer pixelRenderer,
                 Mesh pixelMesh,
-                SpriteRenderer[] splitSparks)
+                SpriteRenderer[] splitSparks,
+                SpriteRenderer areaIndicator)
             {
                 Host = host;
                 Line = line;
@@ -2996,6 +3946,7 @@ namespace RuleforgeTD.Battle
                 PixelMesh = pixelMesh;
                 SplitSparks =
                     splitSparks ?? new SpriteRenderer[0];
+                AreaIndicator = areaIndicator;
                 Points =
                     new Vector3[MaximumLinePoints];
                 PixelVertices =
@@ -3013,6 +3964,7 @@ namespace RuleforgeTD.Battle
             public MeshRenderer PixelRenderer { get; }
             public Mesh PixelMesh { get; }
             public SpriteRenderer[] SplitSparks { get; }
+            public SpriteRenderer AreaIndicator { get; }
             public Vector3[] Points { get; }
             public Vector3[] PixelVertices { get; }
             public Color32[] PixelColors { get; }
@@ -3025,6 +3977,7 @@ namespace RuleforgeTD.Battle
             public uint Sequence { get; private set; }
             public bool Active { get; private set; }
             public int PixelBlockCount { get; private set; }
+            public float AreaRadius { get; private set; }
             private StageOneEnemyView followEnemy;
             private int followEnemyId = -1;
             private Vector3 followOffset;
@@ -3043,6 +3996,7 @@ namespace RuleforgeTD.Battle
                 StartTime = startTime;
                 Sequence = sequence;
                 Active = true;
+                AreaRadius = 0f;
                 followEnemy = null;
                 followEnemyId = -1;
                 followOffset = Vector3.zero;
@@ -3054,6 +4008,16 @@ namespace RuleforgeTD.Battle
                 Line.enabled = false;
                 PixelRenderer.enabled = !isSplitBurst;
                 SetSplitSparksVisible(isSplitBurst);
+                AreaIndicator.enabled = false;
+            }
+
+            public void SetAreaIndicator(float radius)
+            {
+                AreaRadius = Mathf.Max(PixelWorldSize, radius);
+                Line.enabled = false;
+                PixelRenderer.enabled = false;
+                SetSplitSparksVisible(false);
+                AreaIndicator.enabled = true;
             }
 
             public void AttachToEnemy(
@@ -3208,12 +4172,14 @@ namespace RuleforgeTD.Battle
                 ClearPixelMesh();
                 PixelRenderer.enabled = false;
                 SetSplitSparksVisible(false);
+                AreaIndicator.enabled = false;
                 Host.SetActive(false);
             }
 
             public void Stop()
             {
                 Active = false;
+                AreaRadius = 0f;
                 followEnemy = null;
                 followEnemyId = -1;
                 Hide();
@@ -3225,6 +4191,7 @@ namespace RuleforgeTD.Battle
             private static Material lineMaterial;
             private static Material pixelMaterial;
             private static Sprite pixelSprite;
+            private static Sprite pixelCircleSprite;
 
             public static Material LineMaterial
             {
@@ -3312,6 +4279,68 @@ namespace RuleforgeTD.Battle
                     pixelSprite.hideFlags =
                         HideFlags.HideAndDontSave;
                     return pixelSprite;
+                }
+            }
+
+            public static Sprite PixelCircleSprite
+            {
+                get
+                {
+                    if (pixelCircleSprite != null)
+                    {
+                        return pixelCircleSprite;
+                    }
+
+                    const int size = AreaIndicatorTextureSize;
+                    // The authoritative boundary is deliberately a crisp,
+                    // high-opacity outline with no translucent fill. A 129px
+                    // one-pixel rim keeps the line thin while making the
+                    // stair-stepped pixel silhouette visible in gameplay.
+                    const float borderPixels =
+                        AreaIndicatorBorderPixels;
+                    const float center = (size - 1) * 0.5f;
+                    var texture = new Texture2D(
+                        size,
+                        size,
+                        TextureFormat.RGBA32,
+                        false)
+                    {
+                        name = "Ruleforge Pixel Area Circle Texture",
+                        filterMode = FilterMode.Point,
+                        wrapMode = TextureWrapMode.Clamp,
+                        hideFlags = HideFlags.HideAndDontSave
+                    };
+                    var pixels = new Color32[size * size];
+                    for (int y = 0; y < size; y++)
+                    {
+                        for (int x = 0; x < size; x++)
+                        {
+                            float dx = x - center;
+                            float dy = y - center;
+                            float distance = Mathf.Sqrt(
+                                dx * dx + dy * dy);
+                            byte alpha =
+                                distance >= center - borderPixels &&
+                                distance <= center
+                                    ? (byte)255
+                                    : (byte)0;
+                            pixels[y * size + x] =
+                                new Color32(255, 255, 255, alpha);
+                        }
+                    }
+
+                    texture.SetPixels32(pixels);
+                    texture.Apply(false, true);
+                    pixelCircleSprite = Sprite.Create(
+                        texture,
+                        new Rect(0f, 0f, size, size),
+                        new Vector2(0.5f, 0.5f),
+                        size);
+                    pixelCircleSprite.name =
+                        "Ruleforge Pixel Area Circle";
+                    pixelCircleSprite.hideFlags =
+                        HideFlags.HideAndDontSave;
+                    return pixelCircleSprite;
                 }
             }
         }

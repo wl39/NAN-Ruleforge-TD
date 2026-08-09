@@ -1,6 +1,8 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Text;
+using RuleforgeTD.Audio;
 using RuleforgeTD.GameLogic.Content;
 using RuleforgeTD.GameLogic.Core;
 using RuleforgeTD.GameLogic.Simulation;
@@ -10,17 +12,56 @@ using RuleforgeTD.Towers.Archer;
 using RuleforgeTD.UI;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.SceneManagement;
 
 namespace RuleforgeTD.Battle
 {
     /// <summary>
-    /// Minimal playable Stage 01 bridge.
-    /// GameSimulation remains authoritative; this component translates
-    /// build-site and HUD input into commands, then presents snapshots.
+    /// 모든 전투 스테이지가 공유하는 런타임 bridge다.
+    /// 타입 이름은 기존 씬 직렬화 호환을 위해 유지한다. GameSimulation이
+    /// 권위 상태를 소유하고 이 컴포넌트는 입력과 snapshot 표현만 조정한다.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class StageOneBattleController : MonoBehaviour
     {
+        /// <summary>
+        /// 한 타워 인스턴스의 루트, 선택 UI, 선택적 전용 애니메이터와
+        /// 이를 만든 정의/레벨을 한 수명 단위로 보관한다.
+        /// 전용 프리팹이 ArcherTowerView를 갖는지와 무관하게 재사용 여부를 판정한다.
+        /// </summary>
+        private sealed class TowerPresentationHandle
+        {
+            public TowerPresentationHandle(
+                string definitionId,
+                int level,
+                GameObject root,
+                ArcherTowerView archer,
+                TowerSelectionView selection)
+            {
+                DefinitionId = definitionId ?? string.Empty;
+                Level = level;
+                Root = root;
+                Archer = archer;
+                Selection = selection;
+            }
+
+            public string DefinitionId { get; }
+            public int Level { get; }
+            public GameObject Root { get; }
+            public ArcherTowerView Archer { get; }
+            public TowerSelectionView Selection { get; }
+
+            public bool Matches(in TowerSnapshot tower)
+            {
+                return Root != null &&
+                       Level == tower.Level &&
+                       string.Equals(
+                           DefinitionId,
+                           tower.DefinitionId,
+                           StringComparison.Ordinal);
+            }
+        }
+
         private const int MaximumTicksPerFrame = 8;
         private const int KonamiGoldReward = 1000;
         private static readonly KeyCode[] KonamiSequence =
@@ -62,13 +103,9 @@ namespace RuleforgeTD.Battle
         [SerializeField]
         private ulong seed = 12345UL;
 
-        private readonly Dictionary<int, GameObject> towerObjects =
-            new Dictionary<int, GameObject>();
-        private readonly Dictionary<int, ArcherTowerView> towerViews =
-            new Dictionary<int, ArcherTowerView>();
-        private readonly Dictionary<int, TowerSelectionView>
-            towerSelectionViews =
-                new Dictionary<int, TowerSelectionView>();
+        private readonly Dictionary<int, TowerPresentationHandle>
+            towerPresentations =
+                new Dictionary<int, TowerPresentationHandle>();
         private readonly Dictionary<int, StageOneEnemyView> enemyViews =
             new Dictionary<int, StageOneEnemyView>();
         private readonly Dictionary<int, StageOneProjectileView>
@@ -91,6 +128,10 @@ namespace RuleforgeTD.Battle
             new List<StageOneCardDisplay>(4);
         private readonly List<StageOneLoadoutCard> loadoutCards =
             new List<StageOneLoadoutCard>(16);
+        private readonly List<Vector2> loadoutMapPathPoints =
+            new List<Vector2>(16);
+        private readonly List<StageOneLoadoutMapSite> loadoutMapSites =
+            new List<StageOneLoadoutMapSite>(12);
         private readonly List<StageOneTowerBuildOption>
             towerBuildOptions =
                 new List<StageOneTowerBuildOption>(4);
@@ -103,9 +144,12 @@ namespace RuleforgeTD.Battle
         private SimulationSnapshot snapshot;
         private StageOneUiTextCatalog textCatalog;
         private StageOneHudView hud;
+        private WavePreviewPresenter wavePreviewPresenter;
         private StageOneTowerLoadoutView loadoutView;
         private StageOneTowerActionView towerActionView;
         private StageOneTowerBuildPickerView towerBuildPickerView;
+        private StageOneEnemyInspectionController
+            enemyInspectionController;
         private StageOneCameraController cameraController;
         private Transform towerRoot;
         private Transform enemyRoot;
@@ -126,6 +170,7 @@ namespace RuleforgeTD.Battle
         private int selectedTowerSlot;
         private int pendingBuildPointIndex = -1;
         private int konamiSequenceIndex;
+        private int effectsPresentedThisFrame;
 
         public FieldStageMap StageMap => stageMap;
         public StageOnePresentationCatalog PresentationCatalog =>
@@ -136,28 +181,43 @@ namespace RuleforgeTD.Battle
         public bool IsTowerBlueprintOpen => towerBlueprintOpen;
         public float SpeedMultiplier => speedMultiplier;
         public StageOneHudView Hud => hud;
+        public WavePreviewView WavePreviewView =>
+            wavePreviewPresenter == null
+                ? null
+                : wavePreviewPresenter.View;
         public StageOneTowerLoadoutView LoadoutView => loadoutView;
         public StageOneTowerActionView TowerActionView =>
             towerActionView;
         public StageOneTowerBuildPickerView TowerBuildPickerView =>
             towerBuildPickerView;
+        public StageOneEnemyInspectionController
+            EnemyInspectionController =>
+                enemyInspectionController;
+        public StageOneEnemyInspectionView EnemyInspectionView =>
+            enemyInspectionController == null
+                ? null
+                : enemyInspectionController.InspectionView;
+        public int SelectedEnemyId =>
+            enemyInspectionController == null
+                ? -1
+                : enemyInspectionController.SelectedEnemyId;
         public StageOneCameraController CameraController =>
             cameraController;
         public int SelectedTowerId => selectedTowerId;
         public int PendingBuildPointIndex =>
             pendingBuildPointIndex;
         public TowerSelectionView SelectedTowerSelectionView =>
-            towerSelectionViews.TryGetValue(
+            towerPresentations.TryGetValue(
                 selectedTowerId,
-                out TowerSelectionView selection)
-                ? selection
+                out TowerPresentationHandle presentation)
+                ? presentation.Selection
                 : null;
         public SimulationSnapshot CurrentSnapshot => snapshot;
         public RunPhase CurrentPhase =>
             snapshot == null
                 ? RunPhase.AwaitingStartingTower
                 : snapshot.Phase;
-        public int TowerViewCount => towerObjects.Count;
+        public int TowerViewCount => towerPresentations.Count;
         public int EnemyViewCount => enemyViews.Count;
         public int ProjectileViewCount => projectileViews.Count;
         public int FireTrailSegmentCount =>
@@ -170,6 +230,18 @@ namespace RuleforgeTD.Battle
             cardEffectVfx;
         public int KonamiSequenceProgress =>
             konamiSequenceIndex;
+        /// <summary>
+        /// 같은 Runtime assembly의 명시적 외부 제어 어댑터가 권위 시뮬레이션에
+        /// 연결할 때만 사용하는 좁은 seam이다. 일반 HUD는 이 속성을 사용하지 않는다.
+        /// </summary>
+        internal GameSimulation AuthoritativeSimulation =>
+            simulation;
+
+        internal CompiledContent LoadedContent =>
+            content;
+
+        internal StageOneUiTextCatalog LoadedTextCatalog =>
+            textCatalog;
 
         private void Start()
         {
@@ -183,6 +255,7 @@ namespace RuleforgeTD.Battle
                 return;
             }
 
+            effectsPresentedThisFrame = 0;
             PollKonamiKeyboardInput();
             AdvanceCombatClock();
             ReconcilePresentation();
@@ -227,21 +300,29 @@ namespace RuleforgeTD.Battle
             if (stageMap == null)
             {
                 throw new InvalidOperationException(
-                    "Stage 01 requires a FieldStageMap.");
+                    "A battle stage requires a FieldStageMap.");
             }
 
             if (presentationCatalog == null ||
-                presentationCatalog.ContentJson == null)
+                presentationCatalog.ContentJson == null ||
+                presentationCatalog.LocalizationJson == null)
             {
                 throw new InvalidOperationException(
-                    "Stage 01 requires a presentation catalog with " +
-                    "compiled-content JSON.");
+                    "A battle stage requires a presentation catalog with " +
+                    "base content and localization JSON.");
             }
 
+            TextAsset[] cardContentModules =
+                presentationCatalog.CardContentModules;
             content = LogicContentJsonLoader.Load(
-                presentationCatalog.ContentJson);
+                presentationCatalog.ContentJson,
+                cardContentModules);
+            StageOneCardEffectPalette.RegisterContent(content);
             textCatalog = StageOneUiTextCatalog.Load(
-                presentationCatalog.LocalizationJson);
+                presentationCatalog.LocalizationJson,
+                cardContentModules);
+            textCatalog.ValidateCardDefinitions(content);
+            textCatalog.ValidateWavePreviewDefinitions(content);
             simulation = new GameSimulation();
             simulation.Initialize(content, seed);
 
@@ -250,6 +331,16 @@ namespace RuleforgeTD.Battle
                 textCatalog,
                 transform);
             hud.SetFont(presentationCatalog.UiFont);
+            WavePreviewView wavePreviewView =
+                WavePreviewView.CreateRuntime(
+                    textCatalog,
+                    presentationCatalog.UiFont,
+                    transform);
+            wavePreviewPresenter = new WavePreviewPresenter(
+                wavePreviewView,
+                content,
+                textCatalog,
+                presentationCatalog);
             loadoutView =
                 StageOneTowerLoadoutView.CreateRuntime(
                     textCatalog,
@@ -266,12 +357,47 @@ namespace RuleforgeTD.Battle
                     presentationCatalog.UiFont,
                     transform);
             ConfigureStageCamera();
+            enemyInspectionController =
+                GetComponent<
+                    StageOneEnemyInspectionController>();
+            if (enemyInspectionController == null)
+            {
+                enemyInspectionController =
+                    gameObject.AddComponent<
+                        StageOneEnemyInspectionController>();
+            }
+
+            enemyInspectionController.Configure(
+                content,
+                textCatalog,
+                presentationCatalog.UiFont,
+                cameraController,
+                transform);
             HookInput();
 
             isInitialized = true;
             snapshot = simulation.GetSnapshot();
             hud.SetSpeed(speedMultiplier);
             hud.SetStatus("status.ready");
+            ReconcilePresentation();
+            ApplyWorldTimeScale();
+        }
+
+        /// <summary>
+        /// 권위 시뮬레이션이 일반 GameCommand 경로 밖의 명시적 도구 포트로 변경된 뒤,
+        /// 누적 표현 이벤트와 캐시 스냅샷을 같은 프레임에 동기화한다.
+        /// 일시정지 상태에서도 수동 스폰·배치·제거 결과가 즉시 보이게 하는
+        /// Runtime assembly 내부 훅이다.
+        /// </summary>
+        internal void SynchronizeAuthoritativeState()
+        {
+            if (!isInitialized || simulation == null)
+            {
+                return;
+            }
+
+            snapshot = simulation.GetSnapshot();
+            ProcessPresentationEvents();
             ReconcilePresentation();
             ApplyWorldTimeScale();
         }
@@ -310,8 +436,8 @@ namespace RuleforgeTD.Battle
                 return false;
             }
 
-            ProcessPresentationEvents();
             snapshot = simulation.GetSnapshot();
+            ProcessPresentationEvents();
             RefreshHud();
             hud.SetStatus(
                 "status.konami_gold_format",
@@ -413,7 +539,6 @@ namespace RuleforgeTD.Battle
             snapshot = simulation.GetSnapshot();
             TowerSnapshot placedTower = FindTowerAt(buildPointIndex);
             ProcessPresentationEvents();
-            snapshot = simulation.GetSnapshot();
             hud.SetStatus("status.tower_placed");
             ReconcilePresentation();
             SelectTowerContext(placedTower.Id);
@@ -448,6 +573,26 @@ namespace RuleforgeTD.Battle
                 return true;
             }
 
+            if (snapshot.Phase == RunPhase.Victory)
+            {
+                CommandResult continueResult = simulation.Submit(
+                    GameCommand.ContinueStage());
+                if (!continueResult.Accepted)
+                {
+                    return false;
+                }
+
+                paused = false;
+                tickAccumulator = 0f;
+                snapshot = simulation.GetSnapshot();
+                hud.SetStatus(
+                    "status.endless_stage_started_format",
+                    snapshot.StageNumber);
+                ReconcilePresentation();
+                ApplyWorldTimeScale();
+                return true;
+            }
+
             if (snapshot.Phase != RunPhase.Planning)
             {
                 return false;
@@ -468,8 +613,8 @@ namespace RuleforgeTD.Battle
 
             paused = false;
             tickAccumulator = 0f;
-            ProcessPresentationEvents();
             snapshot = simulation.GetSnapshot();
+            ProcessPresentationEvents();
             hud.SetStatus(
                 "status.wave_started_format",
                 snapshot.WaveIndex + 1);
@@ -527,8 +672,8 @@ namespace RuleforgeTD.Battle
             {
                 tickAccumulator -= secondsPerTick;
                 simulation.Step();
-                ProcessPresentationEvents();
                 snapshot = simulation.GetSnapshot();
+                ProcessPresentationEvents();
                 ticks++;
             }
 
@@ -600,6 +745,16 @@ namespace RuleforgeTD.Battle
             }
         }
 
+        private void HandleEnemySelected(int enemyId)
+        {
+            HideTowerBuildPicker();
+            selectedTowerId = -1;
+            selectedTowerSlot = 0;
+            RefreshTowerSelectionIndicators();
+            RefreshTowerActionView();
+            hud?.SetStatus("status.enemy_selected");
+        }
+
         private void HandleRewardVisibilityChanged(bool visible)
         {
             // The reward chooser is a modal boundary even though it lives on
@@ -609,13 +764,22 @@ namespace RuleforgeTD.Battle
             if (visible)
             {
                 HideTowerBuildPicker();
+                if (enemyInspectionController != null &&
+                    !enemyInspectionController
+                        .IsShowingDefeatedEnemy)
+                {
+                    enemyInspectionController.ClearSelection();
+                }
+
                 selectedTowerId = -1;
                 selectedTowerSlot = 0;
             }
 
-            foreach (TowerSelectionView selection in
-                     towerSelectionViews.Values)
+            foreach (TowerPresentationHandle presentation in
+                     towerPresentations.Values)
             {
+                TowerSelectionView selection =
+                    presentation.Selection;
                 if (selection != null)
                 {
                     selection.ResetPointerClickSequence();
@@ -678,6 +842,7 @@ namespace RuleforgeTD.Battle
                 return false;
             }
 
+            enemyInspectionController?.ClearSelection();
             selectedTowerId = -1;
             RefreshTowerSelectionIndicators();
             RefreshTowerActionView();
@@ -694,13 +859,19 @@ namespace RuleforgeTD.Battle
         private void AddTowerBuildOption(
             CompiledTowerDefinition definition)
         {
-            int constructionCost = simulation == null
-                ? definition.ConstructionCost
-                : simulation.GetTowerConstructionCost(
+            if (simulation == null)
+            {
+                return;
+            }
+
+            TowerConstructionQuote constructionQuote =
+                simulation.GetTowerConstructionQuote(
                     definition.StableId);
-            constructionCost = Mathf.Max(
-                0,
-                constructionCost);
+            if (!constructionQuote.IsKnown)
+            {
+                return;
+            }
+
             towerBuildOptions.Add(
                 new StageOneTowerBuildOption(
                     definition.StableId,
@@ -710,8 +881,8 @@ namespace RuleforgeTD.Battle
                         definition.StableId),
                     definition.SubjectTypeMode ==
                         SubjectTypeMode.Enemy,
-                    constructionCost,
-                    snapshot.Gold >= constructionCost));
+                    constructionQuote.Cost,
+                    constructionQuote.CanAfford));
         }
 
         private void HideTowerBuildPicker()
@@ -735,6 +906,7 @@ namespace RuleforgeTD.Battle
                 return false;
             }
 
+            enemyInspectionController?.ClearSelection();
             HideTowerBuildPicker();
             selectedTowerId = towerId;
             selectedTowerSlot = 0;
@@ -822,8 +994,8 @@ namespace RuleforgeTD.Battle
                 "status.card_unequipped_format",
                 new object[]
                 {
-                    textCatalog.GetCardName(
-                        definition.StableId)
+                    textCatalog.ResolveDisplayName(
+                        definition)
                 });
         }
 
@@ -844,8 +1016,8 @@ namespace RuleforgeTD.Battle
                 return;
             }
 
-            string cardName = textCatalog.GetCardName(
-                content.GetCard(card.DefinitionId).StableId);
+            string cardName = textCatalog.ResolveDisplayName(
+                content.GetCard(card.DefinitionId));
             CommandResult result;
             string successStatus;
             object[] successArguments;
@@ -893,6 +1065,178 @@ namespace RuleforgeTD.Battle
                 result,
                 successStatus,
                 successArguments);
+        }
+
+        private void HandleTowerCardDoubleClickRequested(
+            int cardInstanceId,
+            int startedSlotIndex)
+        {
+            if (!IsLoadoutEditable())
+            {
+                hud.SetStatus("status.loadout_locked");
+                return;
+            }
+
+            TowerSnapshot tower =
+                FindTowerById(selectedTowerId);
+            CardInstanceSnapshot card =
+                FindCardById(cardInstanceId);
+            if (tower.Id < 0 || card.Id < 0)
+            {
+                return;
+            }
+
+            int unlockedSlotCount =
+                ResolveTowerUnlockedSlotCount(tower);
+            CompiledCardDefinition definition =
+                content.GetCard(card.DefinitionId);
+
+            // A regular first click unequips a card that was already on this
+            // tower. A second click is the automatic-equip gesture, so put
+            // that card back instead of unexpectedly moving another card.
+            if (startedSlotIndex >= 0 &&
+                startedSlotIndex < unlockedSlotCount)
+            {
+                if (card.Equipped &&
+                    card.TowerId == tower.Id &&
+                    card.Slot == startedSlotIndex)
+                {
+                    selectedTowerSlot = startedSlotIndex;
+                    RefreshTowerLoadout();
+                    return;
+                }
+
+                selectedTowerSlot = startedSlotIndex;
+                CompleteLoadoutCommand(
+                    simulation.Submit(
+                        card.Equipped
+                            ? GameCommand.MoveCard(
+                                card.Id,
+                                tower.Id,
+                                startedSlotIndex)
+                            : GameCommand.EquipCard(
+                                card.Id,
+                                tower.Id,
+                                startedSlotIndex)),
+                    "status.card_equipped_format",
+                    new object[]
+                    {
+                        textCatalog.ResolveDisplayName(
+                            definition),
+                        startedSlotIndex + 1
+                    });
+                return;
+            }
+
+            // Empty slots always win from top to bottom. If the ordinary
+            // first click already placed this card, its current slot is
+            // treated as the same pre-click empty slot.
+            int firstCandidateSlot = -1;
+            int automaticSlot = -1;
+            for (int slot = 0; slot < unlockedSlotCount; slot++)
+            {
+                int slotCardInstanceId =
+                    tower.CardInstanceIds[slot];
+                bool available = slotCardInstanceId == -1 ||
+                    slotCardInstanceId == card.Id;
+                if (!available)
+                {
+                    continue;
+                }
+
+                if (firstCandidateSlot < 0)
+                {
+                    firstCandidateSlot = slot;
+                }
+
+                CardPlacementQuote quote =
+                    simulation.GetCardPlacementQuote(
+                        card.Id,
+                        tower.Id,
+                        slot);
+                if (quote.CanPlace)
+                {
+                    automaticSlot = slot;
+                    break;
+                }
+            }
+
+            if (automaticSlot < 0)
+            {
+                automaticSlot = firstCandidateSlot;
+            }
+
+            if (automaticSlot >= 0)
+            {
+                selectedTowerSlot = automaticSlot;
+                if (card.Equipped &&
+                    card.TowerId == tower.Id &&
+                    card.Slot == automaticSlot)
+                {
+                    RefreshTowerLoadout();
+                    return;
+                }
+
+                CompleteLoadoutCommand(
+                    simulation.Submit(
+                        card.Equipped &&
+                        card.TowerId == tower.Id
+                            ? GameCommand.ReorderCard(
+                                tower.Id,
+                                card.Slot,
+                                automaticSlot)
+                            : card.Equipped
+                                ? GameCommand.MoveCard(
+                                    card.Id,
+                                    tower.Id,
+                                    automaticSlot)
+                                : GameCommand.EquipCard(
+                                    card.Id,
+                                    tower.Id,
+                                    automaticSlot)),
+                    "status.card_equipped_format",
+                    new object[]
+                    {
+                        textCatalog.ResolveDisplayName(
+                            definition),
+                        automaticSlot + 1
+                    });
+                return;
+            }
+
+            // No empty slot remains. Replace the bottom-most primary card;
+            // continuation cells of multi-slot cards are skipped.
+            int replacementSlot = -1;
+            for (int slot = unlockedSlotCount - 1;
+                 slot >= 0;
+                 slot--)
+            {
+                if (tower.CardInstanceIds[slot] >= 0 &&
+                    tower.CardInstanceIds[slot] != card.Id)
+                {
+                    replacementSlot = slot;
+                    break;
+                }
+            }
+
+            if (replacementSlot < 0)
+            {
+                return;
+            }
+
+            selectedTowerSlot = replacementSlot;
+            CompleteLoadoutCommand(
+                simulation.Submit(
+                    GameCommand.ReplaceCard(
+                        card.Id,
+                        tower.Id,
+                        replacementSlot)),
+                "status.card_equipped_format",
+                new object[]
+                {
+                    textCatalog.ResolveDisplayName(definition),
+                    replacementSlot + 1
+                });
         }
 
         private void HandleTowerCardDropped(
@@ -943,23 +1287,33 @@ namespace RuleforgeTD.Battle
             {
                 int slotValue =
                     tower.CardInstanceIds[slotIndex];
-                if (slotValue != -1)
+                if (slotValue >= 0)
+                {
+                    result = simulation.Submit(
+                        GameCommand.ReplaceCard(
+                            card.Id,
+                            tower.Id,
+                            slotIndex));
+                }
+                else if (slotValue != -1)
                 {
                     hud.SetStatus("status.slot_occupied");
                     RefreshTowerLoadout();
                     return;
                 }
-
-                result = simulation.Submit(
-                    card.Equipped
-                        ? GameCommand.MoveCard(
-                            card.Id,
-                            tower.Id,
-                            slotIndex)
-                        : GameCommand.EquipCard(
-                            card.Id,
-                            tower.Id,
-                            slotIndex));
+                else
+                {
+                    result = simulation.Submit(
+                        card.Equipped
+                            ? GameCommand.MoveCard(
+                                card.Id,
+                                tower.Id,
+                                slotIndex)
+                            : GameCommand.EquipCard(
+                                card.Id,
+                                tower.Id,
+                                slotIndex));
+                }
             }
 
             CompiledCardDefinition definition =
@@ -969,8 +1323,8 @@ namespace RuleforgeTD.Battle
                 "status.card_equipped_format",
                 new object[]
                 {
-                    textCatalog.GetCardName(
-                        definition.StableId),
+                    textCatalog.ResolveDisplayName(
+                        definition),
                     slotIndex + 1
                 });
         }
@@ -1089,6 +1443,7 @@ namespace RuleforgeTD.Battle
                 {
                     hud.SetVisible(false);
                 }
+                wavePreviewPresenter?.Hide();
 
                 ApplyWorldTimeScale();
                 return;
@@ -1106,6 +1461,7 @@ namespace RuleforgeTD.Battle
             {
                 hud.SetVisible(false);
             }
+            wavePreviewPresenter?.Hide();
 
             if (towerActionView != null)
             {
@@ -1124,6 +1480,8 @@ namespace RuleforgeTD.Battle
                 {
                     hud.SetVisible(true);
                 }
+
+                RefreshHud();
 
                 return;
             }
@@ -1168,9 +1526,11 @@ namespace RuleforgeTD.Battle
                 eventSystem.SetSelectedGameObject(null);
             }
 
-            foreach (TowerSelectionView selection in
-                     towerSelectionViews.Values)
+            foreach (TowerPresentationHandle presentation in
+                     towerPresentations.Values)
             {
+                TowerSelectionView selection =
+                    presentation.Selection;
                 if (selection != null)
                 {
                     selection.ResetPointerClickSequence();
@@ -1204,8 +1564,8 @@ namespace RuleforgeTD.Battle
                 return;
             }
 
-            ProcessPresentationEvents();
             snapshot = simulation.GetSnapshot();
+            ProcessPresentationEvents();
             hud.SetStatus(
                 successStatus,
                 successArguments ??
@@ -1215,10 +1575,8 @@ namespace RuleforgeTD.Battle
 
         private bool IsLoadoutEditable()
         {
-            return snapshot != null &&
-                (snapshot.Phase == RunPhase.Planning ||
-                 snapshot.Phase ==
-                    RunPhase.CardPackLoadout);
+            return simulation != null &&
+                simulation.CanEditLoadout;
         }
 
         private void HandleRewardChoice(int offerIndex)
@@ -1238,9 +1596,9 @@ namespace RuleforgeTD.Battle
                     return;
                 }
 
-                selectedCardName = textCatalog.GetCardName(
+                selectedCardName = textCatalog.ResolveDisplayName(
                     content.GetCard(
-                        snapshot.DraftOffers[offerIndex]).StableId);
+                        snapshot.DraftOffers[offerIndex]));
                 result = simulation.Submit(
                     GameCommand.SelectDraft(offerIndex));
             }
@@ -1252,9 +1610,9 @@ namespace RuleforgeTD.Battle
                     return;
                 }
 
-                selectedCardName = textCatalog.GetCardName(
+                selectedCardName = textCatalog.ResolveDisplayName(
                     content.GetCard(
-                        snapshot.CardPackOffers[offerIndex]).StableId);
+                        snapshot.CardPackOffers[offerIndex]));
                 result = simulation.Submit(
                     GameCommand.SelectCardPack(offerIndex));
             }
@@ -1286,8 +1644,8 @@ namespace RuleforgeTD.Battle
                 }
             }
 
-            ProcessPresentationEvents();
             snapshot = simulation.GetSnapshot();
+            ProcessPresentationEvents();
             hud.SetStatus(
                 "status.reward_selected_format",
                 selectedCardName);
@@ -1394,17 +1752,29 @@ namespace RuleforgeTD.Battle
         {
             SimulationEventBuffer events =
                 simulation.ReadPresentationEvents();
+            if (events.Count == 0)
+            {
+                return;
+            }
+
             for (int i = 0; i < events.Count; i++)
             {
                 SimulationPresentationEvent item = events[i];
+                RuleforgeAudioService.PlayPresentationEvent(
+                    item.Type);
                 if (item.Type == PresentationEventType.EnemyDied &&
                     enemyViews.TryGetValue(
                         item.SubjectId,
                         out StageOneEnemyView enemy))
                 {
-                    cardEffectVfx?.PlayFlagSet(
-                        item.EffectVisualFlags,
-                        enemy);
+                    if (TryConsumeEffectPresentationBudget())
+                    {
+                        cardEffectVfx?.PlayFlagSet(
+                            item.EffectVisualFlags,
+                            enemy);
+                    }
+                    enemyInspectionController?.NotifyEnemyDied(
+                        item.SubjectId);
                     enemy.BeginDeath();
                 }
                 else if (
@@ -1418,9 +1788,19 @@ namespace RuleforgeTD.Battle
                         out StageOneEnemyView hitEnemy))
                 {
                     projectile.PrepareImpact(hitEnemy);
-                    cardEffectVfx?.PlayFlagSet(
-                        item.EffectVisualFlags,
-                        hitEnemy);
+                    if (TryConsumeEffectPresentationBudget())
+                    {
+                        cardEffectVfx?.PlayFlagSet(
+                            item.EffectVisualFlags,
+                            hitEnemy);
+                    }
+                }
+                else if (
+                    item.Type ==
+                        PresentationEventType.AreaEffectTriggered &&
+                    TryConsumeEffectPresentationBudget())
+                {
+                    PlayAreaEffectIndicator(item);
                 }
                 else if (
                     item.Type ==
@@ -1470,6 +1850,85 @@ namespace RuleforgeTD.Battle
                     }
                 }
             }
+        }
+
+        private bool TryConsumeEffectPresentationBudget()
+        {
+            if (content == null ||
+                effectsPresentedThisFrame >=
+                content.Safety.MaxEffectsPerFrame)
+            {
+                return false;
+            }
+
+            effectsPresentedThisFrame++;
+            return true;
+        }
+
+        private void PlayAreaEffectIndicator(
+            in SimulationPresentationEvent item)
+        {
+            if (cardEffectVfx == null ||
+                item.Value <= 0 ||
+                string.IsNullOrWhiteSpace(item.ContentId))
+            {
+                return;
+            }
+
+            // Enemy-rooted areas follow the visible body center. Simulation
+            // positions are bottom-center path anchors, so blindly preferring
+            // EffectPosition draws the range ring below tall sprites.
+            Vector3 position;
+            if (!TryResolveAreaEffectPosition(
+                    item.SubjectId,
+                    out position) &&
+                !TryResolveAreaEffectPosition(
+                    item.SourceId,
+                    out position))
+            {
+                if (!item.HasEffectPosition)
+                {
+                    return;
+                }
+
+                position = ToWorld(
+                    item.EffectPosition,
+                    -0.06f);
+            }
+
+            cardEffectVfx.PlayAreaIndicator(
+                item.ContentId,
+                position,
+                item.Value / 1000f);
+        }
+
+        private bool TryResolveAreaEffectPosition(
+            int entityId,
+            out Vector3 position)
+        {
+            if (enemyViews.TryGetValue(
+                    entityId,
+                    out StageOneEnemyView enemy) &&
+                enemy != null)
+            {
+                // Recoil is presentation-only. Keep the ring locked to the
+                // logical sprite-body center so its origin is stable while
+                // the enemy flashes or recoils from the same impact.
+                position = enemy.LogicalImpactCenter;
+                return true;
+            }
+
+            if (projectileViews.TryGetValue(
+                    entityId,
+                    out StageOneProjectileView projectile) &&
+                projectile != null)
+            {
+                position = projectile.transform.position;
+                return true;
+            }
+
+            position = Vector3.zero;
+            return false;
         }
 
         private void ReconcilePresentation()
@@ -1557,69 +2016,33 @@ namespace RuleforgeTD.Battle
             for (int i = 0; i < snapshot.Towers.Length; i++)
             {
                 TowerSnapshot tower = snapshot.Towers[i];
-                if (towerViews.TryGetValue(
+                if (towerPresentations.TryGetValue(
                         tower.Id,
-                        out ArcherTowerView existingView) &&
-                    existingView != null &&
-                    existingView.Level == tower.Level)
+                        out TowerPresentationHandle existing) &&
+                    existing.Matches(tower))
                 {
                     continue;
                 }
 
                 RemoveTowerPresentation(tower.Id);
-                GameObject prefab;
-                float scale;
-                GameObject instance;
-                bool usesPrototypeFallback = false;
-                if (presentationCatalog.TryGetTower(
+                GameObject instance =
+                    StageOneTowerPresentationFactory.Create(
+                        presentationCatalog,
                         tower.DefinitionId,
                         tower.Level,
-                        out prefab,
-                        out scale))
-                {
-                    instance = Instantiate(prefab, towerRoot);
-                    instance.transform.localScale *= scale;
-                }
-                else
-                {
-                    usesPrototypeFallback =
-                        presentationCatalog.TryGetTower(
-                            presentationCatalog.DefaultTowerId,
-                            tower.Level,
-                            out prefab,
-                            out scale);
-                    if (usesPrototypeFallback)
-                    {
-                        instance = Instantiate(prefab, towerRoot);
-                        instance.transform.localScale *= scale;
-                        ApplyPrototypeTowerTint(
-                            instance,
-                            tower.DefinitionId);
-                    }
-                    else
-                    {
-                        instance = new GameObject(
-                            "Missing Tower " +
-                            tower.DefinitionId);
-                        instance.transform.SetParent(
-                            towerRoot,
-                            false);
-                    }
-                }
+                        towerRoot);
 
                 instance.name =
                     "Tower " + tower.Id + " (" +
                     tower.DefinitionId + ")";
                 instance.transform.position =
                     ToWorld(tower.Position, 0f);
-                towerObjects.Add(tower.Id, instance);
 
                 ArcherTowerView view =
                     instance.GetComponent<ArcherTowerView>();
                 if (view != null)
                 {
                     view.EnableVisibleBaseAlignment();
-                    towerViews.Add(tower.Id, view);
                     // A freshly presented tower must show its authored
                     // construction sequence before the crew returns to Idle.
                     // PlayUpgrade already transitions to Idle and performs the
@@ -1646,67 +2069,41 @@ namespace RuleforgeTD.Battle
                 selection.Clicked += HandleTowerClicked;
                 selection.DoubleClicked +=
                     HandleTowerDoubleClicked;
-                towerSelectionViews.Add(tower.Id, selection);
+                towerPresentations.Add(
+                    tower.Id,
+                    new TowerPresentationHandle(
+                        tower.DefinitionId,
+                        tower.Level,
+                        instance,
+                        view,
+                        selection));
             }
 
             RefreshTowerSelectionIndicators();
         }
 
-        private static void ApplyPrototypeTowerTint(
-            GameObject instance,
-            string definitionId)
+        private void RemoveTowerPresentation(int towerId)
         {
-            if (instance == null)
+            if (!towerPresentations.TryGetValue(
+                    towerId,
+                    out TowerPresentationHandle presentation))
             {
                 return;
             }
 
-            Color tint = string.Equals(
-                definitionId,
-                "mutation_obelisk",
-                StringComparison.Ordinal)
-                ? new Color(0.76f, 0.61f, 1f, 1f)
-                : new Color(0.53f, 1f, 0.83f, 1f);
-            SpriteRenderer[] renderers =
-                instance.GetComponentsInChildren<SpriteRenderer>(
-                    true);
-            for (int i = 0; i < renderers.Length; i++)
+            towerPresentations.Remove(towerId);
+            TowerSelectionView selection =
+                presentation.Selection;
+            if (selection != null)
             {
-                Color source = renderers[i].color;
-                renderers[i].color = new Color(
-                    source.r * tint.r,
-                    source.g * tint.g,
-                    source.b * tint.b,
-                    source.a);
-            }
-        }
-
-        private void RemoveTowerPresentation(int towerId)
-        {
-            if (towerSelectionViews.TryGetValue(
-                    towerId,
-                    out TowerSelectionView selection))
-            {
-                if (selection != null)
-                {
-                    selection.Clicked -= HandleTowerClicked;
-                    selection.DoubleClicked -=
-                        HandleTowerDoubleClicked;
-                }
-
-                towerSelectionViews.Remove(towerId);
+                selection.Clicked -= HandleTowerClicked;
+                selection.DoubleClicked -=
+                    HandleTowerDoubleClicked;
             }
 
-            towerViews.Remove(towerId);
-            if (towerObjects.TryGetValue(
-                    towerId,
-                    out GameObject instance))
+            if (presentation.Root != null)
             {
-                towerObjects.Remove(towerId);
-                if (instance != null)
-                {
-                    Destroy(instance);
-                }
+                Destroy(presentation.Root);
             }
         }
 
@@ -1726,8 +2123,10 @@ namespace RuleforgeTD.Battle
                 {
                     view = GetEnemyView(
                         enemy.DefinitionId,
-                        enemy.Id);
+                        enemy.Id,
+                        enemy.EliteTraitIds);
                     enemyViews.Add(enemy.Id, view);
+                    enemyInspectionController?.Register(view);
                 }
 
                 if (cardEffectVfx != null)
@@ -1743,6 +2142,7 @@ namespace RuleforgeTD.Battle
                 }
             }
 
+            enemyInspectionController?.ApplySnapshot(snapshot);
             removalIds.Clear();
             foreach (KeyValuePair<int, StageOneEnemyView> pair in
                      enemyViews)
@@ -1766,7 +2166,8 @@ namespace RuleforgeTD.Battle
 
         private StageOneEnemyView GetEnemyView(
             string definitionId,
-            int entityId)
+            int entityId,
+            string[] eliteTraitStableIds)
         {
             if (!enemyPools.TryGetValue(
                     definitionId,
@@ -1791,7 +2192,7 @@ namespace RuleforgeTD.Battle
                         out scale))
                 {
                     throw new InvalidOperationException(
-                        "No Stage 01 enemy prefab for '" +
+                        "No battle-stage enemy prefab for '" +
                         definitionId + "'.");
                 }
 
@@ -1815,13 +2216,31 @@ namespace RuleforgeTD.Battle
 
             view.name =
                 "Enemy " + entityId + " (" + definitionId + ")";
-            view.Configure(entityId, definitionId, scale);
+            CompiledEliteTraitDefinition eliteTrait = null;
+            if (eliteTraitStableIds != null &&
+                eliteTraitStableIds.Length > 0 &&
+                content.TryGetEliteTraitId(
+                    eliteTraitStableIds[0],
+                    out EliteTraitId eliteTraitId))
+            {
+                eliteTrait = content.GetEliteTrait(eliteTraitId);
+                view.name =
+                    "Enemy " + entityId + " (" +
+                    eliteTrait.StableId + " " + definitionId + ")";
+            }
+            view.Configure(
+                entityId,
+                definitionId,
+                scale,
+                eliteTrait,
+                presentationCatalog.UiFont);
             return view;
         }
 
         private void ReturnEnemyView(StageOneEnemyView view)
         {
             string definitionId = view.DefinitionId;
+            enemyInspectionController?.Unregister(view);
             view.ReturnToPool();
             if (!enemyPools.TryGetValue(
                     definitionId,
@@ -1919,27 +2338,25 @@ namespace RuleforgeTD.Battle
             int towerId,
             out Vector3 origin)
         {
-            if (towerViews.TryGetValue(
+            if (!towerPresentations.TryGetValue(
                     towerId,
-                    out ArcherTowerView archerTower) &&
-                archerTower != null)
-            {
-                origin =
-                    archerTower.GetNextProjectileLaunchOrigin();
-                return true;
-            }
-
-            if (!towerObjects.TryGetValue(
-                    towerId,
-                    out GameObject towerObject) ||
-                towerObject == null)
+                    out TowerPresentationHandle presentation) ||
+                presentation.Root == null)
             {
                 origin = Vector3.zero;
                 return false;
             }
 
+            if (presentation.Archer != null)
+            {
+                origin =
+                    presentation.Archer
+                        .GetNextProjectileLaunchOrigin();
+                return true;
+            }
+
             SpriteRenderer[] renderers =
-                towerObject.GetComponentsInChildren<
+                presentation.Root.GetComponentsInChildren<
                     SpriteRenderer>(true);
             bool found = false;
             Bounds bounds = default(Bounds);
@@ -1967,7 +2384,7 @@ namespace RuleforgeTD.Battle
 
             origin = found
                 ? bounds.center
-                : towerObject.transform.position;
+                : presentation.Root.transform.position;
             return true;
         }
 
@@ -1999,20 +2416,23 @@ namespace RuleforgeTD.Battle
                 return;
             }
 
-            foreach (KeyValuePair<int, ArcherTowerView> pair in
-                     towerViews)
+            foreach (
+                KeyValuePair<int, TowerPresentationHandle> pair in
+                towerPresentations)
             {
-                if (!towerObjects.TryGetValue(
-                        pair.Key,
-                        out GameObject towerObject))
+                TowerPresentationHandle presentation =
+                    pair.Value;
+                if (presentation.Archer == null ||
+                    presentation.Root == null)
                 {
                     continue;
                 }
 
-                Vector3 origin = towerObject.transform.position;
+                Vector3 origin =
+                    presentation.Root.transform.position;
                 AimTowerAtDistinctEnemies(
                     pair.Key,
-                    pair.Value,
+                    presentation.Archer,
                     origin);
             }
         }
@@ -2162,29 +2582,26 @@ namespace RuleforgeTD.Battle
             foreach (KeyValuePair<int, int> attack in
                      pendingTowerAttackTargets)
             {
-                if (!towerViews.TryGetValue(
+                if (!towerPresentations.TryGetValue(
                         attack.Key,
-                        out ArcherTowerView tower) ||
-                    tower == null)
+                        out TowerPresentationHandle presentation) ||
+                    presentation.Archer == null)
                 {
                     continue;
                 }
 
+                ArcherTowerView tower =
+                    presentation.Archer;
                 if (enemyViews.TryGetValue(
                         attack.Value,
                         out StageOneEnemyView target) &&
-                    target != null)
+                    target != null &&
+                    presentation.Root != null)
                 {
-                    if (towerObjects.TryGetValue(
-                            attack.Key,
-                            out GameObject towerObject) &&
-                        towerObject != null)
-                    {
-                        AimTowerAtDistinctEnemies(
-                            attack.Key,
-                            tower,
-                            towerObject.transform.position);
-                    }
+                    AimTowerAtDistinctEnemies(
+                        attack.Key,
+                        tower,
+                        presentation.Root.transform.position);
                 }
 
                 tower.PlayVolley();
@@ -2207,8 +2624,10 @@ namespace RuleforgeTD.Battle
                 content.WaveCount,
                 snapshot.BaseHealth,
                 snapshot.Gold,
-                PhaseToId(snapshot.Phase));
+                PhaseToId(snapshot.Phase),
+                snapshot.StageNumber);
             hud.SetSpeed(speedMultiplier);
+            RefreshCombatDetails();
 
             switch (snapshot.Phase)
             {
@@ -2221,6 +2640,10 @@ namespace RuleforgeTD.Battle
                             ? StageOnePlayState.Paused
                             : StageOnePlayState.Playing);
                     break;
+                case RunPhase.Victory:
+                    hud.SetPlayState(
+                        StageOnePlayState.Continue);
+                    break;
                 default:
                     hud.SetPlayState(StageOnePlayState.Disabled);
                     break;
@@ -2231,6 +2654,145 @@ namespace RuleforgeTD.Battle
             RefreshTowerLoadout();
             RefreshTowerActionView();
             RefreshPhaseStatus();
+            RefreshWavePreview();
+        }
+
+        private void RefreshWavePreview()
+        {
+            wavePreviewPresenter?.Refresh(
+                simulation,
+                snapshot,
+                towerBlueprintOpen);
+        }
+
+        private void RefreshCombatDetails()
+        {
+            if (hud == null || simulation == null || snapshot == null)
+            {
+                return;
+            }
+
+            if (snapshot.Phase == RunPhase.Planning)
+            {
+                int nextWaveIndex = snapshot.WaveIndex + 1;
+                hud.SetCombatDetails(
+                    nextWaveIndex >= 0 &&
+                    nextWaveIndex < content.WaveCount
+                        ? FormatWaveForecast(
+                            simulation.GetWaveForecast(
+                                nextWaveIndex))
+                        : string.Empty);
+                return;
+            }
+
+            CombatTelemetrySnapshot telemetry =
+                simulation.GetCombatTelemetrySnapshot();
+            if (snapshot.Phase == RunPhase.Combat)
+            {
+                hud.SetCombatDetails(textCatalog.Format(
+                    "combat_density.live_format",
+                    telemetry.CurrentKillStreak,
+                    telemetry.LargestChainKillCount,
+                    telemetry.ExplosionTriggerCount,
+                    telemetry.ShockChainHitCount,
+                    telemetry.RicochetCount,
+                    telemetry.StatusSpreadCount,
+                    telemetry.RecentGold,
+                    telemetry.CardBountyGold,
+                    telemetry.CardBountyRemaining));
+                return;
+            }
+
+            var summary = new StringBuilder(160);
+            summary.Append(textCatalog.Format(
+                "combat_density.wave_summary_format",
+                telemetry.WaveGold,
+                telemetry.HighestKillStreak));
+            int cardCount = Mathf.Min(2, telemetry.CardStats.Length);
+            for (int i = 0; i < cardCount; i++)
+            {
+                CardCombatStatSnapshot stat = telemetry.CardStats[i];
+                string cardName = stat.CardId;
+                if (content.TryGetCardId(
+                        stat.CardId,
+                        out CardId cardId))
+                {
+                    cardName = textCatalog.ResolveDisplayName(
+                        content.GetCard(cardId));
+                }
+                summary.Append(textCatalog.Format(
+                    "combat_density.card_summary_format",
+                    cardName,
+                    stat.DamageMilli / 1000L,
+                    stat.ActivationCount));
+            }
+            hud.SetCombatDetails(summary.ToString());
+        }
+
+        private string FormatWaveForecast(
+            WaveForecastSnapshot forecast)
+        {
+            var result = new StringBuilder(192);
+            result.Append(textCatalog.Format(
+                "combat_density.forecast_format",
+                forecast.WaveIndex + 1,
+                GetWaveArchetypeName(forecast.Archetype),
+                forecast.TotalCount,
+                forecast.NormalCount,
+                forecast.EliteCount,
+                forecast.BossCount));
+            for (int i = 0; i < forecast.Spawns.Length; i++)
+            {
+                WaveForecastSpawn spawn = forecast.Spawns[i];
+                string enemyName = spawn.EnemyId;
+                if (content.TryGetEnemyId(
+                        spawn.EnemyId,
+                        out EnemyDefinitionId enemyId))
+                {
+                    enemyName = textCatalog.Get(
+                        content.GetEnemy(enemyId).DisplayNameKey);
+                }
+                result.Append(textCatalog.Format(
+                    "combat_density.forecast_spawn_format",
+                    enemyName,
+                    spawn.Count));
+            }
+            if (forecast.BossActiveSummonLimit > 0)
+            {
+                result.Append(textCatalog.Format(
+                    "combat_density.forecast_summon_format",
+                    forecast.BossActiveSummonLimit));
+            }
+            return result.ToString();
+        }
+
+        private string GetWaveArchetypeName(
+            WaveArchetype archetype)
+        {
+            switch (archetype)
+            {
+                case WaveArchetype.Swarm:
+                    return textCatalog.Get(
+                        "combat_density.archetype.swarm");
+                case WaveArchetype.EliteMix:
+                    return textCatalog.Get(
+                        "combat_density.archetype.elite_mix");
+                case WaveArchetype.Rush:
+                    return textCatalog.Get(
+                        "combat_density.archetype.rush");
+                case WaveArchetype.HeavyEscort:
+                    return textCatalog.Get(
+                        "combat_density.archetype.heavy_escort");
+                case WaveArchetype.Boss:
+                    return textCatalog.Get(
+                        "combat_density.archetype.boss");
+                case WaveArchetype.Containment:
+                    return textCatalog.Get(
+                        "combat_density.archetype.containment");
+                default:
+                    return textCatalog.Get(
+                        "combat_density.archetype.standard");
+            }
         }
 
         private void RefreshEquippedCardDisplay()
@@ -2275,12 +2837,10 @@ namespace RuleforgeTD.Battle
                         content.GetCard(card.DefinitionId);
                     cardDisplays.Add(
                         textCatalog.GetCardDisplay(
-                            definition.StableId,
+                            definition,
                             GetTowerSlotSubjectType(
                                 tower,
-                                slot) ==
-                                SubjectType.Enemy,
-                            (int)definition.Tier));
+                                slot)));
                     break;
                 }
             }
@@ -2333,17 +2893,22 @@ namespace RuleforgeTD.Battle
                     new StageOneLoadoutCard(
                         card.Id,
                         textCatalog.GetCardDisplay(
-                            definition.StableId,
-                            cardSubjectType ==
-                                SubjectType.Enemy,
-                            (int)definition.Tier),
+                            definition,
+                            cardSubjectType),
                         card.Equipped,
                         card.Equipped &&
-                        card.TowerId == tower.Id));
+                        card.TowerId == tower.Id,
+                        card.Equipped
+                            ? card.TowerId
+                            : -1));
             }
 
-            int upgradeCost =
-                simulation.GetTowerUpgradeCost(tower.Id);
+            TowerUpgradeQuote upgradeQuote =
+                simulation.GetTowerUpgradeQuote(tower.Id);
+            RefreshLoadoutMapOverview();
+            loadoutView.SetMapOverview(
+                loadoutMapPathPoints,
+                loadoutMapSites);
             loadoutView.Show(
                 textCatalog.GetTowerName(
                     tower.DefinitionId),
@@ -2354,16 +2919,63 @@ namespace RuleforgeTD.Battle
                 loadoutCards,
                 selectedTowerSlot,
                 IsLoadoutEditable(),
-                upgradeCost,
-                upgradeCost >= 0 &&
-                snapshot.Gold >= upgradeCost);
+                upgradeQuote);
             loadoutView.SetTowerPreview(
-                towerObjects.TryGetValue(
+                towerPresentations.TryGetValue(
                     tower.Id,
-                    out GameObject towerObject) &&
-                towerObject != null
-                    ? towerObject.transform
+                    out TowerPresentationHandle presentation) &&
+                presentation.Root != null
+                    ? presentation.Root.transform
                     : null);
+        }
+
+        private void RefreshLoadoutMapOverview()
+        {
+            loadoutMapPathPoints.Clear();
+            if (stageMap != null && stageMap.Path != null)
+            {
+                for (int index = 0;
+                     index < stageMap.Path.WaypointCount;
+                     index++)
+                {
+                    loadoutMapPathPoints.Add(
+                        stageMap.Path.GetWorldWaypoint(index));
+                }
+            }
+
+            loadoutMapSites.Clear();
+            if (stageMap == null)
+            {
+                return;
+            }
+
+            for (int siteIndex = 0;
+                 siteIndex < stageMap.BuildSiteCount;
+                 siteIndex++)
+            {
+                TowerBuildSiteView buildSite =
+                    stageMap.GetBuildSite(siteIndex);
+                int towerId = -1;
+                for (int towerIndex = 0;
+                     towerIndex < snapshot.Towers.Length;
+                     towerIndex++)
+                {
+                    TowerSnapshot candidate =
+                        snapshot.Towers[towerIndex];
+                    if (candidate.BuildPointIndex ==
+                        buildSite.BuildPointIndex)
+                    {
+                        towerId = candidate.Id;
+                        break;
+                    }
+                }
+
+                loadoutMapSites.Add(
+                    new StageOneLoadoutMapSite(
+                        towerId,
+                        buildSite.transform.position,
+                        towerId >= 0));
+            }
         }
 
         private void RefreshTowerActionView()
@@ -2377,27 +2989,20 @@ namespace RuleforgeTD.Battle
                 FindTowerById(selectedTowerId);
             if (towerBlueprintOpen ||
                 tower.Id < 0 ||
-                !towerSelectionViews.TryGetValue(
+                !towerPresentations.TryGetValue(
                     tower.Id,
-                    out TowerSelectionView selection) ||
-                selection == null)
+                    out TowerPresentationHandle presentation) ||
+                presentation.Selection == null)
             {
                 towerActionView.Hide();
                 return;
             }
 
-            int upgradeCost =
-                simulation.GetTowerUpgradeCost(tower.Id);
-            bool canUpgrade =
-                IsLoadoutEditable() &&
-                tower.Level < 7 &&
-                upgradeCost >= 0;
+            TowerUpgradeQuote upgradeQuote =
+                simulation.GetTowerUpgradeQuote(tower.Id);
             towerActionView.Show(
-                selection,
-                canUpgrade,
-                upgradeCost,
-                upgradeCost >= 0 &&
-                snapshot.Gold >= upgradeCost);
+                presentation.Selection,
+                upgradeQuote);
         }
 
         private int ResolveTowerUnlockedSlotCount(
@@ -2408,11 +3013,28 @@ namespace RuleforgeTD.Battle
                 return 0;
             }
 
-            int unlocked = simulation == null
-                ? GameSimulation.GetTowerCardCapacityForLevel(
-                    tower.Level)
-                : simulation.GetTowerUnlockedSlotCount(
-                    tower.Id);
+            int unlocked;
+            if (simulation != null)
+            {
+                unlocked =
+                    simulation.GetTowerUnlockedSlotCount(
+                        tower.Id);
+            }
+            else if (content != null &&
+                     content.TryGetTowerId(
+                         tower.DefinitionId,
+                         out TowerDefinitionId definitionId) &&
+                     content.GetTower(definitionId)
+                         .TryGetLevel(
+                             tower.Level,
+                             out CompiledTowerLevelBalance level))
+            {
+                unlocked = level.UnlockedSlots;
+            }
+            else
+            {
+                unlocked = 0;
+            }
             return Math.Min(
                 tower.CardInstanceIds.Length,
                 unlocked);
@@ -2475,13 +3097,12 @@ namespace RuleforgeTD.Battle
 
             for (int i = 0; i < offers.Length; i++)
             {
-                string stableId =
-                    content.GetCard(offers[i]).StableId;
+                CompiledCardDefinition definition =
+                    content.GetCard(offers[i]);
                 cardDisplays.Add(
                     textCatalog.GetCardDisplay(
-                        stableId,
-                        false,
-                        (int)content.GetCard(offers[i]).Tier));
+                        definition,
+                        SubjectType.Projectile));
             }
 
             hud.ShowRewardChoices(cardDisplays);
@@ -2515,6 +3136,8 @@ namespace RuleforgeTD.Battle
                     break;
                 case RunPhase.Victory:
                     paused = false;
+                    CampaignStageProgress.MarkSceneCompleted(
+                        SceneManager.GetActiveScene().name);
                     hud.SetStatus("status.victory");
                     break;
                 case RunPhase.Defeat:
@@ -2626,6 +3249,8 @@ namespace RuleforgeTD.Battle
                 HandleTowerSlotUnequipRequested;
             loadoutView.CardRequested +=
                 HandleTowerCardRequested;
+            loadoutView.CardDoubleClickRequested +=
+                HandleTowerCardDoubleClickRequested;
             loadoutView.CardDropped +=
                 HandleTowerCardDropped;
             loadoutView.UpgradeRequested +=
@@ -2642,6 +3267,11 @@ namespace RuleforgeTD.Battle
                 HandleTowerBuildRequested;
             towerBuildPickerView.CloseRequested +=
                 HandleTowerBuildPickerClosed;
+            if (enemyInspectionController != null)
+            {
+                enemyInspectionController.EnemySelected +=
+                    HandleEnemySelected;
+            }
             if (cameraController != null)
             {
                 cameraController.BackgroundClicked +=
@@ -2674,6 +3304,8 @@ namespace RuleforgeTD.Battle
                     HandleTowerSlotUnequipRequested;
                 loadoutView.CardRequested -=
                     HandleTowerCardRequested;
+                loadoutView.CardDoubleClickRequested -=
+                    HandleTowerCardDoubleClickRequested;
                 loadoutView.CardDropped -=
                     HandleTowerCardDropped;
                 loadoutView.UpgradeRequested -=
@@ -2700,15 +3332,23 @@ namespace RuleforgeTD.Battle
                     HandleTowerBuildPickerClosed;
             }
 
+            if (enemyInspectionController != null)
+            {
+                enemyInspectionController.EnemySelected -=
+                    HandleEnemySelected;
+            }
+
             if (cameraController != null)
             {
                 cameraController.BackgroundClicked -=
                     HandleBackgroundClicked;
             }
 
-            foreach (TowerSelectionView selection in
-                     towerSelectionViews.Values)
+            foreach (TowerPresentationHandle presentation in
+                     towerPresentations.Values)
             {
+                TowerSelectionView selection =
+                    presentation.Selection;
                 if (selection != null)
                 {
                     selection.Clicked -= HandleTowerClicked;
@@ -2821,14 +3461,16 @@ namespace RuleforgeTD.Battle
         private void RefreshTowerSelectionIndicators()
         {
             foreach (
-                KeyValuePair<int, TowerSelectionView> pair in
-                towerSelectionViews)
+                KeyValuePair<int, TowerPresentationHandle> pair in
+                towerPresentations)
             {
-                if (pair.Value != null)
+                TowerSelectionView selection =
+                    pair.Value.Selection;
+                if (selection != null)
                 {
-                    pair.Value.SetSelected(
+                    selection.SetSelected(
                         pair.Key == selectedTowerId);
-                    pair.Value.SetContextVisible(
+                    selection.SetContextVisible(
                         pair.Key == selectedTowerId &&
                         !towerBlueprintOpen);
                 }

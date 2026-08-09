@@ -3,8 +3,11 @@ using System;
 using System.IO;
 using System.Linq;
 using RuleforgeTD.Battle;
+using RuleforgeTD.GameLogic.Content;
 using RuleforgeTD.Maps;
+using RuleforgeTD.Simulation;
 using RuleforgeTD.UI;
+using RuleforgeTD.UnityView.TestLab;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -224,11 +227,11 @@ namespace RuleforgeTD.Editor.AssetImport
                 LoadRequiredAsset<TextAsset>(ContentPath);
             TextAsset localization =
                 LoadRequiredAsset<TextAsset>(LocalizationPath);
+            TextAsset[] cardContentModules =
+                CardContentModuleCatalogDiscovery
+                    .DiscoverTextAssets();
             Font uiFont =
                 LoadRequiredAsset<Font>(UiFontPath);
-            ValidateLocalizationFontCoverage(
-                uiFont,
-                localization.text);
             GameObject goblin = LoadEnemyPrefab("Goblin");
             GameObject dog = LoadEnemyPrefab("Dog");
             GameObject slime = LoadEnemyPrefab("Slime");
@@ -282,6 +285,16 @@ namespace RuleforgeTD.Editor.AssetImport
                         slime,
                         BossTimeWalkerVisualScale)
                 };
+            var towerAppearances =
+                new[]
+                {
+                    new StageOneTowerAppearanceBinding(
+                        "mutation_obelisk",
+                        new Color(0.76f, 0.61f, 1f, 1f)),
+                    new StageOneTowerAppearanceBinding(
+                        "death_engine",
+                        new Color(0.53f, 1f, 0.83f, 1f))
+                };
 
             var projectileSprites = new Sprite[5];
             for (int i = 0; i < projectileSprites.Length; i++)
@@ -299,14 +312,19 @@ namespace RuleforgeTD.Editor.AssetImport
                 AssetDatabase.LoadAssetAtPath<
                     StageOnePresentationCatalog>(
                     CatalogPath);
+            bool createCatalogAsset = catalog == null;
             if (catalog == null)
             {
                 catalog =
                     ScriptableObject.CreateInstance<
                         StageOnePresentationCatalog>();
-                AssetDatabase.CreateAsset(catalog, CatalogPath);
             }
 
+            ValidatePresentationContent(
+                content,
+                localization,
+                uiFont,
+                cardContentModules);
             catalog.ConfigureAuthoring(
                 content,
                 localization,
@@ -314,10 +332,86 @@ namespace RuleforgeTD.Editor.AssetImport
                 towerBindings,
                 enemyBindings,
                 projectileSprites,
-                DefaultCardProgram);
+                DefaultCardProgram,
+                towerAppearances,
+                cardContentModules);
+            ValidatePresentationCatalog(catalog);
+            if (createCatalogAsset)
+            {
+                AssetDatabase.CreateAsset(catalog, CatalogPath);
+            }
             EditorUtility.SetDirty(catalog);
             AssetDatabase.SaveAssets();
             return catalog;
+        }
+
+        /// <summary>
+        /// Runtime과 동일한 합성·로컬라이제이션 경로를 사용해 catalog가
+        /// 실제 플레이 가능한 단일 콘텐츠 집합인지 검증한다.
+        /// </summary>
+        public static void ValidatePresentationCatalog(
+            StageOnePresentationCatalog catalog)
+        {
+            if (catalog == null)
+            {
+                throw new ArgumentNullException(nameof(catalog));
+            }
+
+            TextAsset contentJson = catalog.ContentJson;
+            TextAsset localizationJson = catalog.LocalizationJson;
+            if (contentJson == null)
+            {
+                throw new InvalidOperationException(
+                    "Stage 01 presentation catalog has no base " +
+                    "content JSON.");
+            }
+
+            if (localizationJson == null)
+            {
+                throw new InvalidOperationException(
+                    "Stage 01 presentation catalog has no base " +
+                    "localization JSON.");
+            }
+
+            ValidatePresentationContent(
+                contentJson,
+                localizationJson,
+                catalog.UiFont,
+                catalog.CardContentModules);
+        }
+
+        /// <summary>
+        /// 아직 catalog에 저장하지 않은 prospective module 배열을 runtime과
+        /// 같은 경로로 검증한다. Editor discovery는 이 메서드가 성공한 뒤에만
+        /// serialized catalog를 교체한다.
+        /// </summary>
+        public static void ValidatePresentationContent(
+            TextAsset contentJson,
+            TextAsset localizationJson,
+            Font uiFont,
+            TextAsset[] modules)
+        {
+            if (contentJson == null)
+            {
+                throw new ArgumentNullException(nameof(contentJson));
+            }
+            if (localizationJson == null)
+            {
+                throw new ArgumentNullException(nameof(localizationJson));
+            }
+
+            TextAsset[] cardModules = modules ?? Array.Empty<TextAsset>();
+            CompiledContent compiled = LogicContentJsonLoader.Load(
+                contentJson,
+                cardModules);
+            StageOneUiTextCatalog text = StageOneUiTextCatalog.Load(
+                localizationJson,
+                cardModules);
+            text.ValidateCardDefinitions(compiled);
+
+            ValidateLocalizationFontCoverage(
+                uiFont,
+                text.GetFontCoverageText());
         }
 
         private static void ValidateLocalizationFontCoverage(
@@ -333,7 +427,8 @@ namespace RuleforgeTD.Editor.AssetImport
             string missing =
                 StageOneUiFontCoverage.FindMissingCharacters(
                     font,
-                    localizationJson);
+                    localizationJson,
+                    TestLabUiFontCoverage.RequiredCharacters);
 
             if (missing.Length > 0)
             {

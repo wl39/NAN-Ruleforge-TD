@@ -44,9 +44,13 @@ namespace RuleforgeTD.Towers.Testing
         private const string PoisonCardId = "poison";
 
         private static TextAsset cachedContentAsset;
+        private static TextAsset[] cachedContentModules =
+            Array.Empty<TextAsset>();
         private static CompiledContent cachedContent;
 
         [SerializeField] private TextAsset contentJson;
+        [SerializeField] private TextAsset[] cardContentModules =
+            Array.Empty<TextAsset>();
         [SerializeField] private Sprite effectPixel;
         [SerializeField] private string[] equippedCardIds =
         {
@@ -80,9 +84,15 @@ namespace RuleforgeTD.Towers.Testing
             Initialize();
         }
 
-        public void Configure(TextAsset logicContent, Sprite pixelSprite)
+        public void Configure(
+            TextAsset logicContent,
+            Sprite pixelSprite,
+            TextAsset[] contentModules = null)
         {
             contentJson = logicContent;
+            cardContentModules = contentModules == null
+                ? Array.Empty<TextAsset>()
+                : (TextAsset[])contentModules.Clone();
             effectPixel = pixelSprite;
             equippedCardIds = new[]
             {
@@ -142,7 +152,9 @@ namespace RuleforgeTD.Towers.Testing
                 return;
             }
 
-            CompiledContent content = LoadContent(contentJson);
+            CompiledContent content = LoadContent(
+                contentJson,
+                cardContentModules);
             CompiledEffectNode split = FindEnemyNode(
                 content,
                 SplitCardId,
@@ -179,15 +191,50 @@ namespace RuleforgeTD.Towers.Testing
             initialized = true;
         }
 
-        private static CompiledContent LoadContent(TextAsset contentAsset)
+        private static CompiledContent LoadContent(
+            TextAsset contentAsset,
+            TextAsset[] contentModules)
         {
-            if (cachedContent == null || cachedContentAsset != contentAsset)
+            TextAsset[] modules = contentModules ??
+                Array.Empty<TextAsset>();
+            if (cachedContent == null ||
+                cachedContentAsset != contentAsset ||
+                !AreSameAssets(cachedContentModules, modules))
             {
                 cachedContentAsset = contentAsset;
-                cachedContent = LogicContentJsonLoader.Load(contentAsset);
+                cachedContentModules = (TextAsset[])modules.Clone();
+                cachedContent = LogicContentJsonLoader.Load(
+                    contentAsset,
+                    modules);
             }
 
             return cachedContent;
+        }
+
+        private static bool AreSameAssets(
+            TextAsset[] left,
+            TextAsset[] right)
+        {
+            if (ReferenceEquals(left, right))
+            {
+                return true;
+            }
+            if (left == null ||
+                right == null ||
+                left.Length != right.Length)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < left.Length; i++)
+            {
+                if (left[i] != right[i])
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         private static CompiledEffectNode FindEnemyNode(

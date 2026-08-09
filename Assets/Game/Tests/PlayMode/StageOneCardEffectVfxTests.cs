@@ -1,10 +1,14 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using NUnit.Framework;
 using RuleforgeTD.Battle;
+using RuleforgeTD.GameLogic.Content;
+using RuleforgeTD.GameLogic.Core;
 using RuleforgeTD.GameLogic.Simulation;
 using UnityEngine;
 using UnityEngine.TestTools;
+using Object = UnityEngine.Object;
 
 namespace RuleforgeTD.Tests.PlayMode
 {
@@ -12,18 +16,6 @@ namespace RuleforgeTD.Tests.PlayMode
     {
         private static readonly string[] ExpectedCardIds =
         {
-            "split",
-            "pierce",
-            "burn",
-            "slow",
-            "explode",
-            "knockback",
-            "mark",
-            "gold_bounty",
-            "poison",
-            "enlarge",
-            "shrink",
-            "stun",
             "ricochet",
             "bleed",
             "accelerate",
@@ -43,11 +35,49 @@ namespace RuleforgeTD.Tests.PlayMode
             "corrosion",
             "orbit",
             "lifesteal",
-            "fear"
+            "fear",
+            "split",
+            "pierce",
+            "burn",
+            "slow",
+            "explode",
+            "knockback",
+            "mark",
+            "gold_bounty",
+            "poison",
+            "enlarge",
+            "shrink",
+            "stun",
+            "duplicate",
+            "sacrifice",
+            "return",
+            "retrograde",
+            "resonance",
+            "absorb",
+            "time_stop",
+            "mutation",
+            "execute",
+            "parasite",
+            "rebirth",
+            "chain",
+            "recursion",
+            "reverse_order",
+            "dual_interpretation",
+            "infinite_orbit",
+            "overclone",
+            "forbidden_deal",
+            "last_command",
+            "fate_lock",
+            "overload",
+            "singularity",
+            "phoenix_core",
+            "time_rift",
+            "mirror_world",
+            "ouroboros"
         };
 
         [Test]
-        public void Palette_DefinesDistinctShapeForAllThirtyTwoCards()
+        public void Palette_PreservesDistinctLegacyAuthoredStyles()
         {
             Assert.That(
                 StageOneCardEffectPalette.StyleCount,
@@ -57,6 +87,12 @@ namespace RuleforgeTD.Tests.PlayMode
 
             for (int i = 0; i < ExpectedCardIds.Length; i++)
             {
+                Assert.That(
+                    StageOneCardEffectPalette.GetStyle(i).Id,
+                    Is.EqualTo(ExpectedCardIds[i]),
+                    "The serialized visualStyleIndex contract uses " +
+                    "the stable palette order. Reordering either side " +
+                    "silently assigns another card's VFX.");
                 Assert.That(
                     StageOneCardEffectPalette.TryGetStyle(
                         ExpectedCardIds[i],
@@ -81,31 +117,41 @@ namespace RuleforgeTD.Tests.PlayMode
             Assert.That(
                 shapes.Count,
                 Is.EqualTo(ExpectedCardIds.Length),
-                "Each new card needs a visually distinct motion shape.");
+                "The authored phase-one palette must preserve its visual ABI; " +
+                "module cards may use deterministic generated fallbacks.");
         }
 
         [Test]
-        public void ProjectileFlags_CoverEveryCardWithoutCollisions()
+        public void CardVisualFlags_AreSingleBitsWithoutCollisions()
         {
-            var flags = new HashSet<uint>();
-            for (int i = 0; i < ExpectedCardIds.Length; i++)
+            var flags = new HashSet<ulong>();
+            Array values =
+                Enum.GetValues(
+                    typeof(CardEffectVisualFlags));
+            for (int i = 0; i < values.Length; i++)
             {
-                ProjectileEffectVisualFlags flag =
-                    GameSimulation.GetCardVisualFlag(
-                        ExpectedCardIds[i]);
+                CardEffectVisualFlags flag =
+                    (CardEffectVisualFlags)
+                        values.GetValue(i);
+                if (flag == CardEffectVisualFlags.None)
+                {
+                    continue;
+                }
+
+                ulong raw = (ulong)flag;
                 Assert.That(
-                    flag,
-                    Is.Not.EqualTo(
-                        ProjectileEffectVisualFlags.None),
-                    ExpectedCardIds[i]);
+                    raw & (raw - 1UL),
+                    Is.EqualTo(0UL),
+                    flag + " must occupy one bit.");
                 Assert.That(
-                    flags.Add((uint)flag),
+                    flags.Add(raw),
                     Is.True,
-                    "Duplicate projectile VFX flag: " +
-                    ExpectedCardIds[i]);
+                    "Duplicate card VFX flag: " + flag);
             }
 
-            Assert.That(flags.Count, Is.EqualTo(32));
+            Assert.That(
+                flags.Count,
+                Is.EqualTo(ExpectedCardIds.Length));
         }
 
         [Test]
@@ -145,6 +191,63 @@ namespace RuleforgeTD.Tests.PlayMode
                     out StageOneCardEffectStyle blind),
                 Is.True);
             Assert.That(blind.Id, Is.EqualTo("bind"));
+        }
+
+        [Test]
+        public void Palette_GeneratesDeterministicFallbackForModuleCard()
+        {
+            StageOneCardEffectStyle first =
+                StageOneCardEffectPalette.CreateGeneratedCardStyle(
+                    "module_arcane_echo",
+                    CardTier.Rare);
+            StageOneCardEffectStyle second =
+                StageOneCardEffectPalette.CreateGeneratedCardStyle(
+                    "module_arcane_echo",
+                    CardTier.Rare);
+            StageOneCardEffectStyle other =
+                StageOneCardEffectPalette.CreateGeneratedCardStyle(
+                    "module_void_echo",
+                    CardTier.Rare);
+
+            Assert.That(first.Id, Is.EqualTo("module_arcane_echo"));
+            Assert.That(first.Primary, Is.EqualTo(second.Primary));
+            Assert.That(first.Secondary, Is.EqualTo(second.Secondary));
+            Assert.That(first.Shape, Is.EqualTo(second.Shape));
+            Assert.That(first.Duration, Is.GreaterThan(0f));
+            Assert.That(first.Radius, Is.GreaterThan(0f));
+            Assert.That(
+                first.Primary != other.Primary ||
+                first.Shape != other.Shape,
+                Is.True,
+                "Different stable IDs should not collapse to one fallback.");
+            Assert.That(
+                StageOneCardEffectPalette.TryGetStyle(
+                    "module_arcane_event_without_alias",
+                    out StageOneCardEffectStyle resolved),
+                Is.True);
+            Assert.That(
+                resolved.Id,
+                Is.EqualTo("module_arcane_event_without_alias"));
+            Assert.That(
+                StageOneCardEffectPalette.TryGetCardStyle(
+                    "unregistered_module_card",
+                    out _),
+                Is.False,
+                "Card lookup must not silently use the semantic-event " +
+                "fallback before a merged catalog is registered.");
+            Assert.That(
+                StageOneCardEffectPalette.TryGetEventStyle(
+                    "unregistered_module_card",
+                    out StageOneCardEffectStyle eventStyle),
+                Is.True);
+            Assert.That(
+                eventStyle.Id,
+                Is.EqualTo("unregistered_module_card"));
+            Assert.That(
+                StageOneCardEffectPalette.TryGetStyle(
+                    string.Empty,
+                    out _),
+                Is.False);
         }
 
         [UnityTest]
@@ -626,7 +729,7 @@ namespace RuleforgeTD.Tests.PlayMode
 
                 Assert.That(
                     view.PlayFlagSet(
-                        (uint)ProjectileEffectVisualFlags.Bleed,
+                        (ulong)CardEffectVisualFlags.Bleed,
                         enemy),
                     Is.EqualTo(1));
                 view.SetManualPreviewTime(0.28f);
@@ -657,6 +760,271 @@ namespace RuleforgeTD.Tests.PlayMode
             finally
             {
                 Object.DestroyImmediate(enemyObject);
+                Object.DestroyImmediate(host);
+            }
+        }
+
+        [Test]
+        public void
+            AreaIndicator_UsesGameplayRadiusAndMatchingVfxColor()
+        {
+            var host = new GameObject(
+                "Area Indicator VFX Test",
+                typeof(StageOneCardEffectVfxView));
+            try
+            {
+                StageOneCardEffectVfxView view =
+                    host.GetComponent<
+                        StageOneCardEffectVfxView>();
+                view.InitializeNow(16);
+                const float radius = 1.5f;
+
+                Assert.That(
+                    view.PlayAreaIndicator(
+                        "explode",
+                        new Vector3(2f, 3f, 0f),
+                        radius),
+                    Is.True);
+                view.SetManualPreviewTime(0.2f);
+
+                SpriteRenderer indicator = null;
+                SpriteRenderer[] renderers =
+                    host.GetComponentsInChildren<
+                        SpriteRenderer>(true);
+                for (int i = 0; i < renderers.Length; i++)
+                {
+                    if (renderers[i].enabled &&
+                        renderers[i].gameObject.name ==
+                        "Pixel Area Indicator")
+                    {
+                        indicator = renderers[i];
+                        break;
+                    }
+                }
+
+                Assert.That(indicator, Is.Not.Null);
+                Assert.That(
+                    indicator.transform.lossyScale.x,
+                    Is.EqualTo(radius * 2f).Within(0.001f));
+                Assert.That(
+                    view.LastPlayedAreaRadius,
+                    Is.EqualTo(radius).Within(0.001f));
+                Assert.That(
+                    StageOneCardEffectPalette.TryGetStyle(
+                        "explode",
+                        out StageOneCardEffectStyle style),
+                    Is.True);
+                Assert.That(
+                    indicator.color.r,
+                    Is.EqualTo(style.Primary.r).Within(0.001f));
+                Assert.That(
+                    indicator.color.g,
+                    Is.EqualTo(style.Primary.g).Within(0.001f));
+                Assert.That(
+                    indicator.color.b,
+                    Is.EqualTo(style.Primary.b).Within(0.001f));
+                Assert.That(
+                    indicator.color.a,
+                    Is.GreaterThanOrEqualTo(0.97f));
+                Assert.That(
+                    indicator.sprite.texture.filterMode,
+                    Is.EqualTo(FilterMode.Point));
+                Assert.That(
+                    StageOneCardEffectVfxView
+                        .AreaIndicatorResolutionMultiplier,
+                    Is.EqualTo(1));
+                Assert.That(
+                    StageOneCardEffectVfxView
+                        .AreaIndicatorTextureSize,
+                    Is.EqualTo(129),
+                    "Every area effect must share the very thin ring.");
+                Assert.That(
+                    indicator.sprite.texture.width,
+                    Is.EqualTo(
+                        StageOneCardEffectVfxView
+                            .AreaIndicatorTextureSize));
+                Assert.That(
+                    indicator.sprite.texture.height,
+                    Is.EqualTo(
+                        StageOneCardEffectVfxView
+                            .AreaIndicatorTextureSize));
+                Assert.That(
+                    StageOneCardEffectVfxView
+                        .AreaIndicatorBorderPixels,
+                    Is.EqualTo(1),
+                    "The gameplay boundary must remain a thin outline.");
+            }
+            finally
+            {
+                Object.DestroyImmediate(host);
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator
+            TransientVfx_FreezesAndResumesWithWorldTimeScale()
+        {
+            float previousTimeScale = Time.timeScale;
+            var host = new GameObject(
+                "Paused Card VFX Test",
+                typeof(StageOneCardEffectVfxView));
+            try
+            {
+                Time.timeScale = 1f;
+                StageOneCardEffectVfxView view =
+                    host.GetComponent<StageOneCardEffectVfxView>();
+                view.InitializeNow(16);
+                Assert.That(
+                    view.PlayAreaIndicator(
+                        "explode",
+                        Vector3.zero,
+                        1.5f),
+                    Is.True);
+                yield return null;
+
+                Vector3[] beforePause =
+                    GetActivePixelMesh(host).vertices;
+                Time.timeScale = 0f;
+                yield return null;
+                yield return null;
+                Vector3[] whilePaused =
+                    GetActivePixelMesh(host).vertices;
+                Assert.That(
+                    HasDifferentVertex(beforePause, whilePaused),
+                    Is.False,
+                    "Card VFX must not advance while gameplay is paused.");
+
+                Time.timeScale = 1f;
+                yield return new WaitForSeconds(0.08f);
+                Vector3[] afterResume =
+                    GetActivePixelMesh(host).vertices;
+                Assert.That(
+                    HasDifferentVertex(whilePaused, afterResume),
+                    Is.True,
+                    "Card VFX must resume from the frozen frame.");
+            }
+            finally
+            {
+                Time.timeScale = previousTimeScale;
+                Object.DestroyImmediate(host);
+            }
+        }
+
+        [Test]
+        public void
+            AreaAnimations_StayInsideGameplayRadiusAndPixelBudget()
+        {
+            var host = new GameObject(
+                "Semantic Area VFX Test",
+                typeof(StageOneCardEffectVfxView));
+            try
+            {
+                StageOneCardEffectVfxView view =
+                    host.GetComponent<
+                        StageOneCardEffectVfxView>();
+                view.InitializeNow(16);
+                const float radius = 1.5f;
+                string[] areaEffectIds =
+                {
+                    "explode",
+                    "poison",
+                    "burn",
+                    "pulse",
+                    "airborne_land",
+                    "freeze_shard",
+                    "bind_pulse",
+                    "legendary_overload",
+                    "mythic_singularity",
+                    "legendary_last_command",
+                    "rare_sacrifice_enemy"
+                };
+
+                for (int i = 0; i < areaEffectIds.Length; i++)
+                {
+                    string effectId = areaEffectIds[i];
+                    view.StopAll();
+                    Assert.That(
+                        view.PlayAreaIndicator(
+                            effectId,
+                            Vector3.zero,
+                            radius),
+                        Is.True,
+                        effectId);
+                    view.SetManualPreviewTime(0.28f);
+
+                    Assert.That(
+                        view.ActivePixelBlockCount,
+                        Is.GreaterThan(0),
+                        effectId +
+                        " must draw a semantic animation inside its ring.");
+                    Assert.That(
+                        view.ActivePixelBlockCount,
+                        Is.LessThanOrEqualTo(
+                            StageOneCardEffectVfxView
+                                .MaximumPixelBlocks),
+                        effectId +
+                        " exceeded the bounded WebGL pixel budget.");
+                    Bounds bounds = GetActivePixelBounds(host);
+                    Assert.That(
+                        Mathf.Max(
+                            bounds.extents.x,
+                            bounds.extents.y),
+                        Is.LessThanOrEqualTo(
+                            radius +
+                            StageOneCardEffectVfxView.PixelWorldSize),
+                        effectId +
+                        " rendered outside the authoritative radius.");
+                }
+            }
+            finally
+            {
+                Object.DestroyImmediate(host);
+            }
+        }
+
+        [Test]
+        public void
+            ExplosionMushroom_GrowsCloseToAuthoritativeAreaRing()
+        {
+            var host = new GameObject(
+                "Large Explosion Mushroom VFX Test",
+                typeof(StageOneCardEffectVfxView));
+            try
+            {
+                StageOneCardEffectVfxView view =
+                    host.GetComponent<StageOneCardEffectVfxView>();
+                view.InitializeNow(16);
+                const float radius = 1.5f;
+                Assert.That(
+                    view.PlayAreaIndicator(
+                        "explode",
+                        Vector3.zero,
+                        radius),
+                    Is.True);
+
+                view.SetManualPreviewTime(0.46f);
+                Bounds bounds = GetActivePixelBounds(host);
+                Assert.That(
+                    bounds.size.x,
+                    Is.GreaterThanOrEqualTo(radius * 1.68f),
+                    "The rolled mushroom cap should fill most of the ring.");
+                Assert.That(
+                    bounds.size.y,
+                    Is.GreaterThanOrEqualTo(radius * 1.16f),
+                    "The stem and cap should use the ring's vertical space.");
+                Assert.That(
+                    Mathf.Max(bounds.extents.x, bounds.extents.y),
+                    Is.LessThanOrEqualTo(
+                        radius +
+                        StageOneCardEffectVfxView.PixelWorldSize),
+                    "The larger cloud must remain inside its gameplay ring.");
+                Assert.That(
+                    view.ActivePixelBlockCount,
+                    Is.LessThanOrEqualTo(
+                        StageOneCardEffectVfxView.MaximumPixelBlocks));
+            }
+            finally
+            {
                 Object.DestroyImmediate(host);
             }
         }
@@ -711,10 +1079,10 @@ namespace RuleforgeTD.Tests.PlayMode
         public void
             PresentationEvent_PreservesImpactAndDeathFlagBits()
         {
-            const uint expectedFlags =
-                (uint)(
-                    ProjectileEffectVisualFlags.Burn |
-                    ProjectileEffectVisualFlags.Poison);
+            const ulong expectedFlags =
+                (ulong)(
+                    CardEffectVisualFlags.Burn |
+                    CardEffectVisualFlags.Poison);
             var item = new SimulationPresentationEvent(
                 12,
                 PresentationEventType.ProjectileHit,
@@ -727,6 +1095,47 @@ namespace RuleforgeTD.Tests.PlayMode
             Assert.That(
                 item.EffectVisualFlags,
                 Is.EqualTo(expectedFlags));
+        }
+
+        [Test]
+        public void
+            PresentationEvent_PreservesAuthoritativeAreaCenter()
+        {
+            SimPosition center =
+                SimPosition.FromMilliUnits(1250, -500);
+            var item = new SimulationPresentationEvent(
+                13,
+                PresentationEventType.AreaEffectTriggered,
+                7,
+                4,
+                1500,
+                "explode",
+                effectPosition: center,
+                hasEffectPosition: true);
+
+            Assert.That(item.HasEffectPosition, Is.True);
+            Assert.That(item.EffectPosition, Is.EqualTo(center));
+            Assert.That(item.Value, Is.EqualTo(1500));
+        }
+
+        private static bool HasDifferentVertex(
+            Vector3[] first,
+            Vector3[] second)
+        {
+            if (first.Length != second.Length)
+            {
+                return true;
+            }
+
+            for (int i = 0; i < first.Length; i++)
+            {
+                if ((first[i] - second[i]).sqrMagnitude > 0.000001f)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static bool HasPixelCenter(
@@ -843,7 +1252,7 @@ namespace RuleforgeTD.Tests.PlayMode
                 visual.Configure(enemy, renderer);
 
                 visual.SetVisualFlags(
-                    StageOneEnemyEffectVisualFlags.Curse);
+                    CardEffectVisualFlags.Curse);
                 yield return null;
 
                 Assert.That(visual.IsCursed, Is.True);
@@ -854,9 +1263,21 @@ namespace RuleforgeTD.Tests.PlayMode
                     visual.DominantColor.b,
                     Is.GreaterThan(visual.DominantColor.g));
                 Assert.That(visual.TintOverlayVisible, Is.True);
+                Assert.That(
+                    enemyObject.transform.Find(
+                        "Card Effect Aura"),
+                    Is.Null,
+                    "Persistent status presentation must not recreate " +
+                    "the floating ring.");
+                Assert.That(
+                    enemyObject.transform.Find(
+                        "Card Effect Glyph"),
+                    Is.Null,
+                    "Persistent status presentation must not recreate " +
+                    "the rotating rune/star.");
 
                 visual.SetVisualFlags(
-                    StageOneEnemyEffectVisualFlags.Bind);
+                    CardEffectVisualFlags.Bind);
                 yield return null;
 
                 Assert.That(visual.IsBound, Is.True);
@@ -867,7 +1288,7 @@ namespace RuleforgeTD.Tests.PlayMode
                 Vector3 groundPosition =
                     enemyObject.transform.position;
                 visual.SetVisualFlags(
-                    StageOneEnemyEffectVisualFlags.Airborne,
+                    CardEffectVisualFlags.Airborne,
                     30,
                     77);
                 yield return null;
@@ -893,7 +1314,7 @@ namespace RuleforgeTD.Tests.PlayMode
                 enemyObject.transform.position =
                     nextGroundPosition;
                 visual.SetVisualFlags(
-                    StageOneEnemyEffectVisualFlags.Airborne,
+                    CardEffectVisualFlags.Airborne,
                     29,
                     77);
                 yield return null;
@@ -904,7 +1325,7 @@ namespace RuleforgeTD.Tests.PlayMode
                         nextGroundPosition.y + 0.1f));
 
                 visual.SetVisualFlags(
-                    StageOneEnemyEffectVisualFlags.None);
+                    CardEffectVisualFlags.None);
                 yield return null;
 
                 Assert.That(
@@ -973,8 +1394,8 @@ namespace RuleforgeTD.Tests.PlayMode
                         StageOneProjectileCardEffectVisual>();
                 visual.Configure(projectile, renderer);
                 visual.SetVisualFlags(
-                    ProjectileEffectVisualFlags.Airborne |
-                    ProjectileEffectVisualFlags.Curse);
+                    CardEffectVisualFlags.Airborne |
+                    CardEffectVisualFlags.Curse);
                 visual.RefreshPresentation();
 
                 Assert.That(
@@ -993,7 +1414,7 @@ namespace RuleforgeTD.Tests.PlayMode
                     Is.GreaterThan(5f));
 
                 visual.SetVisualFlags(
-                    ProjectileEffectVisualFlags.None);
+                    CardEffectVisualFlags.None);
                 visual.RefreshPresentation();
 
                 Assert.That(visual.OverlayVisible, Is.False);
@@ -1016,6 +1437,261 @@ namespace RuleforgeTD.Tests.PlayMode
                     Object.DestroyImmediate(texture);
                 }
             }
+        }
+
+        [Test]
+        public void EnemyStatusIcons_PrioritizeThreeAndUsePaletteColors()
+        {
+            var enemyObject = new GameObject(
+                "Status Icon Stack Enemy",
+                typeof(SpriteRenderer));
+            Texture2D texture = null;
+            Sprite sprite = null;
+            try
+            {
+                SpriteRenderer renderer =
+                    enemyObject.GetComponent<SpriteRenderer>();
+                renderer.sortingOrder = 20;
+                texture = new Texture2D(
+                    4,
+                    4,
+                    TextureFormat.RGBA32,
+                    false);
+                var pixels = new Color[16];
+                for (int index = 0;
+                     index < pixels.Length;
+                     index++)
+                {
+                    pixels[index] = Color.white;
+                }
+
+                texture.SetPixels(pixels);
+                texture.Apply();
+                sprite = Sprite.Create(
+                    texture,
+                    new Rect(0f, 0f, 4f, 4f),
+                    new Vector2(0.5f, 0.5f),
+                    4f);
+                renderer.sprite = sprite;
+
+                StageOneEnemyStatusIconStackView icons =
+                    enemyObject.AddComponent<
+                        StageOneEnemyStatusIconStackView>();
+                const float healthBarTopLocalY = 1.25f;
+                icons.Configure(
+                    renderer,
+                    healthBarTopLocalY);
+                icons.ApplyStatuses(
+                    new[]
+                    {
+                        Status(1, StatusType.Burn, 1),
+                        Status(2, StatusType.Poison, 2),
+                        Status(3, StatusType.Slow, 3),
+                        Status(4, StatusType.Mark),
+                        Status(5, StatusType.Curse),
+                        Status(6, StatusType.Bind),
+                        Status(7, StatusType.Shock)
+                    });
+
+                Assert.That(
+                    icons.ActiveIconCount,
+                    Is.EqualTo(3));
+                Assert.That(
+                    icons.ActiveRowCount,
+                    Is.EqualTo(1));
+                Assert.That(
+                    icons.GetIconLocalPosition(0).y,
+                    Is.EqualTo(
+                        healthBarTopLocalY +
+                        StageOneEnemyStatusIconStackView
+                            .HealthBarClearance +
+                        StageOneEnemyStatusIconStackView
+                            .IconSize * 0.5f)
+                        .Within(0.001f));
+                Assert.That(
+                    icons.GetIconLocalPosition(0).y,
+                    Is.EqualTo(
+                        icons.GetIconLocalPosition(2).y)
+                        .Within(0.001f));
+                Assert.That(
+                    icons.GetIconLocalPosition(0).x,
+                    Is.LessThan(
+                        icons.GetIconLocalPosition(1).x));
+                Assert.That(
+                    icons.GetIconLocalPosition(1).x,
+                    Is.LessThan(
+                        icons.GetIconLocalPosition(2).x));
+                Assert.That(
+                    icons.GetIconStackLabel(0),
+                    Is.Empty);
+                Assert.That(
+                    icons.GetIconStackLabel(1),
+                    Is.Empty);
+                Assert.That(
+                    icons.GetIconStackLabel(2),
+                    Is.Empty);
+                Assert.That(
+                    icons.GetIconEffectId(0),
+                    Is.EqualTo("bind"));
+                Assert.That(
+                    icons.GetIconEffectId(1),
+                    Is.EqualTo("mark"));
+                Assert.That(
+                    icons.GetIconEffectId(2),
+                    Is.EqualTo("curse"));
+
+                Assert.That(
+                    StageOneCardEffectPalette.TryGetStyle(
+                        "bind",
+                        out StageOneCardEffectStyle bindStyle),
+                    Is.True);
+                AssertColorRgb(
+                    icons.GetIconPrimaryColor(0),
+                    bindStyle.Primary);
+                AssertColorRgb(
+                    icons.GetIconSecondaryColor(0),
+                    bindStyle.Secondary);
+                Transform fill =
+                    enemyObject.transform.Find(
+                        "Enemy Status Icon Stack/" +
+                        "Status Icon 0/Fill");
+                Assert.That(fill, Is.Not.Null);
+                Assert.That(
+                    fill.localScale.x,
+                    Is.EqualTo(fill.localScale.y)
+                        .Within(0.001f),
+                    "Status icons must be square.");
+                Transform accent =
+                    enemyObject.transform.Find(
+                        "Enemy Status Icon Stack/" +
+                        "Status Icon 0/Accent");
+                Assert.That(
+                    accent,
+                    Is.Null,
+                    "Status icons must not render the old " +
+                    "underscore-like accent bar.");
+                Transform stackTextTransform =
+                    enemyObject.transform.Find(
+                        "Enemy Status Icon Stack/" +
+                        "Status Icon 1/Stack Count");
+                Assert.That(
+                    stackTextTransform,
+                    Is.Not.Null);
+                TextMesh stackText =
+                    stackTextTransform
+                        .GetComponent<TextMesh>();
+                Assert.That(stackText, Is.Not.Null);
+                Assert.That(
+                    stackText.characterSize,
+                    Is.EqualTo(
+                        StageOneEnemyStatusIconStackView
+                            .StackLabelCharacterSize)
+                        .Within(0.001f));
+                Assert.That(
+                    stackText.fontSize,
+                    Is.EqualTo(
+                        StageOneEnemyStatusIconStackView
+                            .StackLabelFontSize));
+                Assert.That(
+                    stackText.fontStyle,
+                    Is.EqualTo(FontStyle.Normal));
+            }
+            finally
+            {
+                Object.DestroyImmediate(enemyObject);
+                if (sprite != null)
+                {
+                    Object.DestroyImmediate(sprite);
+                }
+
+                if (texture != null)
+                {
+                    Object.DestroyImmediate(texture);
+                }
+            }
+        }
+
+        [Test]
+        public void EnemyStatusIcons_DeduplicateVisualsAndHideRecoveryBuffs()
+        {
+            var enemyObject = new GameObject(
+                "Status Icon Deduplication Enemy",
+                typeof(SpriteRenderer));
+            try
+            {
+                StageOneEnemyStatusIconStackView icons =
+                    enemyObject.AddComponent<
+                        StageOneEnemyStatusIconStackView>();
+                icons.Configure(
+                    enemyObject.GetComponent<SpriteRenderer>());
+                icons.ApplyStatuses(
+                    new[]
+                    {
+                        Status(1, StatusType.Burn, 2),
+                        Status(2, StatusType.Burn),
+                        Status(3, StatusType.Chill, 4),
+                        Status(4, StatusType.Frozen, 5),
+                        Status(5, StatusType.FreezeImmunity),
+                        Status(6, StatusType.FearHaste)
+                    });
+
+                Assert.That(
+                    icons.ActiveIconCount,
+                    Is.EqualTo(2));
+                Assert.That(
+                    icons.GetIconEffectId(0),
+                    Is.EqualTo("freeze"));
+                Assert.That(
+                    icons.GetIconEffectId(1),
+                    Is.EqualTo("burn"));
+                Assert.That(
+                    icons.GetIconStackLabel(0),
+                    Is.EqualTo("9+"));
+                Assert.That(
+                    icons.GetIconDisplayedStackCount(1),
+                    Is.EqualTo(3));
+                Assert.That(
+                    icons.GetIconStackLabel(1),
+                    Is.EqualTo("x3"));
+            }
+            finally
+            {
+                Object.DestroyImmediate(enemyObject);
+            }
+        }
+
+        private static StatusSnapshot Status(
+            int instanceId,
+            StatusType type,
+            int stacks = 1)
+        {
+            return new StatusSnapshot(
+                instanceId,
+                type,
+                -1,
+                -1,
+                CardId.Invalid,
+                stacks,
+                1,
+                120,
+                1,
+                0,
+                0);
+        }
+
+        private static void AssertColorRgb(
+            Color actual,
+            Color expected)
+        {
+            Assert.That(
+                actual.r,
+                Is.EqualTo(expected.r).Within(0.001f));
+            Assert.That(
+                actual.g,
+                Is.EqualTo(expected.g).Within(0.001f));
+            Assert.That(
+                actual.b,
+                Is.EqualTo(expected.b).Within(0.001f));
         }
     }
 }

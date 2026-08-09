@@ -122,7 +122,14 @@ namespace RuleforgeTD.Tests.PlayMode
                 actions.UpgradeButton
                     .GetComponentInChildren<UnityEngine.UI.Text>()
                     .text,
-                Is.EqualTo("타워 업그레이드 · 100G"));
+                Is.EqualTo("타워 업그레이드"));
+            Assert.That(actions.UpgradeCostLabel, Is.Not.Null);
+            Assert.That(
+                actions.UpgradeCostLabel.gameObject.activeSelf,
+                Is.True);
+            Assert.That(
+                actions.UpgradeCostLabel.text,
+                Is.EqualTo("비용 100G"));
             Assert.That(
                 actions.CardsButton
                     .GetComponentInChildren<UnityEngine.UI.Text>()
@@ -275,6 +282,11 @@ namespace RuleforgeTD.Tests.PlayMode
             Assert.That(
                 controller.TowerActionView.Target,
                 Is.SameAs(selection));
+            Assert.That(
+                controller.TowerActionView.UpgradeCostLabel.text,
+                Is.EqualTo("비용 60G"),
+                "The next upgrade price must refresh immediately " +
+                "after a successful tower upgrade.");
 
             Camera stageCamera = Camera.main;
             Assert.That(stageCamera, Is.Not.Null);

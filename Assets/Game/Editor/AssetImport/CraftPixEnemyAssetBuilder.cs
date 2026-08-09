@@ -26,6 +26,9 @@ namespace RuleforgeTD.Editor.AssetImport
         private const string TestScenePath = TestSceneRoot + "/EnemyAnimationTest.unity";
         private const string RouteMaterialPath = TestSceneRoot + "/EnemyRouteLine.mat";
         private const string HealthBarSpritePath = EnemyDataRoot + "/EnemyHealthBarSprite.asset";
+        private const string HealthBarVisualSettingsPath =
+            EnemyDataRoot +
+            "/EnemyHealthBarVisualSettings.asset";
         private const int FrameSize = 48;
         private const float PixelsPerUnit = 48f;
         private const float AnimationFrameRate = 10f;
@@ -124,6 +127,18 @@ namespace RuleforgeTD.Editor.AssetImport
             }
 
             Sprite healthBarSprite = CreateHealthBarSprite();
+            EnemyHealthBarVisualSettings
+                healthBarVisualSettings =
+                    AssetDatabase.LoadAssetAtPath<
+                        EnemyHealthBarVisualSettings>(
+                        HealthBarVisualSettingsPath);
+            if (healthBarVisualSettings == null)
+            {
+                throw new InvalidOperationException(
+                    "Missing enemy health-bar visual settings: " +
+                    HealthBarVisualSettingsPath);
+            }
+
             var prefabs = new Dictionary<string, GameObject>(StringComparer.Ordinal);
             for (int i = 0; i < EnemyIds.Length; i++)
             {
@@ -142,7 +157,8 @@ namespace RuleforgeTD.Editor.AssetImport
                         controller,
                         enemyDescriptors,
                         clipsByPath,
-                        healthBarSprite));
+                        healthBarSprite,
+                        healthBarVisualSettings));
             }
 
             CreateTestScene(prefabs);
@@ -383,7 +399,9 @@ namespace RuleforgeTD.Editor.AssetImport
             RuntimeAnimatorController controller,
             AnimationDescriptor[] descriptors,
             IReadOnlyDictionary<string, AnimationClip> clipsByPath,
-            Sprite healthBarSprite)
+            Sprite healthBarSprite,
+            EnemyHealthBarVisualSettings
+                healthBarVisualSettings)
         {
             string enemyName = ToDisplayName(enemyId);
             string prefabPath = $"{PrefabRoot}/{enemyName}.prefab";
@@ -403,6 +421,9 @@ namespace RuleforgeTD.Editor.AssetImport
             {
                 SpriteRenderer renderer = root.AddComponent<SpriteRenderer>();
                 renderer.sprite = GetFirstSpriteFromClip(clipsByPath[walkDownDescriptor.AssetPath]);
+                WorldSortingLayers.Apply(
+                    renderer,
+                    WorldSortingLayers.Enemy);
                 renderer.sortingOrder = 10;
 
                 Animator animator = root.AddComponent<Animator>();
@@ -415,7 +436,11 @@ namespace RuleforgeTD.Editor.AssetImport
 
                 EnemyHealth health = root.AddComponent<EnemyHealth>();
                 health.Configure(GetMaxHealth(enemyId), directionalAnimator);
-                CreateHealthBar(root, health, healthBarSprite);
+                CreateHealthBar(
+                    root,
+                    health,
+                    healthBarSprite,
+                    healthBarVisualSettings);
 
                 EnemyTestActor testActor = root.AddComponent<EnemyTestActor>();
                 testActor.Configure(directionalAnimator, 1.8f, 0.7f, GetMovementSpeed(enemyId));
@@ -442,45 +467,52 @@ namespace RuleforgeTD.Editor.AssetImport
         private static void CreateHealthBar(
             GameObject enemyRoot,
             EnemyHealth health,
-            Sprite healthBarSprite)
+            Sprite healthBarSprite,
+            EnemyHealthBarVisualSettings visualSettings)
         {
-            const float fullWidth = 0.74f;
-
             var barRoot = new GameObject("Health Bar");
             barRoot.transform.SetParent(enemyRoot.transform, false);
-            barRoot.transform.localPosition = new Vector3(0f, 0.88f, 0f);
+            barRoot.transform.localPosition = new Vector3(
+                0f,
+                visualSettings.LocalY,
+                0f);
 
             var background = new GameObject("Background");
             background.transform.SetParent(barRoot.transform, false);
-            background.transform.localScale = new Vector3(0.82f, 0.11f, 1f);
+            background.transform.localScale = new Vector3(
+                visualSettings.BackgroundWidth,
+                visualSettings.BackgroundHeight,
+                1f);
             SpriteRenderer backgroundRenderer = background.AddComponent<SpriteRenderer>();
             backgroundRenderer.sprite = healthBarSprite;
             backgroundRenderer.color = new Color(0.035f, 0.055f, 0.075f, 0.95f);
+            WorldSortingLayers.Apply(
+                backgroundRenderer,
+                WorldSortingLayers.Enemy);
             backgroundRenderer.sortingOrder = 30;
 
             var fill = new GameObject("Fill");
             fill.transform.SetParent(barRoot.transform, false);
             fill.transform.localPosition = new Vector3(0f, 0f, -0.01f);
-            fill.transform.localScale = new Vector3(fullWidth, 0.065f, 1f);
+            fill.transform.localScale = new Vector3(
+                visualSettings.FillWidth,
+                visualSettings.FillHeight,
+                1f);
             SpriteRenderer fillRenderer = fill.AddComponent<SpriteRenderer>();
             fillRenderer.sprite = healthBarSprite;
             fillRenderer.color = new Color(0.25f, 0.9f, 0.38f, 1f);
+            WorldSortingLayers.Apply(
+                fillRenderer,
+                WorldSortingLayers.Enemy);
             fillRenderer.sortingOrder = 31;
 
-            var valueObject = new GameObject("Value");
-            valueObject.transform.SetParent(barRoot.transform, false);
-            valueObject.transform.localPosition = new Vector3(0f, 0.17f, -0.02f);
-            TextMesh valueText = valueObject.AddComponent<TextMesh>();
-            valueText.text = health.MaxHealth + " / " + health.MaxHealth;
-            valueText.anchor = TextAnchor.MiddleCenter;
-            valueText.alignment = TextAlignment.Center;
-            valueText.characterSize = 0.055f;
-            valueText.fontSize = 36;
-            valueText.color = Color.white;
-            AssignLegacyFont(valueText, 32);
-
             EnemyHealthBarView healthBarView = enemyRoot.AddComponent<EnemyHealthBarView>();
-            healthBarView.Configure(health, fill.transform, fillRenderer, valueText, fullWidth);
+            healthBarView.Configure(
+                health,
+                fill.transform,
+                fillRenderer,
+                null,
+                visualSettings);
         }
 
         private static void CreateTestScene(IReadOnlyDictionary<string, GameObject> prefabs)
@@ -561,10 +593,33 @@ namespace RuleforgeTD.Editor.AssetImport
                 throw new InvalidOperationException($"Failed to save scene at {TestScenePath}.");
             }
 
-            EditorBuildSettings.scenes = new[]
+            EnsureTestSceneInBuildSettings();
+        }
+
+        private static void EnsureTestSceneInBuildSettings()
+        {
+            List<EditorBuildSettingsScene> scenes =
+                EditorBuildSettings.scenes.ToList();
+            int existingIndex = scenes.FindIndex(
+                scene => string.Equals(
+                    scene.path,
+                    TestScenePath,
+                    StringComparison.Ordinal));
+            var testScene =
+                new EditorBuildSettingsScene(
+                    TestScenePath,
+                    true);
+            if (existingIndex >= 0)
             {
-                new EditorBuildSettingsScene(TestScenePath, true)
-            };
+                scenes[existingIndex] = testScene;
+            }
+            else
+            {
+                scenes.Insert(0, testScene);
+            }
+
+            EditorBuildSettings.scenes =
+                scenes.ToArray();
         }
 
         private static Material CreateRouteMaterial()
@@ -655,6 +710,17 @@ namespace RuleforgeTD.Editor.AssetImport
                     $"Expected {ExpectedSheetCount} source sheets but found {descriptors.Length}.");
             }
 
+            EnemyHealthBarVisualSettings visualSettings =
+                AssetDatabase.LoadAssetAtPath<
+                    EnemyHealthBarVisualSettings>(
+                    HealthBarVisualSettingsPath);
+            if (visualSettings == null)
+            {
+                errors.Add(
+                    "Missing health-bar visual settings: " +
+                    HealthBarVisualSettingsPath);
+            }
+
             for (int descriptorIndex = 0; descriptorIndex < descriptors.Length; descriptorIndex++)
             {
                 AnimationDescriptor descriptor = descriptors[descriptorIndex];
@@ -705,6 +771,14 @@ namespace RuleforgeTD.Editor.AssetImport
                         errors.Add(
                             $"Prefab health mismatch: {prefabPath} has {health.MaxHealth}, " +
                             $"expected {GetMaxHealth(enemyId)}.");
+                    }
+
+                    if (healthBar.VisualSettings !=
+                        visualSettings)
+                    {
+                        errors.Add(
+                            "Prefab health-bar settings mismatch: " +
+                            prefabPath);
                     }
                 }
 

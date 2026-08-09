@@ -8,8 +8,10 @@ using UnityEngine.Tilemaps;
 namespace RuleforgeTD.Battle
 {
     /// <summary>
-    /// Keeps the Stage01 camera inside the authored tile bounds while allowing
-    /// cursor-centred wheel/pinch zoom and pointer panning.
+    /// Keeps the battle camera aligned to the authored tile bounds while
+    /// allowing cursor-centred wheel/pinch zoom and pointer panning. Maximum
+    /// zoom-out covers the viewport so no mapless letterbox or pillarbox is
+    /// exposed when the stage and browser use different aspect ratios.
     /// </summary>
     [DisallowMultipleComponent]
     [RequireComponent(typeof(Camera))]
@@ -45,6 +47,9 @@ namespace RuleforgeTD.Battle
         private bool touchStartedOverUi;
         private bool waitForTouchesToEnd;
         private bool initialized;
+        private IStageOneCameraFocusTarget focusTarget;
+        private Vector2 focusViewportAnchor =
+            new Vector2(0.28f, 0.5f);
 
         public float MinimumSize => minimumSize;
         public float MaximumSize => maximumSize;
@@ -52,6 +57,13 @@ namespace RuleforgeTD.Battle
         public bool IsPanning => panning;
         public bool IsPinching => pinching;
         public bool IsInitialized => initialized;
+        public bool IsFocusLocked =>
+            focusTarget != null &&
+            focusTarget.IsCameraFocusValid;
+        public IStageOneCameraFocusTarget FocusTarget =>
+            IsFocusLocked ? focusTarget : null;
+        public Vector2 FocusViewportAnchor =>
+            focusViewportAnchor;
         public event Action<Vector2> BackgroundClicked;
         public static bool ShouldSuppressWorldClick =>
             Time.frameCount <= suppressWorldClickUntilFrame ||
@@ -108,6 +120,52 @@ namespace RuleforgeTD.Battle
             HandleMousePan();
         }
 
+        private void LateUpdate()
+        {
+            FollowFocusTarget();
+        }
+
+        /// <summary>
+        /// Locks composition to a presentation target. The viewport anchor
+        /// places the target in the unobscured part of the screen while map
+        /// bounds remain authoritative.
+        /// </summary>
+        public bool SetFocusTarget(
+            IStageOneCameraFocusTarget target,
+            Vector2 viewportAnchor)
+        {
+            if (target == null ||
+                !target.IsCameraFocusValid)
+            {
+                return false;
+            }
+
+            focusTarget = target;
+            focusViewportAnchor = new Vector2(
+                Mathf.Clamp(viewportAnchor.x, 0.05f, 0.95f),
+                Mathf.Clamp(viewportAnchor.y, 0.05f, 0.95f));
+            ResetMousePan();
+            ResetTouchState();
+            FollowFocusTarget();
+            return true;
+        }
+
+        public void ReleaseFocus(
+            IStageOneCameraFocusTarget expectedTarget = null)
+        {
+            if (expectedTarget != null &&
+                !ReferenceEquals(expectedTarget, focusTarget))
+            {
+                return;
+            }
+
+            focusTarget = null;
+            if (initialized && targetCamera != null)
+            {
+                ClampPosition();
+            }
+        }
+
         private void InitializeNow()
         {
             if (targetCamera == null)
@@ -151,7 +209,7 @@ namespace RuleforgeTD.Battle
             float fitWidth =
                 mapBounds.extents.x / lastAspect;
             maximumSize = Mathf.Max(
-                2f,
+                0.1f,
                 Mathf.Min(fitHeight, fitWidth) - 0.02f);
             minimumSize = Mathf.Min(
                 preferredMinimumSize,
@@ -161,8 +219,21 @@ namespace RuleforgeTD.Battle
             {
                 targetCamera.orthographicSize = maximumSize;
                 Vector3 position = targetCamera.transform.position;
-                position.x = mapBounds.center.x;
-                position.y = mapBounds.center.y;
+                if (stageMap != null &&
+                    stageMap.Path != null &&
+                    stageMap.Path.WaypointCount > 0)
+                {
+                    Vector2 spawn =
+                        stageMap.Path.GetWorldWaypoint(0);
+                    position.x = spawn.x;
+                    position.y = spawn.y;
+                }
+                else
+                {
+                    position.x = mapBounds.center.x;
+                    position.y = mapBounds.center.y;
+                }
+
                 targetCamera.transform.position = position;
             }
             else
@@ -443,6 +514,11 @@ namespace RuleforgeTD.Battle
 
         private bool CanPan()
         {
+            if (IsFocusLocked)
+            {
+                return false;
+            }
+
             float halfHeight = targetCamera.orthographicSize;
             float halfWidth = halfHeight * lastAspect;
             return halfWidth < mapBounds.extents.x - 0.01f ||
@@ -578,6 +654,15 @@ namespace RuleforgeTD.Battle
                 {
                     return true;
                 }
+
+                EnemySelectionView enemy =
+                    hit.GetComponentInParent<
+                        EnemySelectionView>();
+                if (enemy != null &&
+                    enemy.IsCameraFocusValid)
+                {
+                    return true;
+                }
             }
 
             return false;
@@ -637,6 +722,44 @@ namespace RuleforgeTD.Battle
                 mapBounds.max.y - halfHeight,
                 mapBounds.center.y);
             targetCamera.transform.position = position;
+        }
+
+        private void FollowFocusTarget()
+        {
+            if (focusTarget == null)
+            {
+                return;
+            }
+
+            if (!focusTarget.IsCameraFocusValid)
+            {
+                ReleaseFocus();
+                return;
+            }
+
+            if (!initialized || targetCamera == null)
+            {
+                return;
+            }
+
+            float halfHeight = targetCamera.orthographicSize;
+            float halfWidth = halfHeight *
+                Mathf.Max(0.1f, targetCamera.aspect);
+            Vector3 targetPosition =
+                focusTarget.CameraFocusPosition;
+            Vector3 cameraPosition =
+                targetCamera.transform.position;
+            cameraPosition.x =
+                targetPosition.x -
+                (focusViewportAnchor.x - 0.5f) *
+                halfWidth * 2f;
+            cameraPosition.y =
+                targetPosition.y -
+                (focusViewportAnchor.y - 0.5f) *
+                halfHeight * 2f;
+            targetCamera.transform.position =
+                cameraPosition;
+            ClampPosition();
         }
 
         private void DisablePixelPerfectOverride()

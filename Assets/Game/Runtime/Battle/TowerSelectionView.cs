@@ -1,4 +1,5 @@
 using System;
+using RuleforgeTD.Rendering;
 using UnityEngine;
 
 namespace RuleforgeTD.Battle
@@ -26,8 +27,8 @@ namespace RuleforgeTD.Battle
         private BoxCollider2D hitArea;
         private SpriteRenderer[] hitRenderers =
             Array.Empty<SpriteRenderer>();
+        private WorldSelectionCornerView selectionCorners;
         private Transform selectionMarkerRoot;
-        private Material selectionMarkerMaterial;
         private Transform attackRangeRoot;
         private LineRenderer[] attackRangeDashes;
         private Material attackRangeMaterial;
@@ -89,7 +90,7 @@ namespace RuleforgeTD.Battle
 
             if (selectionMarkerRoot != null)
             {
-                selectionMarkerRoot.gameObject.SetActive(value);
+                selectionCorners.SetVisible(value);
             }
 
             if (!value)
@@ -315,102 +316,37 @@ namespace RuleforgeTD.Battle
 
         private void EnsureSelectionMarker()
         {
-            if (selectionMarkerRoot != null)
+            if (selectionCorners != null)
             {
                 return;
             }
 
-            var root = new GameObject("Selected Tower Corners");
-            root.transform.SetParent(transform, false);
-            selectionMarkerRoot = root.transform;
-
-            Shader shader = Shader.Find("Sprites/Default");
-            if (shader == null)
+            selectionCorners =
+                GetComponent<WorldSelectionCornerView>();
+            if (selectionCorners == null)
             {
-                shader = Shader.Find("UI/Default");
+                selectionCorners =
+                    gameObject.AddComponent<
+                        WorldSelectionCornerView>();
             }
 
-            if (shader != null)
-            {
-                selectionMarkerMaterial =
-                    new Material(shader)
-                    {
-                        name = "Stage One Tower Selection"
-                    };
-            }
-
-            for (int i = 0; i < 4; i++)
-            {
-                var corner = new GameObject(
-                    "Yellow Corner " + (i + 1));
-                corner.transform.SetParent(
-                    selectionMarkerRoot,
-                    false);
-                LineRenderer line =
-                    corner.AddComponent<LineRenderer>();
-                line.useWorldSpace = false;
-                line.positionCount = 3;
-                line.startWidth = 0.075f;
-                line.endWidth = 0.075f;
-                line.startColor = SelectionColor;
-                line.endColor = SelectionColor;
-                line.numCapVertices = 0;
-                line.numCornerVertices = 0;
-                line.alignment =
-                    LineAlignment.TransformZ;
-                line.sortingOrder = 250;
-                if (selectionMarkerMaterial != null)
-                {
-                    line.sharedMaterial =
-                        selectionMarkerMaterial;
-                }
-            }
+            selectionCorners.Configure(
+                SelectionColor,
+                "Selected Tower Corners",
+                "Yellow Corner");
+            selectionMarkerRoot =
+                selectionCorners.MarkerRoot;
         }
 
         private void RefreshSelectionMarker()
         {
-            if (selectionMarkerRoot == null)
+            if (selectionCorners == null)
             {
                 return;
             }
 
             EnsureHitArea();
-            Vector2 halfSize = hitArea.size * 0.5f;
-            const float margin = 0.13f;
-            float left =
-                hitArea.offset.x - halfSize.x - margin;
-            float right =
-                hitArea.offset.x + halfSize.x + margin;
-            float bottom =
-                hitArea.offset.y - halfSize.y - margin;
-            float top =
-                hitArea.offset.y + halfSize.y + margin;
-            float cornerLength = Mathf.Clamp(
-                Mathf.Min(hitArea.size.x, hitArea.size.y) *
-                0.28f,
-                0.22f,
-                0.5f);
-
-            SetCorner(
-                0,
-                new Vector3(left + cornerLength, top, 0f),
-                new Vector3(left, top, 0f),
-                new Vector3(left, top - cornerLength, 0f));
-            SetCorner(
-                1,
-                new Vector3(right - cornerLength, top, 0f),
-                new Vector3(right, top, 0f),
-                new Vector3(right, top - cornerLength, 0f));
-            SetCorner(
-                2,
-                new Vector3(left + cornerLength, bottom, 0f),
-                new Vector3(left, bottom, 0f),
-                new Vector3(left, bottom + cornerLength, 0f));
-            SetCorner(
-                3,
-                new Vector3(right - cornerLength, bottom, 0f),
-                new Vector3(right, bottom, 0f),
-                new Vector3(right, bottom + cornerLength, 0f));
+            selectionCorners.Refresh(hitArea.bounds);
         }
 
         private void EnsureAttackRange()
@@ -462,6 +398,9 @@ namespace RuleforgeTD.Battle
                 dash.numCornerVertices = 0;
                 dash.alignment =
                     LineAlignment.TransformZ;
+                WorldSortingLayers.Apply(
+                    dash,
+                    WorldSortingLayers.Effects);
                 dash.sortingOrder = 230;
                 if (attackRangeMaterial != null)
                 {
@@ -521,39 +460,8 @@ namespace RuleforgeTD.Battle
             }
         }
 
-        private void SetCorner(
-            int index,
-            Vector3 first,
-            Vector3 middle,
-            Vector3 last)
-        {
-            if (selectionMarkerRoot == null ||
-                index < 0 ||
-                index >= selectionMarkerRoot.childCount)
-            {
-                return;
-            }
-
-            LineRenderer line =
-                selectionMarkerRoot.GetChild(index)
-                    .GetComponent<LineRenderer>();
-            if (line == null)
-            {
-                return;
-            }
-
-            line.SetPosition(0, first);
-            line.SetPosition(1, middle);
-            line.SetPosition(2, last);
-        }
-
         private void OnDestroy()
         {
-            if (selectionMarkerMaterial != null)
-            {
-                Destroy(selectionMarkerMaterial);
-            }
-
             if (attackRangeMaterial != null)
             {
                 Destroy(attackRangeMaterial);

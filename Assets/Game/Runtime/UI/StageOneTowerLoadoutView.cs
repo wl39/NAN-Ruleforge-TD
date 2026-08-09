@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using RuleforgeTD.GameLogic.Content;
 using RuleforgeTD.GameLogic.Core;
+using RuleforgeTD.GameLogic.Simulation;
 using RuleforgeTD.Towers.Archer;
 using UnityEngine;
 using UnityEngine.UI;
@@ -16,64 +17,92 @@ namespace RuleforgeTD.UI
             StageOneCardDisplay display,
             bool equipped,
             bool equippedOnSelectedTower)
+            : this(
+                instanceId,
+                display,
+                equipped,
+                equippedOnSelectedTower,
+                -1)
+        {
+        }
+
+        public StageOneLoadoutCard(
+            int instanceId,
+            StageOneCardDisplay display,
+            bool equipped,
+            bool equippedOnSelectedTower,
+            int equippedTowerId)
         {
             InstanceId = instanceId;
             Display = display;
             Equipped = equipped;
             EquippedOnSelectedTower = equippedOnSelectedTower;
+            EquippedTowerId = equippedTowerId;
         }
 
         public int InstanceId { get; }
         public StageOneCardDisplay Display { get; }
         public bool Equipped { get; }
         public bool EquippedOnSelectedTower { get; }
+        public int EquippedTowerId { get; }
     }
 
     /// <summary>
-    /// Blueprint workbench shown while a tower is selected. The left side is
-    /// reserved for a large composite preview of the selected tower. The right
-    /// side expresses the tower rule as vertically ordered, level-gated slots
-    /// with their resolved descriptions and an owned-card inventory below.
+    /// Parchment workbench shown while a tower is selected. Landscape uses
+    /// three columns: tower preview, equipped-card rules, and owned cards.
+    /// Portrait keeps the stacked mobile composition with its large preview.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class StageOneTowerLoadoutView : MonoBehaviour
     {
-        private const int MaximumVisibleCards = 16;
+        private const int InitialCardViewCapacity = 16;
         private const int MaximumSlots = 3;
-        private const int LandscapeInventoryColumns = 6;
-        private const int PortraitInventoryColumns = 2;
+        private const int LandscapeInventoryColumns = 3;
+        private const int PortraitInventoryColumns = 3;
         private const float LandscapeWidth = 1480f;
         private const float LandscapeHeight = 820f;
         private const float PortraitWidth = 760f;
         private const float PortraitHeight = 1320f;
-        private const float InventoryCardWidth = 146f;
-        private const float InventoryCardHeight = 190f;
-        private const float InventoryCardGap = 12f;
-        private const float BlueprintTransitionDuration = 0.26f;
+        private const float InventoryCardWidth = 113f;
+        private const float InventoryCardHeight = 192f;
+        private const float InventoryCardGap = 8f;
+        private const float PortraitCardTextScale = 1.1f;
+        private const float WorkbenchTransitionDuration = 0.26f;
         private const float SlotDoubleClickWindowSeconds = 0.65f;
+        private const string ProjectileSubjectResourcePath =
+            "RuleforgeTD/UI/Loadout/RuleforgeSubjectProjectile";
+        private const string EnemySubjectResourcePath =
+            "RuleforgeTD/UI/Loadout/RuleforgeSubjectEnemy";
+        private const string WorkbenchBackdropResourcePath =
+            "RuleforgeTD/UI/Backgrounds/" +
+            "RuleforgeLoadoutParchmentWorkbench_1672x941";
 
-        private static readonly Color BlueprintRaised =
-            new Color32(22, 58, 91, 248);
-        private static readonly Color BlueprintLine =
-            new Color32(91, 157, 192, 180);
+        private static readonly Color ParchmentRaised =
+            Color.white;
+        private static readonly Color WoodLine =
+            new Color32(155, 112, 60, 210);
         private static readonly Color ButtonColor =
-            new Color32(35, 71, 99, 248);
+            new Color32(73, 48, 31, 255);
         private static readonly Color ActiveColor =
-            new Color32(242, 190, 62, 255);
+            new Color32(210, 151, 57, 255);
         private static readonly Color ProjectileColor =
             new Color32(211, 105, 37, 255);
         private static readonly Color EnemyColor =
             new Color32(182, 48, 56, 255);
         private static readonly Color LockedColor =
-            new Color32(35, 47, 57, 236);
+            new Color32(52, 48, 42, 255);
         private static readonly Color LockedDescriptionColor =
-            new Color32(26, 43, 56, 235);
+            new Color32(174, 166, 148, 255);
         private static readonly Color TextColor =
-            new Color32(247, 247, 228, 255);
+            new Color32(244, 232, 197, 255);
         private static readonly Color MutedTextColor =
-            new Color32(181, 205, 215, 255);
+            new Color32(201, 184, 145, 255);
+        private static readonly Color ParchmentTextColor =
+            new Color32(66, 39, 23, 255);
+        private static readonly Color ParchmentMutedTextColor =
+            new Color32(112, 75, 43, 255);
         private static readonly Color ScrollbarColor =
-            new Color32(7, 24, 42, 220);
+            new Color32(31, 22, 17, 238);
 
         private sealed class TowerPreviewBinding
         {
@@ -84,12 +113,15 @@ namespace RuleforgeTD.UI
         private StageOneUiTextCatalog catalog;
         private Font font;
         private Canvas canvas;
-        private RectTransform blueprintBackdropRoot;
+        private RectTransform workbenchBackdropRoot;
         private StageOneBlueprintGridGraphic backdropGraphic;
+        private CanvasGroup workbenchBackdropCanvasGroup;
+        private Image workbenchBackdropImage;
         private RectTransform panelRoot;
         private CanvasGroup panelCanvasGroup;
         private Image settingsTintImage;
         private RectTransform towerPreviewFrame;
+        private Image towerPreviewBackplate;
         private RectTransform towerPreviewContent;
         private Text towerPreviewPlaceholder;
         private Text titleText;
@@ -107,10 +139,16 @@ namespace RuleforgeTD.UI
         private GridLayoutGroup cardGridLayout;
         private RectTransform scrollbarRect;
         private Image effectBackplate;
+        private readonly RectTransform[] slotRowRoots =
+            new RectTransform[MaximumSlots];
+        private readonly Image[] slotRowDropSurfaces =
+            new Image[MaximumSlots];
         private readonly Button[] slotButtons =
             new Button[MaximumSlots];
         private readonly Text[] slotLabels =
             new Text[MaximumSlots];
+        private readonly Image[] slotCardArtworks =
+            new Image[MaximumSlots];
         private readonly Image[] slotDescriptionBackplates =
             new Image[MaximumSlots];
         private readonly Text[] slotDescriptionTexts =
@@ -132,26 +170,34 @@ namespace RuleforgeTD.UI
         private readonly StageOneSlotDoubleClickRelay[]
             slotDoubleClickRelays =
                 new StageOneSlotDoubleClickRelay[MaximumSlots];
+        private readonly StageOneHoverRelay[]
+            slotSubjectHoverRelays =
+                new StageOneHoverRelay[MaximumSlots];
         private readonly bool[] slotHasCards =
             new bool[MaximumSlots];
-        private readonly float[] lastSlotClickTimes =
-        {
-            float.NegativeInfinity,
-            float.NegativeInfinity,
-            float.NegativeInfinity
-        };
         private readonly SubjectType[] slotSubjectTypes =
             new SubjectType[MaximumSlots];
         private readonly StageOneCardDropSlot[] slotDropTargets =
             new StageOneCardDropSlot[MaximumSlots];
-        private readonly StageOneCardView[] cardViews =
-            new StageOneCardView[MaximumVisibleCards];
-        private readonly StageOneCardDragSource[] cardDragSources =
-            new StageOneCardDragSource[MaximumVisibleCards];
-        private readonly int[] visibleCardInstanceIds =
-            new int[MaximumVisibleCards];
-        private readonly int[] visibleCardSlotIndices =
-            new int[MaximumVisibleCards];
+        // 카드 카탈로그 크기는 콘텐츠 데이터가 소유한다. 이 목록은 현재
+        // 인벤토리 수만큼 런타임에 확장되며, 16장 같은 UI 상한으로 신규
+        // 콘텐츠가 조용히 잘리지 않게 한다. 줄어든 뒤 남는 뷰는 풀처럼
+        // 비활성화해 반복 새로고침에서 GameObject를 다시 만들지 않는다.
+        private readonly List<StageOneCardView> cardViews =
+            new List<StageOneCardView>(InitialCardViewCapacity);
+        private readonly List<StageOneCardDragSource> cardDragSources =
+            new List<StageOneCardDragSource>(InitialCardViewCapacity);
+        private readonly List<StageOneHoverRelay> cardHoverRelays =
+            new List<StageOneHoverRelay>(InitialCardViewCapacity);
+        private readonly List<int> visibleCardInstanceIds =
+            new List<int>(InitialCardViewCapacity);
+        private readonly List<int> visibleCardSlotIndices =
+            new List<int>(InitialCardViewCapacity);
+        private readonly List<float> lastCardClickTimes =
+            new List<float>(InitialCardViewCapacity);
+        private readonly List<int>
+            lastCardClickStartedSlotIndices =
+                new List<int>(InitialCardViewCapacity);
         private readonly int[] presentedSlotCardInstanceIds =
         {
             -1,
@@ -159,7 +205,7 @@ namespace RuleforgeTD.UI
             -1
         };
         private readonly List<StageOneLoadoutCard> presentedCards =
-            new List<StageOneLoadoutCard>(MaximumVisibleCards);
+            new List<StageOneLoadoutCard>(InitialCardViewCapacity);
         private readonly List<TowerPreviewBinding> previewBindings =
             new List<TowerPreviewBinding>(16);
         private Transform towerPreviewSource;
@@ -178,9 +224,17 @@ namespace RuleforgeTD.UI
         private Coroutine transitionRoutine;
         private Sprite projectileSubjectSprite;
         private Sprite enemySubjectSprite;
+        private RectTransform hoverPopupRoot;
+        private Image hoverPopupBackground;
+        private Text hoverPopupTitle;
+        private Text hoverPopupBody;
+        private StageOneCardUsageMiniMapGraphic usageMiniMap;
+        private RectTransform activeHoverSource;
+        private int activeHoveredCardIndex = -1;
 
         public event Action<int> SlotRequested;
         public event Action<int> CardRequested;
+        public event Action<int, int> CardDoubleClickRequested;
         public event Action<int, int> CardDropped;
         public event Action UpgradeRequested;
         public event Action<SubjectType> SubjectTypeRequested;
@@ -190,8 +244,8 @@ namespace RuleforgeTD.UI
         public event Action CloseRequested;
 
         public bool IsVisible =>
-            blueprintBackdropRoot != null &&
-            blueprintBackdropRoot.gameObject.activeSelf;
+            workbenchBackdropRoot != null &&
+            workbenchBackdropRoot.gameObject.activeSelf;
         public Button UpgradeButton => upgradeButton;
         public Button ProjectileButton =>
             slotProjectileButtons[
@@ -210,14 +264,19 @@ namespace RuleforgeTD.UI
         public int SelectedSlot => selectedSlot;
         public int VisibleCardCount => visibleCardCount;
         public ScrollRect CardScrollRect => cardScrollRect;
+        public RectTransform CardViewport => cardViewport;
         public RectTransform TowerPreviewContent =>
             towerPreviewContent;
+        public Image TowerPreviewBackplate =>
+            towerPreviewBackplate;
         public Transform TowerPreviewSource =>
             towerPreviewSource;
         public StageOneBlueprintGridGraphic BlueprintGraphic =>
             backdropGraphic;
         public StageOneBlueprintGridGraphic BackdropGraphic =>
             backdropGraphic;
+        public Image WorkbenchBackdropImage =>
+            workbenchBackdropImage;
         public Image SettingsTintImage => settingsTintImage;
         public Image EffectBackplate => effectBackplate;
         public Text CurrentEffectText => instructionText;
@@ -233,7 +292,13 @@ namespace RuleforgeTD.UI
                     selectedSlot,
                     0,
                     MaximumSlots - 1)];
+        public RectTransform HoverPopupRoot => hoverPopupRoot;
+        public Text HoverPopupTitle => hoverPopupTitle;
+        public Text HoverPopupBody => hoverPopupBody;
+        public StageOneCardUsageMiniMapGraphic UsageMiniMap =>
+            usageMiniMap;
         public bool IsPortraitLayout => portraitLayout;
+        public int ActiveHoveredCardIndex => activeHoveredCardIndex;
         public bool IsTransitionRunning => transitionRunning;
         public float BlueprintRevealProgress =>
             backdropGraphic == null
@@ -253,7 +318,7 @@ namespace RuleforgeTD.UI
                 return;
             }
 
-            BeginBlueprintTransition(true);
+            BeginWorkbenchTransition(true);
         }
 
         public static StageOneTowerLoadoutView CreateRuntime(
@@ -286,7 +351,10 @@ namespace RuleforgeTD.UI
             int activeSlot,
             bool canEdit,
             int upgradeCost = -1,
-            bool canAffordUpgrade = true)
+            bool canAffordUpgrade = true,
+            int maximumLevel = int.MaxValue,
+            bool canUpgradeNow = true,
+            bool isMaximumLevel = false)
         {
             var subjects = new SubjectType[MaximumSlots];
             for (int slot = 0; slot < subjects.Length; slot++)
@@ -304,7 +372,10 @@ namespace RuleforgeTD.UI
                 activeSlot,
                 canEdit,
                 upgradeCost,
-                canAffordUpgrade);
+                canAffordUpgrade,
+                maximumLevel,
+                canUpgradeNow,
+                isMaximumLevel);
         }
 
         /// <summary>
@@ -321,11 +392,50 @@ namespace RuleforgeTD.UI
             IReadOnlyList<StageOneLoadoutCard> cards,
             int activeSlot,
             bool canEdit,
+            TowerUpgradeQuote upgradeQuote)
+        {
+            Show(
+                towerName,
+                level,
+                subjects,
+                unlockedSlotCount,
+                slotCardInstanceIds,
+                cards,
+                activeSlot,
+                canEdit,
+                upgradeQuote.HasNextLevel
+                    ? upgradeQuote.Cost
+                    : -1,
+                upgradeQuote.CanAfford,
+                upgradeQuote.MaximumLevel,
+                upgradeQuote.IsEligible,
+                upgradeQuote.IsMaximumLevel);
+        }
+
+        /// <summary>
+        /// 호환용 원시 값 오버로드다. 게임 흐름에서는 규칙 계층의
+        /// <see cref="TowerUpgradeQuote"/> 오버로드를 사용한다.
+        /// </summary>
+        public void Show(
+            string towerName,
+            int level,
+            IReadOnlyList<SubjectType> subjects,
+            int unlockedSlotCount,
+            int[] slotCardInstanceIds,
+            IReadOnlyList<StageOneLoadoutCard> cards,
+            int activeSlot,
+            bool canEdit,
             int upgradeCost = -1,
-            bool canAffordUpgrade = true)
+            bool canAffordUpgrade = true,
+            int maximumLevel = int.MaxValue,
+            bool canUpgradeNow = true,
+            bool isMaximumLevel = false)
         {
             BuildInterface();
+            int resolvedMaximumLevel =
+                Math.Max(1, maximumLevel);
             bool alreadyOpen = IsVisible;
+            HideHoverPopup();
             float preservedInventoryScroll =
                 cardScrollRect != null
                     ? cardScrollRect.verticalNormalizedPosition
@@ -349,27 +459,30 @@ namespace RuleforgeTD.UI
                 slotCardInstanceIds,
                 cards);
 
-            blueprintBackdropRoot.gameObject.SetActive(true);
+            workbenchBackdropRoot.gameObject.SetActive(true);
             panelRoot.gameObject.SetActive(true);
             titleText.text = catalog.Format(
                 "tower_panel.title_format",
                 towerName,
-                Mathf.Clamp(level, 1, 7));
+                Mathf.Clamp(
+                    level,
+                    1,
+                    resolvedMaximumLevel));
 
             inventoryTitleText.text =
                 catalog.Get("tower_panel.inventory");
 
             upgradeButton.interactable =
                 editable &&
-                level < 7 &&
+                canUpgradeNow &&
                 canAffordUpgrade;
-            upgradeLabel.text = level >= 7
-                ? catalog.Get("tower_panel.max_level")
+            upgradeLabel.text = isMaximumLevel
+                ? catalog.Get("tower_panel.max_level_compact")
                 : upgradeCost >= 0
                     ? catalog.Format(
-                        "tower_panel.level_up_cost_format",
+                        "tower_panel.level_up_cost_compact_format",
                         upgradeCost)
-                    : catalog.Get("tower_panel.level_up");
+                    : catalog.Get("tower_panel.level_up_compact");
             ApplySelectedSubjectVisuals();
 
             RefreshSlots(
@@ -391,7 +504,7 @@ namespace RuleforgeTD.UI
             if (!alreadyOpen ||
                 (transitionRunning && !transitionShowing))
             {
-                BeginBlueprintTransition(true);
+                BeginWorkbenchTransition(true);
             }
             else if (!transitionRunning)
             {
@@ -404,14 +517,16 @@ namespace RuleforgeTD.UI
         public void Hide()
         {
             if (panelRoot == null ||
-                blueprintBackdropRoot == null)
+                workbenchBackdropRoot == null)
             {
                 return;
             }
 
+            HideHoverPopup();
+
             if (!hasEverShown ||
                 !Application.isPlaying ||
-                !blueprintBackdropRoot.gameObject.activeSelf)
+                !workbenchBackdropRoot.gameObject.activeSelf)
             {
                 HideImmediately();
                 return;
@@ -422,7 +537,7 @@ namespace RuleforgeTD.UI
                 return;
             }
 
-            BeginBlueprintTransition(false);
+            BeginWorkbenchTransition(false);
         }
 
         /// <summary>
@@ -498,6 +613,19 @@ namespace RuleforgeTD.UI
             }
         }
 
+        /// <summary>
+        /// Supplies an intentionally simplified stage overview for equipped
+        /// card hover. The custom graphic owns only presentation colors and
+        /// never reads or mutates placement state.
+        /// </summary>
+        public void SetMapOverview(
+            IReadOnlyList<Vector2> pathPoints,
+            IReadOnlyList<StageOneLoadoutMapSite> buildSites)
+        {
+            BuildInterface();
+            usageMiniMap.SetMap(pathPoints, buildSites);
+        }
+
         public Button GetSlotButton(int index)
         {
             ValidateIndex(index, slotButtons.Length);
@@ -508,6 +636,12 @@ namespace RuleforgeTD.UI
         {
             ValidateIndex(index, slotLabels.Length);
             return slotLabels[index];
+        }
+
+        public Image GetSlotCardArtwork(int index)
+        {
+            ValidateIndex(index, slotCardArtworks.Length);
+            return slotCardArtworks[index];
         }
 
         public Text GetSlotDescriptionText(int index)
@@ -538,6 +672,19 @@ namespace RuleforgeTD.UI
         {
             ValidateIndex(index, slotProjectileButtons.Length);
             return slotProjectileButtons[index];
+        }
+
+        public StageOneHoverRelay GetSlotSubjectHoverRelay(
+            int index)
+        {
+            ValidateIndex(index, slotSubjectHoverRelays.Length);
+            return slotSubjectHoverRelays[index];
+        }
+
+        public StageOneHoverRelay GetCardHoverRelay(int index)
+        {
+            ValidateIndex(index, cardHoverRelays.Count);
+            return cardHoverRelays[index];
         }
 
         public bool RequestSlotDoubleClick(int index)
@@ -588,13 +735,13 @@ namespace RuleforgeTD.UI
 
         public Button GetCardButton(int index)
         {
-            ValidateIndex(index, cardViews.Length);
+            ValidateIndex(index, cardViews.Count);
             return cardViews[index].Button;
         }
 
         public StageOneCardView GetCardView(int index)
         {
-            ValidateIndex(index, cardViews.Length);
+            ValidateIndex(index, cardViews.Count);
             return cardViews[index];
         }
 
@@ -602,6 +749,12 @@ namespace RuleforgeTD.UI
         {
             ValidateIndex(index, slotDropTargets.Length);
             return slotDropTargets[index];
+        }
+
+        public Image GetSlotDropSurface(int index)
+        {
+            ValidateIndex(index, slotRowDropSurfaces.Length);
+            return slotRowDropSurfaces[index];
         }
 
         public bool RequestCardDrop(
@@ -633,6 +786,7 @@ namespace RuleforgeTD.UI
 
         private void OnDisable()
         {
+            HideHoverPopup();
             SetTowerPreviewAnimationEnabled(false);
         }
 
@@ -654,6 +808,12 @@ namespace RuleforgeTD.UI
                 ? font
                 : Resources.GetBuiltinResource<Font>(
                     "LegacyRuntime.ttf");
+            projectileSubjectSprite =
+                Resources.Load<Sprite>(
+                    ProjectileSubjectResourcePath);
+            enemySubjectSprite =
+                Resources.Load<Sprite>(
+                    EnemySubjectResourcePath);
 
             var canvasObject = new GameObject(
                 "Tower Loadout Canvas",
@@ -664,7 +824,11 @@ namespace RuleforgeTD.UI
             canvasObject.transform.SetParent(transform, false);
             canvas = canvasObject.GetComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvas.sortingOrder = 95;
+            canvas.pixelPerfect = true;
+            // The blueprint is a full-screen modal. Keep its authored frame
+            // above persistent battle navigation as well as the HUD so the
+            // stage-return button cannot cut through the title in portrait.
+            canvas.sortingOrder = 900;
             CanvasScaler scaler =
                 canvasObject.GetComponent<CanvasScaler>();
             scaler.uiScaleMode =
@@ -677,26 +841,58 @@ namespace RuleforgeTD.UI
                 StageOneResponsiveCanvasScaler>();
 
             var backdropObject = new GameObject(
-                "Full Screen Blueprint Wipe",
+                "Full Screen Parchment Workbench",
                 typeof(RectTransform),
                 typeof(CanvasRenderer),
-                typeof(StageOneBlueprintGridGraphic));
+                typeof(StageOneBlueprintGridGraphic),
+                typeof(CanvasGroup));
             backdropObject.transform.SetParent(
                 canvasObject.transform,
                 false);
-            blueprintBackdropRoot =
+            workbenchBackdropRoot =
                 backdropObject.GetComponent<RectTransform>();
-            Stretch(blueprintBackdropRoot, 0f);
+            Stretch(workbenchBackdropRoot, 0f);
             backdropGraphic =
                 backdropObject.GetComponent<
                     StageOneBlueprintGridGraphic>();
             backdropGraphic.Configure(
-                new Color32(8, 30, 55, 255),
-                new Color32(42, 94, 130, 88),
-                new Color32(76, 139, 176, 142),
+                new Color32(49, 27, 16, 255),
+                Color.clear,
+                Color.clear,
                 24f);
             backdropGraphic.raycastTarget = true;
             backdropGraphic.SetRevealProgress(0f);
+            workbenchBackdropCanvasGroup =
+                backdropObject.GetComponent<CanvasGroup>();
+            workbenchBackdropCanvasGroup.alpha = 0f;
+
+            var parchmentObject = new GameObject(
+                "Parchment Drafting Surface",
+                typeof(RectTransform),
+                typeof(CanvasRenderer),
+                typeof(Image),
+                typeof(AspectRatioFitter));
+            parchmentObject.transform.SetParent(
+                workbenchBackdropRoot,
+                false);
+            RectTransform parchmentRect =
+                parchmentObject.GetComponent<RectTransform>();
+            Stretch(parchmentRect, 0f);
+            workbenchBackdropImage =
+                parchmentObject.GetComponent<Image>();
+            workbenchBackdropImage.sprite =
+                RuleforgeUiTextureSampling.ConfigureResponsive(
+                    Resources.Load<Sprite>(
+                        WorkbenchBackdropResourcePath));
+            workbenchBackdropImage.type = Image.Type.Simple;
+            workbenchBackdropImage.preserveAspect = false;
+            workbenchBackdropImage.color = Color.white;
+            workbenchBackdropImage.raycastTarget = false;
+            AspectRatioFitter backdropAspect =
+                parchmentObject.GetComponent<AspectRatioFitter>();
+            backdropAspect.aspectMode =
+                AspectRatioFitter.AspectMode.EnvelopeParent;
+            backdropAspect.aspectRatio = 1672f / 941f;
 
             RectTransform safeArea = new GameObject(
                 "Safe Area",
@@ -710,7 +906,7 @@ namespace RuleforgeTD.UI
             safeArea.offsetMax = Vector2.zero;
 
             var panelObject = new GameObject(
-                "Tower Blueprint Workbench",
+                "Tower Parchment Workbench",
                 typeof(RectTransform),
                 typeof(CanvasGroup));
             panelObject.transform.SetParent(safeArea, false);
@@ -731,6 +927,7 @@ namespace RuleforgeTD.UI
             CreateSettingsSurface();
             CreateSlots();
             CreateCardScroller();
+            CreateHoverPopup();
             built = true;
             ApplyLandscapeLayout();
         }
@@ -742,13 +939,17 @@ namespace RuleforgeTD.UI
                 panelRoot,
                 28,
                 FontStyle.Bold,
+                ParchmentTextColor,
                 TextAnchor.MiddleLeft);
+            titleText.resizeTextForBestFit = true;
+            titleText.resizeTextMinSize = 22;
+            titleText.resizeTextMaxSize = 28;
             sectionTitleText = CreateText(
                 "Workbench Title",
                 panelRoot,
                 15,
                 FontStyle.Bold,
-                MutedTextColor,
+                ParchmentMutedTextColor,
                 TextAnchor.MiddleLeft);
             sectionTitleText.text =
                 catalog.Get("tower_panel.blueprint_title");
@@ -774,11 +975,21 @@ namespace RuleforgeTD.UI
 
         private void CreateTowerPreview()
         {
-            towerPreviewFrame = new GameObject(
+            var previewObject = new GameObject(
                 "Selected Tower Preview",
-                typeof(RectTransform))
-                .GetComponent<RectTransform>();
+                typeof(RectTransform),
+                typeof(CanvasRenderer),
+                typeof(Image));
+            towerPreviewFrame =
+                previewObject.GetComponent<RectTransform>();
             towerPreviewFrame.SetParent(panelRoot, false);
+            towerPreviewBackplate =
+                previewObject.GetComponent<Image>();
+            towerPreviewBackplate.raycastTarget = false;
+            RuleforgePixelUi.ApplyExactPanel(
+                towerPreviewBackplate,
+                RuleforgeExactPanelAsset.TowerPreviewLandscape280x660,
+                Color.white);
             towerPreviewContent = new GameObject(
                 "Tower Preview Stage",
                 typeof(RectTransform))
@@ -793,7 +1004,7 @@ namespace RuleforgeTD.UI
                 towerPreviewContent,
                 18,
                 FontStyle.Bold,
-                MutedTextColor,
+                TextColor,
                 TextAnchor.MiddleCenter);
             towerPreviewPlaceholder.text =
                 catalog.Get("tower_panel.preview_title");
@@ -803,22 +1014,26 @@ namespace RuleforgeTD.UI
         private void CreateSettingsSurface()
         {
             settingsTintImage = CreatePanelImage(
-                "Subject Blueprint Tint",
+                "Subject Workbench Tint",
                 panelRoot,
                 Color.clear,
                 false);
             effectBackplate = CreatePanelImage(
                 "Current Effect Backplate",
                 panelRoot,
-                BlueprintRaised,
+                ParchmentRaised,
                 false);
+            RuleforgePixelUi.ApplyExactPanel(
+                effectBackplate,
+                RuleforgeExactPanelAsset.Effect876x120,
+                Color.white);
 
             effectTitleText = CreateText(
                 "Current Effect Title",
                 panelRoot,
                 14,
                 FontStyle.Bold,
-                MutedTextColor,
+                ParchmentMutedTextColor,
                 TextAnchor.MiddleLeft);
             effectTitleText.text =
                 catalog.Get("tower_panel.active_effect");
@@ -828,7 +1043,7 @@ namespace RuleforgeTD.UI
                 panelRoot,
                 12,
                 FontStyle.Bold,
-                MutedTextColor,
+                ParchmentMutedTextColor,
                 TextAnchor.MiddleCenter);
             targetTitleText.text =
                 catalog.Get("tower_panel.target_title");
@@ -836,29 +1051,28 @@ namespace RuleforgeTD.UI
             instructionText = CreateText(
                 "Loadout Instruction",
                 panelRoot,
-                14,
+                12,
                 FontStyle.Normal,
-                TextColor,
-                TextAnchor.MiddleLeft);
+                ParchmentTextColor,
+                TextAnchor.UpperLeft);
             instructionText.horizontalOverflow =
                 HorizontalWrapMode.Wrap;
             instructionText.verticalOverflow =
                 VerticalWrapMode.Truncate;
             instructionText.resizeTextForBestFit = true;
-            instructionText.resizeTextMinSize = 10;
-            instructionText.resizeTextMaxSize = 14;
-            instructionText.lineSpacing = 1.05f;
+            instructionText.lineSpacing = 0.95f;
         }
 
         private Button CreateSubjectButton(
             string objectName,
+            Transform parent,
             out Image artwork,
             out Text fallback,
             out Image accentLine)
         {
             Button button = CreateButton(
                 objectName,
-                panelRoot,
+                parent,
                 ButtonColor,
                 out fallback,
                 24);
@@ -906,20 +1120,56 @@ namespace RuleforgeTD.UI
             for (int slot = 0; slot < slotButtons.Length; slot++)
             {
                 int capturedSlot = slot;
+                var rowObject = new GameObject(
+                    "Tower Slot " + (slot + 1) + " Drop Row",
+                    typeof(RectTransform));
+                rowObject.transform.SetParent(panelRoot, false);
+                slotRowRoots[slot] =
+                    rowObject.GetComponent<RectTransform>();
+
+                Image rowDropSurface = CreatePanelImage(
+                    "Drop Surface",
+                    slotRowRoots[slot],
+                    Color.clear,
+                    false);
+                // The transparent row graphic receives raycasts in the gaps
+                // between its three visible panels. Child graphics bubble
+                // IDropHandler events to the same row component.
+                rowDropSurface.raycastTarget = true;
+                slotRowDropSurfaces[slot] = rowDropSurface;
+
                 slotButtons[slot] = CreateButton(
                     "Tower Slot " + (slot + 1),
-                    panelRoot,
+                    slotRowRoots[slot],
                     ButtonColor,
                     out slotLabels[slot],
                     14);
                 slotButtons[slot].onClick.AddListener(
                     () => HandleSlotClicked(capturedSlot));
+                slotCardArtworks[slot] = new GameObject(
+                    "Equipped Card Artwork",
+                    typeof(RectTransform),
+                    typeof(Image))
+                    .GetComponent<Image>();
+                slotCardArtworks[slot].transform.SetParent(
+                    slotButtons[slot].transform,
+                    false);
+                slotCardArtworks[slot].preserveAspect = true;
+                slotCardArtworks[slot].raycastTarget = false;
+                Stretch(
+                    slotCardArtworks[slot].rectTransform,
+                    11f);
+                slotCardArtworks[slot].gameObject.SetActive(false);
 
                 Image descriptionBackplate = CreatePanelImage(
                     "Slot " + (slot + 1) + " Description",
-                    panelRoot,
-                    BlueprintRaised,
+                    slotRowRoots[slot],
+                    ParchmentRaised,
                     false);
+                RuleforgePixelUi.ApplyExactPanel(
+                    descriptionBackplate,
+                    RuleforgeExactPanelAsset.Slot670x80,
+                    Color.white);
                 slotDescriptionBackplates[slot] =
                     descriptionBackplate;
                 slotDescriptionTexts[slot] = CreateText(
@@ -927,12 +1177,13 @@ namespace RuleforgeTD.UI
                     descriptionBackplate.transform,
                     14,
                     FontStyle.Normal,
-                    TextColor,
+                    ParchmentTextColor,
                     TextAnchor.MiddleLeft);
                 slotDescriptionTexts[slot].horizontalOverflow =
                     HorizontalWrapMode.Wrap;
                 slotDescriptionTexts[slot].verticalOverflow =
                     VerticalWrapMode.Truncate;
+                slotDescriptionTexts[slot].lineSpacing = 1.05f;
                 Stretch(
                     slotDescriptionTexts[slot].rectTransform,
                     14f);
@@ -941,6 +1192,7 @@ namespace RuleforgeTD.UI
                     CreateSubjectButton(
                         "Slot " + (slot + 1) +
                         " Subject Toggle",
+                        slotRowRoots[slot],
                         out slotProjectileArtworks[slot],
                         out slotProjectileFallbacks[slot],
                         out slotSubjectAccentLines[slot]);
@@ -953,27 +1205,38 @@ namespace RuleforgeTD.UI
                 subjectToggle.onClick.AddListener(
                     () => HandleSlotSubjectToggle(
                         capturedSlot));
+                StageOneHoverRelay subjectHover =
+                    subjectToggle.gameObject.AddComponent<
+                        StageOneHoverRelay>();
+                subjectHover.Entered += source =>
+                    HandleSubjectHoverEntered(
+                        capturedSlot,
+                        source);
+                subjectHover.Exited += HandleHoverExited;
+                slotSubjectHoverRelays[slot] = subjectHover;
                 ConfigureSubjectArtwork(
                     slotProjectileArtworks[slot],
                     slotProjectileFallbacks[slot],
-                    null);
+                    projectileSubjectSprite);
 
                 StageOneCardDropSlot dropTarget =
-                    slotButtons[slot].gameObject
+                    slotRowRoots[slot].gameObject
                         .AddComponent<StageOneCardDropSlot>();
                 dropTarget.Configure(slot, false);
                 dropTarget.SetHighlight(
-                    slotButtons[slot].targetGraphic,
+                    slotDescriptionBackplates[slot],
                     ActiveColor);
                 dropTarget.DropRequested += HandleCardDropped;
                 slotDropTargets[slot] = dropTarget;
 
                 StageOneSlotDoubleClickRelay clickRelay =
-                    slotButtons[slot].gameObject
-                        .AddComponent<
-                            StageOneSlotDoubleClickRelay>();
-                clickRelay.Configure(slot);
+                    AddSlotDoubleClickRelay(
+                        slotButtons[slot].gameObject,
+                        slot);
                 slotDoubleClickRelays[slot] = clickRelay;
+                AddSlotDoubleClickRelay(
+                    slotRowRoots[slot].gameObject,
+                    slot);
             }
 
             inventoryTitleText = CreateText(
@@ -981,7 +1244,101 @@ namespace RuleforgeTD.UI
                 panelRoot,
                 17,
                 FontStyle.Bold,
+                ParchmentTextColor,
                 TextAnchor.MiddleLeft);
+        }
+
+        private StageOneSlotDoubleClickRelay
+            AddSlotDoubleClickRelay(
+                GameObject target,
+                int slotIndex)
+        {
+            StageOneSlotDoubleClickRelay relay =
+                target.AddComponent<
+                    StageOneSlotDoubleClickRelay>();
+            relay.Configure(slotIndex);
+            relay.DoubleClicked += HandleSlotDoubleClicked;
+            return relay;
+        }
+
+        private void CreateHoverPopup()
+        {
+            hoverPopupBackground = CreatePanelImage(
+                "Loadout Hover Popup",
+                panelRoot,
+                Color.white,
+                false);
+            RuleforgePixelUi.ApplyPanel(
+                hoverPopupBackground,
+                RuleforgePixelPanelRole.Parchment,
+                Color.white);
+            hoverPopupBackground.raycastTarget = false;
+            hoverPopupRoot = hoverPopupBackground.rectTransform;
+            hoverPopupRoot.anchorMin =
+                new Vector2(0.5f, 0.5f);
+            hoverPopupRoot.anchorMax =
+                new Vector2(0.5f, 0.5f);
+            hoverPopupRoot.pivot =
+                new Vector2(0.5f, 0.5f);
+            hoverPopupRoot.sizeDelta =
+                new Vector2(360f, 142f);
+
+            hoverPopupTitle = CreateText(
+                "Hover Popup Title",
+                hoverPopupRoot,
+                16,
+                FontStyle.Bold,
+                ParchmentTextColor,
+                TextAnchor.UpperLeft);
+            hoverPopupTitle.resizeTextForBestFit = true;
+            hoverPopupTitle.resizeTextMinSize = 12;
+            hoverPopupTitle.resizeTextMaxSize = 16;
+            SetRect(
+                hoverPopupTitle.rectTransform,
+                24f,
+                98f,
+                312f,
+                24f);
+
+            hoverPopupBody = CreateText(
+                "Hover Popup Body",
+                hoverPopupRoot,
+                13,
+                FontStyle.Normal,
+                ParchmentMutedTextColor,
+                TextAnchor.UpperLeft);
+            hoverPopupBody.horizontalOverflow =
+                HorizontalWrapMode.Wrap;
+            hoverPopupBody.verticalOverflow =
+                VerticalWrapMode.Truncate;
+            hoverPopupBody.resizeTextForBestFit = true;
+            hoverPopupBody.resizeTextMinSize = 10;
+            hoverPopupBody.resizeTextMaxSize = 13;
+            SetRect(
+                hoverPopupBody.rectTransform,
+                24f,
+                22f,
+                312f,
+                70f);
+
+            usageMiniMap = new GameObject(
+                "Card Usage Mini Map",
+                typeof(RectTransform),
+                typeof(CanvasRenderer),
+                typeof(StageOneCardUsageMiniMapGraphic))
+                .GetComponent<StageOneCardUsageMiniMapGraphic>();
+            usageMiniMap.transform.SetParent(
+                hoverPopupRoot,
+                false);
+            SetRect(
+                usageMiniMap.rectTransform,
+                24f,
+                24f,
+                252f,
+                162f);
+            usageMiniMap.gameObject.SetActive(false);
+            hoverPopupRoot.gameObject.SetActive(false);
+            hoverPopupRoot.SetAsLastSibling();
         }
 
         private void CreateCardScroller()
@@ -997,8 +1354,10 @@ namespace RuleforgeTD.UI
                 viewportHost.GetComponent<RectTransform>();
             Image viewportImage =
                 viewportHost.GetComponent<Image>();
-            viewportImage.color =
-                new Color32(12, 38, 62, 194);
+            RuleforgePixelUi.ApplyExactPanel(
+                viewportImage,
+                RuleforgeExactPanelAsset.Inventory862x208,
+                Color.white);
             viewportImage.raycastTarget = true;
 
             cardContent = new GameObject(
@@ -1027,7 +1386,7 @@ namespace RuleforgeTD.UI
                     InventoryCardGap,
                     InventoryCardGap);
             cardGridLayout.padding =
-                new RectOffset(12, 12, 12, 12);
+                new RectOffset(4, 4, 4, 4);
 
             cardScrollRect =
                 viewportHost.GetComponent<ScrollRect>();
@@ -1042,12 +1401,18 @@ namespace RuleforgeTD.UI
             cardScrollRect.scrollSensitivity = 34f;
 
             CreateScrollbar();
-            for (int i = 0; i < cardViews.Length; i++)
+        }
+
+        private void EnsureCardViewCapacity(int requiredCount)
+        {
+            int normalizedCount = Math.Max(0, requiredCount);
+            while (cardViews.Count < normalizedCount)
             {
-                int capturedIndex = i;
+                int capturedIndex = cardViews.Count;
                 StageOneCardView cardView =
                     StageOneCardView.CreateRuntime(
-                        "Inventory Card " + (i + 1),
+                        "Inventory Card " +
+                        (capturedIndex + 1),
                         cardContent,
                         font);
                 cardView.Button.onClick.AddListener(
@@ -1056,9 +1421,22 @@ namespace RuleforgeTD.UI
                     cardView.gameObject.AddComponent<
                         StageOneCardDragSource>();
                 dragSource.Configure(-1, canvas, false);
-                cardViews[i] = cardView;
-                cardDragSources[i] = dragSource;
-                visibleCardInstanceIds[i] = -1;
+                StageOneHoverRelay hoverRelay =
+                    cardView.gameObject.AddComponent<
+                        StageOneHoverRelay>();
+                hoverRelay.Entered += source =>
+                    HandleCardHoverEntered(
+                        capturedIndex,
+                        source);
+                hoverRelay.Exited += HandleHoverExited;
+
+                cardViews.Add(cardView);
+                cardDragSources.Add(dragSource);
+                cardHoverRelays.Add(hoverRelay);
+                visibleCardInstanceIds.Add(-1);
+                visibleCardSlotIndices.Add(-1);
+                lastCardClickTimes.Add(float.NegativeInfinity);
+                lastCardClickStartedSlotIndices.Add(-1);
             }
         }
 
@@ -1150,100 +1528,117 @@ namespace RuleforgeTD.UI
         private void ApplyLandscapeLayout()
         {
             ApplyTypographyScale(false);
+            towerPreviewFrame.gameObject.SetActive(true);
+            towerPreviewBackplate.enabled = true;
             panelRoot.sizeDelta =
                 new Vector2(LandscapeWidth, LandscapeHeight);
-            SetRect(titleText.rectTransform, 28f, 754f, 790f, 48f);
+            SetRect(titleText.rectTransform, 150f, 754f, 668f, 48f);
             SetRect(
                 sectionTitleText.rectTransform,
-                890f,
-                765f,
-                310f,
+                336f,
+                724f,
+                670f,
                 28f);
             SetRect(
                 upgradeButton.GetComponent<RectTransform>(),
-                1218f,
-                756f,
-                182f,
-                42f);
+                1264f,
+                754f,
+                132f,
+                44f);
             SetRect(
                 closeButton.GetComponent<RectTransform>(),
-                1416f,
+                1420f,
                 760f,
-                40f,
-                38f);
+                36f,
+                36f);
 
-            SetRect(towerPreviewFrame, 28f, 76f, 350f, 654f);
+            SetRect(
+                towerPreviewFrame,
+                28f,
+                52f,
+                280f,
+                660f);
             SetRect(
                 settingsTintImage.rectTransform,
-                404f,
-                26f,
-                1048f,
-                704f);
+                326f,
+                52f,
+                696f,
+                660f);
             SetRect(
                 effectBackplate.rectTransform,
-                430f,
-                581f,
-                1000f,
-                128f);
+                336f,
+                584f,
+                670f,
+                120f);
             SetRect(
                 effectTitleText.rectTransform,
-                448f,
-                675f,
-                500f,
-                24f);
+                364f,
+                664f,
+                344f,
+                20f);
             SetRect(
                 instructionText.rectTransform,
-                448f,
-                594f,
-                956f,
-                78f);
+                364f,
+                608f,
+                614f,
+                46f);
             SetRect(
                 targetTitleText.rectTransform,
-                1334f,
-                561f,
-                96f,
+                928f,
+                563f,
+                80f,
                 16f);
 
-            float[] slotY = { 464f, 358f, 252f };
+            float[] slotY = { 486f, 392f, 298f };
             for (int slot = 0; slot < MaximumSlots; slot++)
             {
+                Stretch(slotRowRoots[slot], 0f);
+                SetRect(
+                    slotRowDropSurfaces[slot].rectTransform,
+                    336f,
+                    slotY[slot],
+                    672f,
+                    80f);
                 SetRect(
                     slotButtons[slot]
                         .GetComponent<RectTransform>(),
-                    430f,
+                    336f,
                     slotY[slot],
-                    96f,
-                    96f);
+                    80f,
+                    80f);
                 SetRect(
                     slotDescriptionBackplates[slot]
                         .rectTransform,
-                    540f,
+                    428f,
                     slotY[slot],
-                    764f,
-                    96f);
+                    480f,
+                    80f);
                 SetRect(
                     slotProjectileButtons[slot]
                         .GetComponent<RectTransform>(),
-                    1334f,
+                    928f,
                     slotY[slot],
-                    96f,
-                    96f);
+                    80f,
+                    80f);
             }
 
             SetRect(
                 inventoryTitleText.rectTransform,
-                430f,
-                218f,
-                900f,
-                30f);
-            SetRect(cardViewport, 430f, 26f, 982f, 184f);
-            SetRect(scrollbarRect, 1416f, 26f, 18f, 184f);
+                1040f,
+                724f,
+                380f,
+                28f);
+            SetRect(cardViewport, 1040f, 52f, 380f, 660f);
+            SetRect(scrollbarRect, 1428f, 52f, 14f, 660f);
+            ApplyExactLandscapeAssets();
             LayoutInventoryCards();
         }
 
         private void ApplyPortraitLayout()
         {
             ApplyTypographyScale(true);
+            towerPreviewFrame.gameObject.SetActive(true);
+            towerPreviewBackplate.enabled = false;
             panelRoot.sizeDelta =
                 new Vector2(PortraitWidth, PortraitHeight);
             SetRect(titleText.rectTransform, 24f, 1232f, 390f, 70f);
@@ -1281,16 +1676,16 @@ namespace RuleforgeTD.UI
                 170f);
             SetRect(
                 effectTitleText.rectTransform,
-                64f,
-                823f,
-                410f,
-                22f);
+                80f,
+                810f,
+                394f,
+                24f);
             SetRect(
                 instructionText.rectTransform,
-                64f,
-                706f,
-                630f,
-                108f);
+                80f,
+                720f,
+                598f,
+                76f);
             SetRect(
                 targetTitleText.rectTransform,
                 620f,
@@ -1301,6 +1696,13 @@ namespace RuleforgeTD.UI
             float[] slotY = { 574f, 460f, 346f };
             for (int slot = 0; slot < MaximumSlots; slot++)
             {
+                Stretch(slotRowRoots[slot], 0f);
+                SetRect(
+                    slotRowDropSurfaces[slot].rectTransform,
+                    48f,
+                    slotY[slot],
+                    666f,
+                    94f);
                 SetRect(
                     slotButtons[slot]
                         .GetComponent<RectTransform>(),
@@ -1332,43 +1734,136 @@ namespace RuleforgeTD.UI
                 30f);
             SetRect(cardViewport, 48f, 44f, 646f, 252f);
             SetRect(scrollbarRect, 700f, 44f, 18f, 252f);
+            ApplyExactPortraitAssets();
             LayoutInventoryCards();
+        }
+
+        private void ApplyExactLandscapeAssets()
+        {
+            ApplyExactButtonAsset(
+                upgradeButton,
+                RuleforgeExactButtonAsset.Upgrade132x44);
+            ApplyExactButtonAsset(
+                closeButton,
+                RuleforgeExactButtonAsset.Square36);
+            RuleforgePixelUi.ApplyExactPanel(
+                towerPreviewBackplate,
+                RuleforgeExactPanelAsset.TowerPreviewLandscape280x660,
+                Color.white);
+            RuleforgePixelUi.ApplyExactPanel(
+                effectBackplate,
+                RuleforgeExactPanelAsset.EffectLandscapeMiddle670x120,
+                Color.white);
+            RuleforgePixelUi.ApplyExactPanel(
+                cardViewport.GetComponent<Image>(),
+                RuleforgeExactPanelAsset.InventoryLandscapeSide380x660,
+                Color.white);
+
+            for (int slot = 0; slot < MaximumSlots; slot++)
+            {
+                ApplyExactButtonAsset(
+                    slotButtons[slot],
+                    RuleforgeExactButtonAsset.Square80);
+                ApplyExactButtonAsset(
+                    slotProjectileButtons[slot],
+                    RuleforgeExactButtonAsset.Square80);
+                RuleforgePixelUi.ApplyExactPanel(
+                    slotDescriptionBackplates[slot],
+                    RuleforgeExactPanelAsset.SlotLandscapeMiddle480x80,
+                    slotDescriptionBackplates[slot].color);
+            }
+        }
+
+        private void ApplyExactPortraitAssets()
+        {
+            ApplyExactButtonAsset(
+                upgradeButton,
+                RuleforgeExactButtonAsset.UpgradePortrait200x90);
+            ApplyExactButtonAsset(
+                closeButton,
+                RuleforgeExactButtonAsset.Square90);
+            RuleforgePixelUi.ApplyExactPanel(
+                effectBackplate,
+                RuleforgeExactPanelAsset.EffectPortrait666x170,
+                Color.white);
+            RuleforgePixelUi.ApplyExactPanel(
+                cardViewport.GetComponent<Image>(),
+                RuleforgeExactPanelAsset.InventoryPortrait646x252,
+                Color.white);
+
+            for (int slot = 0; slot < MaximumSlots; slot++)
+            {
+                ApplyExactButtonAsset(
+                    slotButtons[slot],
+                    RuleforgeExactButtonAsset.Square94);
+                ApplyExactButtonAsset(
+                    slotProjectileButtons[slot],
+                    RuleforgeExactButtonAsset.Square94);
+                RuleforgePixelUi.ApplyExactPanel(
+                    slotDescriptionBackplates[slot],
+                    RuleforgeExactPanelAsset.SlotPortrait448x94,
+                    slotDescriptionBackplates[slot].color);
+            }
+        }
+
+        private static void ApplyExactButtonAsset(
+            Button button,
+            RuleforgeExactButtonAsset asset)
+        {
+            if (button == null)
+            {
+                return;
+            }
+
+            Image image = button.targetGraphic as Image;
+            RuleforgePixelButtonSkin skin =
+                button.GetComponent<RuleforgePixelButtonSkin>();
+            RuleforgePixelUi.ApplyExact(
+                button,
+                asset,
+                skin == null
+                    ? RuleforgePixelButtonRole.Secondary
+                    : skin.Role,
+                image == null ? Color.white : image.color);
         }
 
         private void ApplyTypographyScale(bool portrait)
         {
-            titleText.fontSize = portrait ? 40 : 28;
-            sectionTitleText.fontSize = portrait ? 22 : 15;
-            upgradeLabel.fontSize = portrait ? 22 : 15;
+            titleText.fontSize = portrait ? 34 : 28;
+            titleText.resizeTextMinSize = portrait ? 22 : 18;
+            titleText.resizeTextMaxSize = portrait ? 34 : 28;
+            sectionTitleText.fontSize = portrait ? 18 : 15;
+            upgradeLabel.fontSize = portrait ? 18 : 14;
             Text closeLabel =
                 closeButton.GetComponentInChildren<Text>(true);
             if (closeLabel != null)
             {
-                closeLabel.fontSize = portrait ? 30 : 17;
+                closeLabel.fontSize = portrait ? 26 : 16;
             }
 
             towerPreviewPlaceholder.fontSize = portrait ? 26 : 18;
-            effectTitleText.fontSize = portrait ? 20 : 14;
-            targetTitleText.fontSize = portrait ? 18 : 12;
-            instructionText.fontSize = portrait ? 21 : 14;
-            instructionText.resizeTextMinSize =
-                portrait ? 15 : 10;
+            effectTitleText.fontSize = portrait ? 16 : 13;
+            targetTitleText.fontSize = portrait ? 16 : 12;
+            instructionText.fontSize = portrait ? 14 : 12;
+            instructionText.resizeTextMinSize = portrait ? 10 : 9;
             instructionText.resizeTextMaxSize =
-                portrait ? 21 : 14;
-            inventoryTitleText.fontSize = portrait ? 24 : 17;
+                instructionText.fontSize;
+            inventoryTitleText.fontSize = portrait ? 21 : 17;
 
             for (int slot = 0; slot < MaximumSlots; slot++)
             {
                 slotLabels[slot].fontSize =
-                    portrait ? 20 : 14;
+                    portrait ? 18 : 14;
                 slotDescriptionTexts[slot].fontSize =
-                    portrait ? 20 : 14;
+                    portrait ? 17 : 14;
                 slotProjectileFallbacks[slot].fontSize =
                     portrait ? 32 : 24;
             }
 
-            float cardTextScale = portrait ? 1.75f : 1f;
-            for (int i = 0; i < cardViews.Length; i++)
+            float cardTextScale = portrait
+                ? PortraitCardTextScale
+                : 1f;
+            for (int i = 0; i < cardViews.Count; i++)
             {
                 cardViews[i].SetTextScale(cardTextScale);
             }
@@ -1389,14 +1884,11 @@ namespace RuleforgeTD.UI
                         : -1;
                 slotHasCards[slot] =
                     unlocked && cardInstanceId >= 0;
-                if (!slotHasCards[slot])
-                {
-                    lastSlotClickTimes[slot] =
-                        float.NegativeInfinity;
-                }
                 slotButtons[slot].interactable = unlocked;
                 slotProjectileButtons[slot].interactable =
                     unlocked && editable;
+                slotSubjectHoverRelays[slot].SetHoverEnabled(
+                    unlocked);
                 slotDropTargets[slot].SetDropEnabled(
                     unlocked && editable);
                 slotLabels[slot].text = !unlocked
@@ -1406,8 +1898,22 @@ namespace RuleforgeTD.UI
                         : ResolveSlotCardLabel(
                             cards,
                             cardInstanceId);
+                Sprite cardArtwork = unlocked &&
+                        cardInstanceId >= 0
+                    ? ResolveSlotCardArtwork(
+                        cards,
+                        cardInstanceId)
+                    : null;
+                slotCardArtworks[slot].sprite = cardArtwork;
+                slotCardArtworks[slot].color = Color.white;
+                slotCardArtworks[slot].gameObject.SetActive(
+                    cardArtwork != null);
+                slotLabels[slot].gameObject.SetActive(
+                    cardArtwork == null);
                 slotDescriptionTexts[slot].color =
-                    unlocked ? TextColor : MutedTextColor;
+                    unlocked
+                        ? ParchmentTextColor
+                        : ParchmentMutedTextColor;
                 slotDescriptionTexts[slot].text =
                     ResolveSlotDescription(
                         slot,
@@ -1424,10 +1930,14 @@ namespace RuleforgeTD.UI
             int[] slotCardInstanceIds,
             SubjectType subjectType)
         {
-            visibleCardCount = Mathf.Min(
-                cards == null ? 0 : cards.Count,
-                cardViews.Length);
-            for (int i = 0; i < cardViews.Length; i++)
+            visibleCardCount = cards == null
+                ? 0
+                : cards.Count;
+            EnsureCardViewCapacity(visibleCardCount);
+            float cardTextScale = portraitLayout
+                ? PortraitCardTextScale
+                : 1f;
+            for (int i = 0; i < cardViews.Count; i++)
             {
                 bool visible = i < visibleCardCount;
                 cardViews[i].gameObject.SetActive(visible);
@@ -1435,14 +1945,23 @@ namespace RuleforgeTD.UI
                 {
                     visibleCardInstanceIds[i] = -1;
                     visibleCardSlotIndices[i] = -1;
+                    lastCardClickStartedSlotIndices[i] = -1;
                     cardDragSources[i].Configure(
                         -1,
                         canvas,
                         false);
+                    cardHoverRelays[i].SetHoverEnabled(false);
                     continue;
                 }
 
                 StageOneLoadoutCard card = cards[i];
+                cardViews[i].SetTextScale(cardTextScale);
+                if (visibleCardInstanceIds[i] != card.InstanceId)
+                {
+                    lastCardClickTimes[i] =
+                        float.NegativeInfinity;
+                    lastCardClickStartedSlotIndices[i] = -1;
+                }
                 visibleCardInstanceIds[i] = card.InstanceId;
                 visibleCardSlotIndices[i] =
                     card.EquippedOnSelectedTower
@@ -1468,7 +1987,8 @@ namespace RuleforgeTD.UI
                         enemyTargetLabel + " · " +
                         card.Display.EnemyDescription,
                         cardSubjectType == SubjectType.Enemy,
-                        card.Display.Tier);
+                        card.Display.Tier,
+                        card.Display.SymbolKey);
                 CardTier tier = (CardTier)Mathf.Clamp(
                     card.Display.Tier,
                     1,
@@ -1489,11 +2009,13 @@ namespace RuleforgeTD.UI
                     editable);
                 cardViews[i].SetPlaceholderSymbol(
                     GetCardSymbol(
-                        card.Display.StableId));
+                        card.Display.SymbolKey));
                 cardDragSources[i].Configure(
                     card.InstanceId,
                     canvas,
                     editable);
+                cardHoverRelays[i].SetHoverEnabled(
+                    card.Equipped);
             }
 
             LayoutInventoryCards();
@@ -1510,10 +2032,10 @@ namespace RuleforgeTD.UI
                 ? PortraitInventoryColumns
                 : LandscapeInventoryColumns;
             float cardWidth = portraitLayout
-                ? 299f
+                ? 171f
                 : InventoryCardWidth;
             float cardHeight = portraitLayout
-                ? 228f
+                ? 292f
                 : InventoryCardHeight;
             int rows = Mathf.Max(
                 1,
@@ -1522,7 +2044,7 @@ namespace RuleforgeTD.UI
                     (float)columns));
             float contentHeight = Mathf.Max(
                 cardViewport.rect.height,
-                24f +
+                cardGridLayout.padding.vertical +
                 rows * cardHeight +
                 (rows - 1) * InventoryCardGap);
             cardContent.anchorMin = new Vector2(0f, 1f);
@@ -1541,7 +2063,7 @@ namespace RuleforgeTD.UI
         private void ApplySelectedSubjectVisuals()
         {
             settingsTintImage.color = Color.clear;
-            effectBackplate.color = BlueprintRaised;
+            effectBackplate.color = Color.white;
         }
 
         private void RefreshSlotSubjectVisual(int slot)
@@ -1567,7 +2089,7 @@ namespace RuleforgeTD.UI
                 unlocked ? slotColor : LockedColor);
             slotDescriptionBackplates[slot].color =
                 unlocked
-                    ? BlueprintRaised
+                    ? Color.white
                     : LockedDescriptionColor;
             SetButtonColor(
                 slotProjectileButtons[slot],
@@ -1584,16 +2106,16 @@ namespace RuleforgeTD.UI
             SetOutlineColor(
                 slotButtons[slot].gameObject,
                 !unlocked
-                    ? BlueprintLine
+                    ? WoodLine
                     : slot == selectedSlot
                         ? ActiveColor
                         : targetColor);
             SetOutlineColor(
                 slotDescriptionBackplates[slot].gameObject,
-                BlueprintLine);
+                WoodLine);
             SetOutlineColor(
                 slotProjectileButtons[slot].gameObject,
-                BlueprintLine);
+                WoodLine);
         }
 
         private void RefreshSlotSubjectArtwork(int slot)
@@ -1615,7 +2137,232 @@ namespace RuleforgeTD.UI
                     : projectileSubjectSprite);
         }
 
-        private void BeginBlueprintTransition(bool showing)
+        private void HandleSubjectHoverEntered(
+            int slot,
+            RectTransform source)
+        {
+            if (slot < 0 ||
+                slot >= MaximumSlots ||
+                source == null ||
+                !slotButtons[slot].interactable)
+            {
+                return;
+            }
+
+            SubjectType subjectType = slotSubjectTypes[slot];
+            StageOneLoadoutCard card = default;
+            bool hasCard = TryFindPresentedCard(
+                presentedSlotCardInstanceIds[slot],
+                out card);
+            string title = catalog.Get(
+                subjectType == SubjectType.Enemy
+                    ? "tower_panel.subject_enemy_title"
+                    : "tower_panel.subject_projectile_title");
+            string body;
+            if (!hasCard)
+            {
+                body = catalog.Get(
+                    subjectType == SubjectType.Enemy
+                        ? "tower_panel.subject_enemy_empty_tooltip"
+                        : "tower_panel.subject_projectile_empty_tooltip");
+            }
+            else
+            {
+                string description =
+                    card.Display.GetDescription(subjectType);
+                body = catalog.Format(
+                    subjectType == SubjectType.Enemy
+                        ? "tower_panel.subject_enemy_tooltip_format"
+                        : "tower_panel.subject_projectile_tooltip_format",
+                    card.Display.Name,
+                    description);
+            }
+
+            ShowHoverPopup(
+                source,
+                title,
+                body,
+                false,
+                -1);
+        }
+
+        private void HandleCardHoverEntered(
+            int visibleIndex,
+            RectTransform source)
+        {
+            if (visibleIndex < 0 ||
+                visibleIndex >= visibleCardCount ||
+                visibleIndex >= presentedCards.Count ||
+                source == null)
+            {
+                return;
+            }
+
+            StageOneLoadoutCard card =
+                presentedCards[visibleIndex];
+            if (!card.Equipped)
+            {
+                return;
+            }
+
+            activeHoveredCardIndex = visibleIndex;
+            ShowHoverPopup(
+                source,
+                catalog.Format(
+                    "tower_panel.usage_map_title_format",
+                    card.Display.Name),
+                catalog.Get("tower_panel.usage_map_body"),
+                true,
+                card.EquippedTowerId);
+        }
+
+        private void ShowHoverPopup(
+            RectTransform source,
+            string title,
+            string body,
+            bool showMap,
+            int focusedTowerId)
+        {
+            if (hoverPopupRoot == null || source == null)
+            {
+                return;
+            }
+
+            activeHoverSource = source;
+            if (!showMap)
+            {
+                activeHoveredCardIndex = -1;
+            }
+
+            hoverPopupTitle.text = title ?? string.Empty;
+            hoverPopupBody.text = body ?? string.Empty;
+            usageMiniMap.gameObject.SetActive(showMap);
+            usageMiniMap.SetFocusedTower(
+                showMap ? focusedTowerId : -1);
+
+            if (showMap)
+            {
+                hoverPopupRoot.sizeDelta =
+                    new Vector2(300f, 270f);
+                SetRect(
+                    hoverPopupTitle.rectTransform,
+                    24f,
+                    224f,
+                    252f,
+                    24f);
+                SetRect(
+                    hoverPopupBody.rectTransform,
+                    24f,
+                    190f,
+                    252f,
+                    28f);
+                SetRect(
+                    usageMiniMap.rectTransform,
+                    24f,
+                    24f,
+                    252f,
+                    158f);
+            }
+            else
+            {
+                hoverPopupRoot.sizeDelta =
+                    new Vector2(360f, 142f);
+                SetRect(
+                    hoverPopupTitle.rectTransform,
+                    24f,
+                    98f,
+                    312f,
+                    24f);
+                SetRect(
+                    hoverPopupBody.rectTransform,
+                    24f,
+                    22f,
+                    312f,
+                    70f);
+            }
+
+            PositionHoverPopup(source);
+            hoverPopupRoot.SetAsLastSibling();
+            hoverPopupRoot.gameObject.SetActive(true);
+        }
+
+        private void PositionHoverPopup(RectTransform source)
+        {
+            Vector3[] corners = new Vector3[4];
+            source.GetWorldCorners(corners);
+            Vector3 centerWorld =
+                (corners[0] + corners[2]) * 0.5f;
+            Vector2 center = panelRoot.InverseTransformPoint(
+                centerWorld);
+            Vector2 leftBottom = panelRoot.InverseTransformPoint(
+                corners[0]);
+            Vector2 rightBottom = panelRoot.InverseTransformPoint(
+                corners[3]);
+            float sourceWidth = Mathf.Abs(
+                rightBottom.x - leftBottom.x);
+            Vector2 popupSize = hoverPopupRoot.sizeDelta;
+            Rect bounds = panelRoot.rect;
+            float direction = center.x >= 0f ? -1f : 1f;
+            float x = center.x + direction *
+                (sourceWidth * 0.5f +
+                 popupSize.x * 0.5f +
+                 14f);
+            float y = center.y;
+            x = Mathf.Clamp(
+                x,
+                bounds.xMin + popupSize.x * 0.5f + 8f,
+                bounds.xMax - popupSize.x * 0.5f - 8f);
+            y = Mathf.Clamp(
+                y,
+                bounds.yMin + popupSize.y * 0.5f + 8f,
+                bounds.yMax - popupSize.y * 0.5f - 8f);
+            hoverPopupRoot.anchoredPosition =
+                new Vector2(x, y);
+        }
+
+        private void HandleHoverExited(RectTransform source)
+        {
+            if (activeHoverSource == source)
+            {
+                HideHoverPopup();
+            }
+        }
+
+        private void HideHoverPopup()
+        {
+            activeHoverSource = null;
+            activeHoveredCardIndex = -1;
+            if (usageMiniMap != null)
+            {
+                usageMiniMap.SetFocusedTower(-1);
+            }
+
+            if (hoverPopupRoot != null)
+            {
+                hoverPopupRoot.gameObject.SetActive(false);
+            }
+        }
+
+        private bool TryFindPresentedCard(
+            int instanceId,
+            out StageOneLoadoutCard card)
+        {
+            for (int index = 0;
+                 index < presentedCards.Count;
+                 index++)
+            {
+                if (presentedCards[index].InstanceId == instanceId)
+                {
+                    card = presentedCards[index];
+                    return true;
+                }
+            }
+
+            card = default;
+            return false;
+        }
+
+        private void BeginWorkbenchTransition(bool showing)
         {
             if (transitionRoutine != null)
             {
@@ -1623,7 +2370,7 @@ namespace RuleforgeTD.UI
                 transitionRoutine = null;
             }
 
-            blueprintBackdropRoot.gameObject.SetActive(true);
+            workbenchBackdropRoot.gameObject.SetActive(true);
             panelRoot.gameObject.SetActive(true);
             if (showing)
             {
@@ -1645,7 +2392,7 @@ namespace RuleforgeTD.UI
             float duration =
                 Mathf.Max(
                     0.04f,
-                    BlueprintTransitionDuration *
+                    WorkbenchTransitionDuration *
                     Mathf.Abs(end - start));
             float elapsed = 0f;
             while (elapsed < duration)
@@ -1677,6 +2424,10 @@ namespace RuleforgeTD.UI
         {
             float progress = Mathf.Clamp01(reveal);
             backdropGraphic.SetRevealProgress(progress);
+            if (workbenchBackdropCanvasGroup != null)
+            {
+                workbenchBackdropCanvasGroup.alpha = progress;
+            }
             float contentProgress = Mathf.InverseLerp(
                 0.36f,
                 0.9f,
@@ -1692,6 +2443,7 @@ namespace RuleforgeTD.UI
 
         private void HideImmediately()
         {
+            HideHoverPopup();
             if (transitionRoutine != null)
             {
                 StopCoroutine(transitionRoutine);
@@ -1706,6 +2458,11 @@ namespace RuleforgeTD.UI
                 backdropGraphic.SetRevealProgress(0f);
             }
 
+            if (workbenchBackdropCanvasGroup != null)
+            {
+                workbenchBackdropCanvasGroup.alpha = 0f;
+            }
+
             if (panelCanvasGroup != null)
             {
                 panelCanvasGroup.alpha = 0f;
@@ -1718,9 +2475,9 @@ namespace RuleforgeTD.UI
                 panelRoot.gameObject.SetActive(false);
             }
 
-            if (blueprintBackdropRoot != null)
+            if (workbenchBackdropRoot != null)
             {
-                blueprintBackdropRoot.gameObject.SetActive(false);
+                workbenchBackdropRoot.gameObject.SetActive(false);
             }
         }
 
@@ -1928,32 +2685,35 @@ namespace RuleforgeTD.UI
                 return;
             }
 
-            CardRequested?.Invoke(
-                visibleCardInstanceIds[visibleIndex]);
+            float now = Time.unscaledTime;
+            bool isDoubleClick =
+                editable &&
+                now - lastCardClickTimes[visibleIndex] <=
+                    SlotDoubleClickWindowSeconds;
+            int cardInstanceId =
+                visibleCardInstanceIds[visibleIndex];
+            if (isDoubleClick)
+            {
+                lastCardClickTimes[visibleIndex] =
+                    float.NegativeInfinity;
+                int startedSlotIndex =
+                    lastCardClickStartedSlotIndices[visibleIndex];
+                lastCardClickStartedSlotIndices[visibleIndex] = -1;
+                CardDoubleClickRequested?.Invoke(
+                    cardInstanceId,
+                    startedSlotIndex);
+                return;
+            }
+
+            lastCardClickTimes[visibleIndex] = now;
+            lastCardClickStartedSlotIndices[visibleIndex] =
+                visibleCardSlotIndices[visibleIndex];
+            CardRequested?.Invoke(cardInstanceId);
         }
 
         private void HandleSlotClicked(int slotIndex)
         {
-            bool canUnequip =
-                slotIndex >= 0 &&
-                slotIndex < MaximumSlots &&
-                editable &&
-                slotHasCards[slotIndex];
-            float now = Time.unscaledTime;
-            bool isDoubleClick =
-                canUnequip &&
-                now - lastSlotClickTimes[slotIndex] <=
-                    SlotDoubleClickWindowSeconds;
-            lastSlotClickTimes[slotIndex] =
-                canUnequip && !isDoubleClick
-                    ? now
-                    : float.NegativeInfinity;
-
             HandleSlotSelected(slotIndex);
-            if (isDoubleClick)
-            {
-                HandleSlotDoubleClicked(slotIndex);
-            }
         }
 
         private void HandleSlotSelected(int slotIndex)
@@ -2116,7 +2876,7 @@ namespace RuleforgeTD.UI
                 if (cards[i].InstanceId == instanceId)
                 {
                     string symbol = GetCardSymbol(
-                        cards[i].Display.StableId);
+                        cards[i].Display.SymbolKey);
                     return string.IsNullOrEmpty(symbol)
                         ? cards[i].Display.Name
                         : symbol;
@@ -2124,6 +2884,27 @@ namespace RuleforgeTD.UI
             }
 
             return catalog.Get("tower_panel.empty");
+        }
+
+        private static Sprite ResolveSlotCardArtwork(
+            IReadOnlyList<StageOneLoadoutCard> cards,
+            int instanceId)
+        {
+            if (instanceId < 0 || cards == null)
+            {
+                return null;
+            }
+
+            for (int index = 0; index < cards.Count; index++)
+            {
+                if (cards[index].InstanceId == instanceId)
+                {
+                    return StageOneCardArtworkCatalog.Load(
+                        cards[index].Display.StableId);
+                }
+            }
+
+            return null;
         }
 
         private string GetLockedSlotLabel()
@@ -2335,77 +3116,11 @@ namespace RuleforgeTD.UI
             fallback.gameObject.SetActive(sprite == null);
         }
 
-        private string GetCardSymbol(string stableId)
+        private string GetCardSymbol(string symbolKey)
         {
-            switch (stableId)
-            {
-                case "split":
-                    return catalog.Get("card_symbol.split");
-                case "pierce":
-                    return catalog.Get("card_symbol.pierce");
-                case "burn":
-                    return catalog.Get("card_symbol.burn");
-                case "slow":
-                    return catalog.Get("card_symbol.slow");
-                case "explode":
-                    return catalog.Get("card_symbol.explode");
-                case "knockback":
-                    return catalog.Get("card_symbol.knockback");
-                case "mark":
-                    return catalog.Get("card_symbol.mark");
-                case "gold_bounty":
-                    return catalog.Get("card_symbol.gold_bounty");
-                case "poison":
-                    return catalog.Get("card_symbol.poison");
-                case "enlarge":
-                    return catalog.Get("card_symbol.enlarge");
-                case "shrink":
-                    return catalog.Get("card_symbol.shrink");
-                case "stun":
-                    return catalog.Get("card_symbol.stun");
-                case "ricochet":
-                    return catalog.Get("card_symbol.ricochet");
-                case "bleed":
-                    return catalog.Get("card_symbol.bleed");
-                case "accelerate":
-                    return catalog.Get("card_symbol.accelerate");
-                case "homing":
-                    return catalog.Get("card_symbol.homing");
-                case "delay":
-                    return catalog.Get("card_symbol.delay");
-                case "curse":
-                    return catalog.Get("card_symbol.curse");
-                case "bind":
-                    return catalog.Get("card_symbol.bind");
-                case "airborne":
-                    return catalog.Get("card_symbol.airborne");
-                case "shock":
-                    return catalog.Get("card_symbol.shock");
-                case "freeze":
-                    return catalog.Get("card_symbol.freeze");
-                case "afterimage":
-                    return catalog.Get("card_symbol.afterimage");
-                case "pulse":
-                    return catalog.Get("card_symbol.pulse");
-                case "magnet":
-                    return catalog.Get("card_symbol.magnet");
-                case "reflect":
-                    return catalog.Get("card_symbol.reflect");
-                case "contagion":
-                    return catalog.Get("card_symbol.contagion");
-                case "seal":
-                    return catalog.Get("card_symbol.seal");
-                case "corrosion":
-                    return catalog.Get("card_symbol.corrosion");
-                case "orbit":
-                    return catalog.Get("card_symbol.orbit");
-                case "lifesteal":
-                    return catalog.Get("card_symbol.lifesteal");
-                case "fear":
-                    return catalog.Get("card_symbol.fear");
-                default:
-                    return null;
-            }
+            return string.IsNullOrWhiteSpace(symbolKey)
+                ? null
+                : catalog.Get(symbolKey);
         }
 
         private Button CreateButton(
@@ -2419,8 +3134,7 @@ namespace RuleforgeTD.UI
                 objectName,
                 typeof(RectTransform),
                 typeof(Image),
-                typeof(Button),
-                typeof(Outline));
+                typeof(Button));
             host.transform.SetParent(parent, false);
             Image image = host.GetComponent<Image>();
             image.color = color;
@@ -2429,9 +3143,6 @@ namespace RuleforgeTD.UI
             Navigation navigation = button.navigation;
             navigation.mode = Navigation.Mode.None;
             button.navigation = navigation;
-            Outline outline = host.GetComponent<Outline>();
-            outline.effectColor = BlueprintLine;
-            outline.effectDistance = new Vector2(1f, -1f);
             label = CreateText(
                 "Label",
                 host.transform,
@@ -2444,6 +3155,10 @@ namespace RuleforgeTD.UI
             label.verticalOverflow =
                 VerticalWrapMode.Truncate;
             Stretch(label.rectTransform, 5f);
+            RuleforgePixelButtonRole role = color == ActiveColor
+                ? RuleforgePixelButtonRole.Primary
+                : RuleforgePixelButtonRole.Secondary;
+            RuleforgePixelUi.ApplyTint(button, role, color);
             return button;
         }
 
@@ -2464,7 +3179,7 @@ namespace RuleforgeTD.UI
             if (outlined)
             {
                 Outline outline = host.AddComponent<Outline>();
-                outline.effectColor = BlueprintLine;
+                outline.effectColor = WoodLine;
                 outline.effectDistance =
                     new Vector2(1f, -1f);
             }
@@ -2499,21 +3214,16 @@ namespace RuleforgeTD.UI
             var host = new GameObject(
                 objectName,
                 typeof(RectTransform),
-                typeof(Text),
-                typeof(Outline));
+                typeof(Text));
             host.transform.SetParent(parent, false);
             Text text = host.GetComponent<Text>();
-            text.font = font;
-            text.fontSize = fontSize;
-            text.fontStyle = style;
-            text.color = color;
-            text.alignment = alignment;
-            text.raycastTarget = false;
-            text.supportRichText = false;
-            Outline outline = host.GetComponent<Outline>();
-            outline.effectColor =
-                new Color(0f, 0f, 0f, 0.78f);
-            outline.effectDistance = new Vector2(1f, -1f);
+            RuleforgeUiTypography.Configure(
+                text,
+                font,
+                fontSize,
+                color,
+                alignment,
+                RuleforgeUiTypography.IsLight(color));
             return text;
         }
 
@@ -2524,7 +3234,10 @@ namespace RuleforgeTD.UI
             if (button != null &&
                 button.targetGraphic is Image image)
             {
-                image.color = color;
+                RuleforgePixelUi.ApplyTint(
+                    button,
+                    RuleforgePixelButtonRole.Secondary,
+                    color);
             }
         }
 
