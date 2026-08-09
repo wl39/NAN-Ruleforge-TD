@@ -1,12 +1,14 @@
+using System.Collections;
 using RuleforgeTD.GameLogic.Simulation;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 namespace RuleforgeTD.Audio
 {
     /// <summary>
-    /// 런타임에서 사용하는 짧은 2D 효과음을 한 곳에서 관리한다.
-    /// Resources 경로와 상대 음량을 데이터처럼 고정해 씬별 AudioSource 설정
-    /// 차이를 없애며, 전투 규칙에는 관여하지 않는다.
+    /// 런타임의 2D 효과음과 상태 기반 배경 음악을 한 곳에서 관리한다.
+    /// 배경 음악은 두 개의 덱을 겹쳐 재생해 씬/전투 상태 변경 중에도
+    /// 끊김 없는 크로스페이드를 제공하며, 전투 규칙에는 관여하지 않는다.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class RuleforgeAudioService : MonoBehaviour
@@ -19,6 +21,14 @@ namespace RuleforgeTD.Audio
             ProjectileHit
         }
 
+        public enum MusicCue
+        {
+            None,
+            Menu,
+            Planning,
+            Battle
+        }
+
         public const string UiPressResourcePath =
             "RuleforgeTD/Audio/Sfx/impactWood_medium_004";
         public const string UiReleaseResourcePath =
@@ -28,11 +38,33 @@ namespace RuleforgeTD.Audio
         public const string ProjectileHitResourcePath =
             "RuleforgeTD/Audio/Sfx/impactPlank_medium_002";
 
+        public const string MenuMusicResourcePath =
+            "RuleforgeTD/Audio/Music/Menu_MinstrelDance";
+        public const string PlanningMusicResourcePath =
+            "RuleforgeTD/Audio/Music/Planning_TheBardsTale";
+        public const string BattleIntroResourcePath =
+            "RuleforgeTD/Audio/Music/Battle_Intro";
+        public const string BattleLoopResourcePath =
+            "RuleforgeTD/Audio/Music/Battle_Loop";
+
         // 웨이브 시작은 다른 효과음보다 약 3 dB 크게 들리도록 둔다.
         public const float UiPressVolume = 0.58f;
         public const float UiReleaseVolume = 0.45f;
         public const float ProjectileHitVolume = 0.52f;
         public const float WaveStartedVolume = 0.82f;
+
+        // 분석한 활성 RMS를 기준으로 세 곡의 체감 음량을 약 -22 dBFS에
+        // 맞춘 상대 게인이다. 전투곡 자체의 다이내믹은 그대로 유지한다.
+        public const float MenuMusicVolume = 0.68f;
+        public const float PlanningMusicVolume = 0.90f;
+        public const float BattleMusicVolume = 0.52f;
+        public const float MusicCrossfadeDuration = 1.35f;
+        public const float InitialMusicFadeDuration = 0.80f;
+
+        // 전투곡 분석 결과: 103.36 BPM, 0~11.915737초 도입부 이후
+        // 27.303129초 루프. 두 PCM 자산의 경계는 샘플 단위로 이어진다.
+        public const float BattleIntroDuration = 11.915737f;
+        public const float BattleLoopDuration = 27.303129f;
 
         // 다중 화살/분열 빌드에서도 WebGL 오디오 보이스가 폭주하지 않게 한다.
         public const int MaximumProjectileHitSoundsPerFrame = 4;
@@ -51,16 +83,55 @@ namespace RuleforgeTD.Audio
         private static float lastAudibleVolume = 1f;
 
         private AudioSource output;
+        private readonly AudioSource[] musicPrimaryOutputs =
+            new AudioSource[2];
+        private readonly AudioSource[] musicLoopOutputs =
+            new AudioSource[2];
+        private readonly MusicCue[] musicDeckCues =
+            new MusicCue[2];
+        private readonly float[] musicDeckMix = new float[2];
         private AudioClip uiPressClip;
         private AudioClip uiReleaseClip;
         private AudioClip waveStartedClip;
         private AudioClip projectileHitClip;
+        private AudioClip menuMusicClip;
+        private AudioClip planningMusicClip;
+        private AudioClip battleIntroClip;
+        private AudioClip battleLoopClip;
+        private Coroutine musicCrossfadeRoutine;
+        private int activeMusicDeck = -1;
+        private bool sceneHooked;
         private int projectileHitFrame = -1;
         private int projectileHitCount;
 
         public SoundCue LastPlayedCue { get; private set; }
         public float LastPlayedVolume { get; private set; }
         public int PlayedSoundCount { get; private set; }
+        public MusicCue CurrentMusicCue { get; private set; }
+
+        public int ActiveMusicLayerCount
+        {
+            get
+            {
+                if (activeMusicDeck < 0)
+                {
+                    return 0;
+                }
+
+                int count =
+                    musicPrimaryOutputs[activeMusicDeck] != null &&
+                    musicPrimaryOutputs[activeMusicDeck].clip != null
+                        ? 1
+                        : 0;
+                if (musicLoopOutputs[activeMusicDeck] != null &&
+                    musicLoopOutputs[activeMusicDeck].clip != null)
+                {
+                    count++;
+                }
+
+                return count;
+            }
+        }
 
         public static bool IsMuted
         {
@@ -93,6 +164,16 @@ namespace RuleforgeTD.Audio
             muted = false;
             gameVolume = 1f;
             lastAudibleVolume = 1f;
+        }
+
+        [RuntimeInitializeOnLoadMethod(
+            RuntimeInitializeLoadType.AfterSceneLoad)]
+        private static void StartSceneMusic()
+        {
+            RuleforgeAudioService service = EnsureInstance();
+            service.HandleSceneLoaded(
+                SceneManager.GetActiveScene(),
+                LoadSceneMode.Single);
         }
 
         public static void SetMuted(bool value)
@@ -155,6 +236,24 @@ namespace RuleforgeTD.Audio
             EnsureInstance().Play(SoundCue.UiRelease);
         }
 
+        public static void PlayMenuMusic(
+            float fadeDuration = MusicCrossfadeDuration)
+        {
+            EnsureInstance().PlayMusic(
+                MusicCue.Menu,
+                fadeDuration);
+        }
+
+        public static void PlayMusicForPhase(
+            RunPhase phase,
+            float fadeDuration = MusicCrossfadeDuration)
+        {
+            MusicCue cue = phase == RunPhase.Combat
+                ? MusicCue.Battle
+                : MusicCue.Planning;
+            EnsureInstance().PlayMusic(cue, fadeDuration);
+        }
+
         public static void PlayPresentationEvent(
             PresentationEventType eventType)
         {
@@ -180,6 +279,8 @@ namespace RuleforgeTD.Audio
             if (instance != null)
             {
                 instance.EnsureOutput();
+                instance.EnsureMusicOutputs();
+                instance.EnsureSceneHook();
                 return instance;
             }
 
@@ -190,6 +291,8 @@ namespace RuleforgeTD.Audio
             DontDestroyOnLoad(host);
             instance = host.GetComponent<RuleforgeAudioService>();
             instance.EnsureOutput();
+            instance.EnsureMusicOutputs();
+            instance.EnsureSceneHook();
             return instance;
         }
 
@@ -204,12 +307,20 @@ namespace RuleforgeTD.Audio
             instance = this;
             DontDestroyOnLoad(gameObject);
             EnsureOutput();
+            EnsureMusicOutputs();
+            EnsureSceneHook();
             EnsureMuteStateLoaded();
             ApplyMuteState();
         }
 
         private void OnDestroy()
         {
+            if (sceneHooked)
+            {
+                SceneManager.sceneLoaded -= HandleSceneLoaded;
+                sceneHooked = false;
+            }
+
             if (instance == this)
             {
                 instance = null;
@@ -232,6 +343,316 @@ namespace RuleforgeTD.Audio
             output.loop = false;
             output.spatialBlend = 0f;
             output.ignoreListenerPause = true;
+        }
+
+        private void EnsureMusicOutputs()
+        {
+            for (int deck = 0; deck < musicPrimaryOutputs.Length; deck++)
+            {
+                if (musicPrimaryOutputs[deck] != null &&
+                    musicLoopOutputs[deck] != null)
+                {
+                    continue;
+                }
+
+                string deckName = deck == 0 ? "A" : "B";
+                musicPrimaryOutputs[deck] = CreateMusicOutput(
+                    "Music Deck " + deckName + " Primary");
+                musicLoopOutputs[deck] = CreateMusicOutput(
+                    "Music Deck " + deckName + " Loop");
+            }
+        }
+
+        private AudioSource CreateMusicOutput(string objectName)
+        {
+            var host = new GameObject(
+                objectName,
+                typeof(AudioSource));
+            host.transform.SetParent(transform, false);
+            AudioSource source = host.GetComponent<AudioSource>();
+            source.playOnAwake = false;
+            source.loop = false;
+            source.spatialBlend = 0f;
+            source.ignoreListenerPause = true;
+            source.priority = 0;
+            source.volume = 0f;
+            return source;
+        }
+
+        private void EnsureSceneHook()
+        {
+            if (sceneHooked)
+            {
+                return;
+            }
+
+            SceneManager.sceneLoaded += HandleSceneLoaded;
+            sceneHooked = true;
+        }
+
+        private void HandleSceneLoaded(
+            Scene scene,
+            LoadSceneMode mode)
+        {
+            if (string.Equals(
+                    scene.name,
+                    "MainMenu",
+                    System.StringComparison.Ordinal))
+            {
+                PlayMusic(
+                    MusicCue.Menu,
+                    activeMusicDeck < 0
+                        ? InitialMusicFadeDuration
+                        : MusicCrossfadeDuration);
+            }
+        }
+
+        private void PlayMusic(
+            MusicCue cue,
+            float fadeDuration)
+        {
+            EnsureMusicOutputs();
+            if (cue == MusicCue.None ||
+                (activeMusicDeck >= 0 &&
+                 musicDeckCues[activeMusicDeck] == cue))
+            {
+                return;
+            }
+
+            int outgoingDeck = activeMusicDeck;
+            int incomingDeck = outgoingDeck == 0 ? 1 : 0;
+            if (!ConfigureMusicDeck(incomingDeck, cue))
+            {
+                return;
+            }
+
+            if (musicCrossfadeRoutine != null)
+            {
+                StopCoroutine(musicCrossfadeRoutine);
+                musicCrossfadeRoutine = null;
+            }
+
+            activeMusicDeck = incomingDeck;
+            CurrentMusicCue = cue;
+            float duration = Mathf.Max(0f, fadeDuration);
+            if (duration <= 0.0001f)
+            {
+                SetMusicDeckMix(incomingDeck, 1f);
+                StopMusicDeck(outgoingDeck);
+                return;
+            }
+
+            musicCrossfadeRoutine = StartCoroutine(
+                CrossfadeMusicDecks(
+                    outgoingDeck,
+                    incomingDeck,
+                    duration));
+        }
+
+        private bool ConfigureMusicDeck(
+            int deck,
+            MusicCue cue)
+        {
+            StopMusicDeck(deck);
+            AudioSource primary = musicPrimaryOutputs[deck];
+            AudioSource loop = musicLoopOutputs[deck];
+            if (cue == MusicCue.Battle)
+            {
+                AudioClip introClip = GetMusicClip(
+                    MusicCue.Battle,
+                    false);
+                AudioClip loopClip = GetMusicClip(
+                    MusicCue.Battle,
+                    true);
+                if (introClip == null || loopClip == null)
+                {
+                    WarnMissingMusic(
+                        introClip == null
+                            ? BattleIntroResourcePath
+                            : BattleLoopResourcePath);
+                    return false;
+                }
+
+                primary.clip = introClip;
+                primary.loop = false;
+                loop.clip = loopClip;
+                loop.loop = true;
+                double startTime = AudioSettings.dspTime + 0.10d;
+                primary.PlayScheduled(startTime);
+                loop.PlayScheduled(
+                    startTime +
+                    introClip.samples /
+                    (double)introClip.frequency);
+            }
+            else
+            {
+                AudioClip clip = GetMusicClip(cue, false);
+                if (clip == null)
+                {
+                    WarnMissingMusic(GetMusicResourcePath(cue));
+                    return false;
+                }
+
+                primary.clip = clip;
+                primary.loop = true;
+                primary.Play();
+            }
+
+            musicDeckCues[deck] = cue;
+            SetMusicDeckMix(deck, 0f);
+            return true;
+        }
+
+        private IEnumerator CrossfadeMusicDecks(
+            int outgoingDeck,
+            int incomingDeck,
+            float duration)
+        {
+            float outgoingStart = outgoingDeck >= 0
+                ? musicDeckMix[outgoingDeck]
+                : 0f;
+            float incomingStart = musicDeckMix[incomingDeck];
+            float elapsed = 0f;
+            while (elapsed < duration)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                float normalized = Mathf.Clamp01(elapsed / duration);
+                float eased = normalized * normalized *
+                              (3f - 2f * normalized);
+                if (outgoingDeck >= 0)
+                {
+                    SetMusicDeckMix(
+                        outgoingDeck,
+                        Mathf.Lerp(outgoingStart, 0f, eased));
+                }
+
+                SetMusicDeckMix(
+                    incomingDeck,
+                    Mathf.Lerp(incomingStart, 1f, eased));
+                yield return null;
+            }
+
+            SetMusicDeckMix(incomingDeck, 1f);
+            StopMusicDeck(outgoingDeck);
+            musicCrossfadeRoutine = null;
+        }
+
+        private void SetMusicDeckMix(int deck, float mix)
+        {
+            if (deck < 0 || deck >= musicDeckMix.Length)
+            {
+                return;
+            }
+
+            float clamped = Mathf.Clamp01(mix);
+            musicDeckMix[deck] = clamped;
+            float volume = GetMusicVolume(musicDeckCues[deck]) * clamped;
+            if (musicPrimaryOutputs[deck] != null)
+            {
+                musicPrimaryOutputs[deck].volume = volume;
+            }
+
+            if (musicLoopOutputs[deck] != null)
+            {
+                musicLoopOutputs[deck].volume = volume;
+            }
+        }
+
+        private void StopMusicDeck(int deck)
+        {
+            if (deck < 0 || deck >= musicDeckCues.Length)
+            {
+                return;
+            }
+
+            StopMusicOutput(musicPrimaryOutputs[deck]);
+            StopMusicOutput(musicLoopOutputs[deck]);
+            musicDeckCues[deck] = MusicCue.None;
+            musicDeckMix[deck] = 0f;
+        }
+
+        private static void StopMusicOutput(AudioSource source)
+        {
+            if (source == null)
+            {
+                return;
+            }
+
+            source.Stop();
+            source.clip = null;
+            source.loop = false;
+            source.volume = 0f;
+        }
+
+        private AudioClip GetMusicClip(
+            MusicCue cue,
+            bool loopSegment)
+        {
+            switch (cue)
+            {
+                case MusicCue.Menu:
+                    return menuMusicClip != null
+                        ? menuMusicClip
+                        : menuMusicClip = Resources.Load<AudioClip>(
+                            MenuMusicResourcePath);
+                case MusicCue.Planning:
+                    return planningMusicClip != null
+                        ? planningMusicClip
+                        : planningMusicClip = Resources.Load<AudioClip>(
+                            PlanningMusicResourcePath);
+                case MusicCue.Battle:
+                    if (loopSegment)
+                    {
+                        return battleLoopClip != null
+                            ? battleLoopClip
+                            : battleLoopClip = Resources.Load<AudioClip>(
+                                BattleLoopResourcePath);
+                    }
+
+                    return battleIntroClip != null
+                        ? battleIntroClip
+                        : battleIntroClip = Resources.Load<AudioClip>(
+                            BattleIntroResourcePath);
+                default:
+                    return null;
+            }
+        }
+
+        private static string GetMusicResourcePath(MusicCue cue)
+        {
+            switch (cue)
+            {
+                case MusicCue.Menu:
+                    return MenuMusicResourcePath;
+                case MusicCue.Planning:
+                    return PlanningMusicResourcePath;
+                case MusicCue.Battle:
+                    return BattleIntroResourcePath;
+                default:
+                    return string.Empty;
+            }
+        }
+
+        private static float GetMusicVolume(MusicCue cue)
+        {
+            switch (cue)
+            {
+                case MusicCue.Menu:
+                    return MenuMusicVolume;
+                case MusicCue.Planning:
+                    return PlanningMusicVolume;
+                case MusicCue.Battle:
+                    return BattleMusicVolume;
+                default:
+                    return 0f;
+            }
+        }
+
+        private void WarnMissingMusic(string resourcePath)
+        {
+            Debug.LogWarning(
+                "Ruleforge music clip is missing: " + resourcePath,
+                this);
         }
 
         private static void EnsureMuteStateLoaded()

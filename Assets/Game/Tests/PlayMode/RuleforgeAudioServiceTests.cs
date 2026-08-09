@@ -47,6 +47,78 @@ namespace RuleforgeTD.Tests.PlayMode
         }
 
         [Test]
+        public void Resources_ContainAllConfiguredMusicTracks()
+        {
+            AssertClipExists(
+                RuleforgeAudioService.MenuMusicResourcePath);
+            AssertClipExists(
+                RuleforgeAudioService.PlanningMusicResourcePath);
+            AssertClipExists(
+                RuleforgeAudioService.BattleIntroResourcePath);
+            AssertClipExists(
+                RuleforgeAudioService.BattleLoopResourcePath);
+        }
+
+        [Test]
+        public void MusicState_UsesPlanningAndScheduledBattleLayers()
+        {
+            RuleforgeAudioService.PlayMusicForPhase(
+                RunPhase.Planning,
+                0f);
+            RuleforgeAudioService service =
+                Object.FindObjectOfType<RuleforgeAudioService>();
+            Assert.That(service, Is.Not.Null);
+            Assert.That(
+                service.CurrentMusicCue,
+                Is.EqualTo(
+                    RuleforgeAudioService.MusicCue.Planning));
+            Assert.That(service.ActiveMusicLayerCount, Is.EqualTo(1));
+
+            RuleforgeAudioService.PlayMusicForPhase(
+                RunPhase.Combat,
+                0f);
+            Assert.That(
+                service.CurrentMusicCue,
+                Is.EqualTo(
+                    RuleforgeAudioService.MusicCue.Battle));
+            Assert.That(
+                service.ActiveMusicLayerCount,
+                Is.EqualTo(2),
+                "Battle music must schedule one intro and one loop layer.");
+
+            RuleforgeAudioService.PlayMusicForPhase(
+                RunPhase.Draft,
+                0f);
+            Assert.That(
+                service.CurrentMusicCue,
+                Is.EqualTo(
+                    RuleforgeAudioService.MusicCue.Planning));
+            Assert.That(service.ActiveMusicLayerCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void BattleSegments_MatchAnalyzedLoopDurations()
+        {
+            AudioClip intro = Resources.Load<AudioClip>(
+                RuleforgeAudioService.BattleIntroResourcePath);
+            AudioClip loop = Resources.Load<AudioClip>(
+                RuleforgeAudioService.BattleLoopResourcePath);
+
+            Assert.That(intro.channels, Is.EqualTo(2));
+            Assert.That(loop.channels, Is.EqualTo(2));
+            Assert.That(
+                intro.length,
+                Is.EqualTo(
+                    RuleforgeAudioService.BattleIntroDuration)
+                    .Within(0.02f));
+            Assert.That(
+                loop.length,
+                Is.EqualTo(
+                    RuleforgeAudioService.BattleLoopDuration)
+                    .Within(0.02f));
+        }
+
+        [Test]
         public void PixelButton_PlaysMediumWoodDownAndLightWoodUp()
         {
             var eventSystemHost = new GameObject(

@@ -3116,6 +3116,7 @@ namespace RuleforgeTD.Battle
             }
 
             lastPresentedPhase = snapshot.Phase;
+            RuleforgeAudioService.PlayMusicForPhase(snapshot.Phase);
             switch (snapshot.Phase)
             {
                 case RunPhase.AwaitingStartingTower:
