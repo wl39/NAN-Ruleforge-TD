@@ -28,7 +28,7 @@ namespace RuleforgeTD.Tests.EditMode.GameLogic
             ContentCatalogDto source =
                 JsonUtility.FromJson<ContentCatalogDto>(
                     asset.text);
-            content = ContentCompiler.Compile(
+            content = EffectContentCompiler.Compile(
                 source,
                 GameSimulation.IsEffectOperationSupported);
             simulation = new GameSimulation();
@@ -114,22 +114,22 @@ namespace RuleforgeTD.Tests.EditMode.GameLogic
                         limit: 2));
             }
 
-            ProjectileEffectVisualFlags expected =
-                ProjectileEffectVisualFlags.Curse |
-                ProjectileEffectVisualFlags.Bind |
-                ProjectileEffectVisualFlags.Airborne |
-                ProjectileEffectVisualFlags.Shock |
-                ProjectileEffectVisualFlags.Freeze |
-                ProjectileEffectVisualFlags.Afterimage |
-                ProjectileEffectVisualFlags.Pulse |
-                ProjectileEffectVisualFlags.Magnet |
-                ProjectileEffectVisualFlags.Reflect |
-                ProjectileEffectVisualFlags.Contagion |
-                ProjectileEffectVisualFlags.Seal |
-                ProjectileEffectVisualFlags.Corrosion |
-                ProjectileEffectVisualFlags.Orbit |
-                ProjectileEffectVisualFlags.Lifesteal |
-                ProjectileEffectVisualFlags.Fear;
+            CardEffectVisualFlags expected =
+                CardEffectVisualFlags.Curse |
+                CardEffectVisualFlags.Bind |
+                CardEffectVisualFlags.Airborne |
+                CardEffectVisualFlags.Shock |
+                CardEffectVisualFlags.Freeze |
+                CardEffectVisualFlags.Afterimage |
+                CardEffectVisualFlags.Pulse |
+                CardEffectVisualFlags.Magnet |
+                CardEffectVisualFlags.Reflect |
+                CardEffectVisualFlags.Contagion |
+                CardEffectVisualFlags.Seal |
+                CardEffectVisualFlags.Corrosion |
+                CardEffectVisualFlags.Orbit |
+                CardEffectVisualFlags.Lifesteal |
+                CardEffectVisualFlags.Fear;
             Assert.That(
                 simulation.GetProjectileUncommonEffectFlags(
                     projectile.Id),
@@ -999,10 +999,22 @@ namespace RuleforgeTD.Tests.EditMode.GameLogic
                 target.ReadPresentationEvents();
             for (int i = 0; i < events.Count; i++)
             {
-                if (events[i].Type ==
-                        PresentationEventType.EffectTriggered &&
+                if ((events[i].Type ==
+                         PresentationEventType.EffectTriggered ||
+                     events[i].Type ==
+                         PresentationEventType.AreaEffectTriggered) &&
                     events[i].ContentId == contentId)
                 {
+                    if (events[i].Type ==
+                        PresentationEventType.AreaEffectTriggered)
+                    {
+                        Assert.That(events[i].Value, Is.GreaterThan(0));
+                        Assert.That(
+                            events[i].HasEffectPosition,
+                            Is.True,
+                            "Area effects must carry their authoritative " +
+                            "simulation center.");
+                    }
                     return;
                 }
             }

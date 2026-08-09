@@ -106,6 +106,21 @@ namespace RuleforgeTD.GameLogic.Simulation
                 return;
             }
 
+            GameEvent diagnosticEvent =
+                CreateDiagnosticEvent(
+                    EventType.EnemySplit,
+                    ChainId.Invalid,
+                    TowerId.Invalid,
+                    CardId.Invalid,
+                    EntityId.Invalid,
+                    SubjectType.Enemy);
+            if (!TryPassSandboxEnemyCreationGate(
+                    1,
+                    in diagnosticEvent))
+            {
+                return;
+            }
+
             // 임계값은 출현 기회를 예약한 시점에 소비한다. 운반 몬스터가
             // 탈출하면 같은 임계값으로 재생성하지 않는다.
             nextCardPackThresholdIndex++;
@@ -501,7 +516,7 @@ namespace RuleforgeTD.GameLogic.Simulation
                 CompiledTowerDefinition tower =
                     content.GetTower(towers[i].DefinitionId);
                 CompiledTowerLevelBalance maximumLevel =
-                    tower.GetLevel(7);
+                    tower.GetLevel(tower.MaxLevel);
                 if (card.SlotCost <= tower.SlotCount &&
                     card.ComputeCost <=
                         (maximumLevel == null
@@ -663,6 +678,10 @@ namespace RuleforgeTD.GameLogic.Simulation
                 {
                     continue;
                 }
+                if (IsEnemyRareTimeStopped(boss))
+                {
+                    continue;
+                }
 
                 CompiledEnemyDefinition definition =
                     content.GetEnemy(boss.DefinitionId);
@@ -806,6 +825,31 @@ namespace RuleforgeTD.GameLogic.Simulation
                     0,
                     definition.BossMaxActiveSummons -
                     activeSummons));
+            allowed = Math.Min(
+                allowed,
+                Math.Max(
+                    0,
+                    content.Safety.MaxActiveEnemies -
+                    enemies.Count));
+            if (allowed > 0)
+            {
+                GameEvent diagnosticEvent =
+                    CreateDiagnosticEvent(
+                        EventType.EnemySplit,
+                        ChainId.Invalid,
+                        TowerId.Invalid,
+                        CardId.Invalid,
+                        boss.Id,
+                        SubjectType.Enemy);
+                if (!TryPassSandboxEnemyCreationGate(
+                        allowed,
+                        in diagnosticEvent))
+                {
+                    // 보스 소환은 한 묶음이다. 일부만 만들면 같은 seed에서도
+                    // UI cap 변경 시 조합이 달라지므로 전체 배치를 원자적으로 거절한다.
+                    allowed = 0;
+                }
+            }
             for (int i = 0; i < allowed; i++)
             {
                 SpawnEnemy(

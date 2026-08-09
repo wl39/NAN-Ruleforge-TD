@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <AssemblyName>RuleforgeTD.GameLogic</AssemblyName>
+    <RootNamespace>RuleforgeTD.GameLogic</RootNamespace>
+    <LangVersion>9.0</LangVersion>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile
+      Include="../../Assets/Game/GameLogic/**/*.cs"
+      Link="GameLogic/%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+</Project>

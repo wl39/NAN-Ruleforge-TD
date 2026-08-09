@@ -22,15 +22,8 @@ namespace RuleforgeTD.Simulation
                         "ballista",
                         0)));
 
-            Require(
-                simulation.Submit(
-                    GameCommand.EquipCard(0, 0, 0)));
-            Require(
-                simulation.Submit(
-                    GameCommand.EquipCard(1, 0, 1)));
-            Require(
-                simulation.Submit(
-                    GameCommand.EquipCard(2, 0, 2)));
+            UnlockAllStarterTowerSlots(simulation);
+            EquipAvailableCards(simulation);
             Require(simulation.Submit(GameCommand.StartWave()));
             return simulation;
         }
@@ -69,6 +62,47 @@ namespace RuleforgeTD.Simulation
             }
         }
 
+        private static void UnlockAllStarterTowerSlots(
+            GameSimulation simulation)
+        {
+            SimulationSnapshot snapshot =
+                simulation.GetSnapshot();
+            if (snapshot.Towers.Length != 1)
+            {
+                throw new InvalidOperationException(
+                    "Reference replay requires exactly one starter tower.");
+            }
+
+            TowerSnapshot tower = snapshot.Towers[0];
+            int targetSlotCount =
+                tower.CardInstanceIds.Length;
+            while (simulation.GetTowerUnlockedSlotCount(tower.Id) <
+                   targetSlotCount)
+            {
+                TowerUpgradeQuote quote =
+                    simulation.GetTowerUpgradeQuote(tower.Id);
+                if (!quote.HasNextLevel || !quote.IsEligible)
+                {
+                    throw new InvalidOperationException(
+                        "Reference replay cannot unlock every starter " +
+                        "tower card slot.");
+                }
+
+                if (quote.Cost > 0)
+                {
+                    Require(
+                        simulation.Submit(
+                            GameCommand.GrantDebugGold(
+                                quote.Cost)));
+                }
+
+                Require(
+                    simulation.Submit(
+                        GameCommand.UpgradeTower(
+                            tower.Id)));
+            }
+        }
+
         private static void EquipAvailableCards(
             GameSimulation simulation)
         {
@@ -96,8 +130,11 @@ namespace RuleforgeTD.Simulation
                     {
                         TowerSnapshot tower =
                             snapshot.Towers[towerIndex];
+                        int unlockedSlotCount =
+                            simulation.GetTowerUnlockedSlotCount(
+                                tower.Id);
                         for (int slot = 0;
-                             slot < tower.CardInstanceIds.Length;
+                             slot < unlockedSlotCount;
                              slot++)
                         {
                             if (tower.CardInstanceIds[slot] >= 0)
@@ -115,6 +152,16 @@ namespace RuleforgeTD.Simulation
                             {
                                 equippedOne = true;
                                 break;
+                            }
+
+                            if (result.Error !=
+                                    CommandError.SlotOutOfRange &&
+                                result.Error !=
+                                    CommandError.SlotOccupied &&
+                                result.Error !=
+                                    CommandError.ComputeCapacityExceeded)
+                            {
+                                Require(result);
                             }
                         }
                     }
@@ -134,8 +181,10 @@ namespace RuleforgeTD.Simulation
             {
                 SimulationSnapshot snapshot =
                     simulation.GetSnapshot();
-                if (snapshot.Gold <
-                        snapshot.TowerConstructionCost ||
+                TowerConstructionQuote constructionQuote =
+                    simulation.GetTowerConstructionQuote(
+                        "ballista");
+                if (!constructionQuote.CanConstruct ||
                     snapshot.Towers.Length >=
                         snapshot.BuildSpots.Length)
                 {

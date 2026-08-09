@@ -149,53 +149,21 @@ namespace RuleforgeTD.GameLogic.Simulation
 
             CompiledTowerDefinition definition =
                 content.GetTower(definitionId);
-            int constructionCost =
-                GetTowerConstructionCost(definitionId);
-            if (gold < constructionCost)
+            TowerConstructionQuote constructionQuote =
+                CreateTowerConstructionQuote(
+                    definitionId,
+                    definition.StableId);
+            if (!constructionQuote.CanAfford)
             {
                 return CommandResult.Reject(
                     CommandError.InsufficientGold,
                     "Not enough gold to construct this tower.");
             }
 
-            // 정의에서 슬롯 수를 읽어 런 전용 타워 상태를 만든다.
-            var tower = new TowerState
-            {
-                Id = new TowerId(nextTowerId++),
-                DefinitionId = definitionId,
-                BuildPointIndex = buildPointIndex,
-                Position = run.BuildSpotsInternal[buildPointIndex],
-                Level = 1,
-                SubjectType = definition.SubjectTypeMode ==
-                    SubjectTypeMode.Enemy
-                        ? SubjectType.Enemy
-                        : SubjectType.Projectile,
-                CardInstanceIds = new int[definition.SlotCount],
-                CardSubjectTypes =
-                    new SubjectType[definition.SlotCount],
-                Program = new CardId[0],
-                ProgramInstances = new int[0],
-                ProgramSubjectTypes = new SubjectType[0]
-            };
-
-            // 슬롯의 -1은 “비어 있음”을 뜻한다. 새 int 배열의 기본값 0은 카드 0번과
-            // 구분되지 않으므로 모든 칸을 명시적으로 -1로 초기화해야 한다.
-            for (int slot = 0; slot < tower.CardInstanceIds.Length; slot++)
-            {
-                tower.CardInstanceIds[slot] = -1;
-                tower.CardSubjectTypes[slot] = tower.SubjectType;
-            }
-
-            gold = checked(gold - constructionCost);
-            towers.Add(tower);
-
-            // 표현 계층은 내부 TowerState를 직접 관찰하지 않고 이 이벤트로 배치 연출을 만든다.
-            AddPresentation(
-                PresentationEventType.TowerPlaced,
-                tower.Id.Value,
-                buildPointIndex,
-                0,
-                definition.StableId);
+            gold = checked(gold - constructionQuote.Cost);
+            CreateTowerInstance(
+                definitionId,
+                buildPointIndex);
             return CommandResult.Success();
         }
 
@@ -244,31 +212,31 @@ namespace RuleforgeTD.GameLogic.Simulation
                     "Tower instance does not exist.");
             }
 
-            if (tower.Level >= 7)
+            TowerUpgradeQuote upgradeQuote =
+                CreateTowerUpgradeQuote(tower);
+            if (upgradeQuote.IsMaximumLevel)
             {
                 return CommandResult.Reject(
                     CommandError.InvalidTarget,
                     "Tower is already at maximum level.");
             }
 
-            int upgradeCost =
-                GetTowerUpgradeCost(towerInstanceId);
-            if (upgradeCost < 0)
+            if (!upgradeQuote.HasNextLevel)
             {
                 return CommandResult.Reject(
                     CommandError.InvalidTarget,
                     "Tower upgrade data is unavailable.");
             }
 
-            if (gold < upgradeCost)
+            if (!upgradeQuote.CanAfford)
             {
                 return CommandResult.Reject(
                     CommandError.InsufficientGold,
                     "Not enough gold to upgrade this tower.");
             }
 
-            gold = checked(gold - upgradeCost);
-            tower.Level++;
+            gold = checked(gold - upgradeQuote.Cost);
+            tower.Level = upgradeQuote.TargetLevel;
             AddPresentation(
                 PresentationEventType.TowerUpgraded,
                 tower.Id.Value,
@@ -420,10 +388,12 @@ namespace RuleforgeTD.GameLogic.Simulation
         private CommandResult EquipCard(
             int cardInstanceId,
             int towerInstanceId,
-            int slotIndex)
+            int slotIndex,
+            bool bypassPhaseLock = false)
         {
             // 카드 배열은 전투 시작 후 프로그램처럼 고정되어야 하므로 계획 단계만 편집 가능하다.
-            if (!IsLoadoutEditablePhase())
+            if (!bypassPhaseLock &&
+                !IsLoadoutEditablePhase())
             {
                 return CommandResult.Reject(
                     phase == RunPhase.Combat
@@ -510,55 +480,59 @@ namespace RuleforgeTD.GameLogic.Simulation
 
         private bool IsLoadoutEditablePhase()
         {
-            return phase == RunPhase.Planning ||
+            return sandboxTestingMode ||
+                   phase == RunPhase.Planning ||
                    phase == RunPhase.CardPackLoadout;
         }
 
         /// <summary>
-        /// 레벨 1~3은 한 장, 4~5는 두 장, 6~7은 세 장을 장착할 수 있다.
-        /// 타워 정의의 실제 슬롯 수가 더 작으면 호출부에서 그 수로 제한한다.
+        /// 현재 런에서 이 타워를 한 기 건설할 때의 비용과 가능 여부다.
+        /// 무료 건설 수와 중복 할증을 포함한 모든 경제 정책은 이 조회에서만 계산한다.
         /// </summary>
-        public static int GetTowerCardCapacityForLevel(int towerLevel)
+        public TowerConstructionQuote GetTowerConstructionQuote(
+            string stableId)
         {
-            int clampedLevel =
-                Math.Max(1, Math.Min(7, towerLevel));
-            if (clampedLevel <= 3)
+            EnsureInitialized();
+            if (!content.TryGetTowerId(
+                    stableId,
+                    out TowerDefinitionId definitionId))
             {
-                return 1;
+                return new TowerConstructionQuote(
+                    stableId,
+                    0,
+                    false,
+                    false,
+                    false,
+                    false);
             }
 
-            return clampedLevel <= 5 ? 2 : 3;
+            return CreateTowerConstructionQuote(
+                definitionId,
+                stableId);
         }
 
-        /// <summary>
-        /// 현재 런에서 이 타워를 다음 건설 지점에 놓을 때 지불할 가격이다.
-        /// 첫 타워는 무료이고, 이후에는 같은 종류의 기존 타워 수만큼 중복 할증한다.
-        /// </summary>
-        public int GetTowerConstructionCost(string stableId)
+        /// <summary>다음 레벨 비용, 최대 레벨, 단계 및 골드 판정을 함께 반환한다.</summary>
+        public TowerUpgradeQuote GetTowerUpgradeQuote(
+            int towerInstanceId)
         {
-            return content.TryGetTowerId(
-                    stableId,
-                    out TowerDefinitionId definitionId)
-                ? GetTowerConstructionCost(definitionId)
-                : -1;
-        }
-
-        /// <summary>다음 레벨 업그레이드 가격이며 최대 레벨이나 잘못된 ID는 -1이다.</summary>
-        public int GetTowerUpgradeCost(int towerInstanceId)
-        {
+            EnsureInitialized();
             TowerState tower =
                 FindTower(new TowerId(towerInstanceId));
-            if (tower == null || tower.Level >= 7)
+            if (tower == null)
             {
-                return -1;
+                return new TowerUpgradeQuote(
+                    towerInstanceId,
+                    0,
+                    0,
+                    0,
+                    0,
+                    false,
+                    false,
+                    false,
+                    false);
             }
 
-            CompiledTowerLevelBalance nextLevel =
-                content.GetTower(tower.DefinitionId)
-                    .GetLevel(tower.Level + 1);
-            return nextLevel == null
-                ? -1
-                : nextLevel.UpgradeCost;
+            return CreateTowerUpgradeQuote(tower);
         }
 
         /// <summary>현재 레벨에 열린 카드 슬롯 수다.</summary>
@@ -581,10 +555,33 @@ namespace RuleforgeTD.GameLogic.Simulation
                 : GetTowerLevelBalance(tower).RangeMilli;
         }
 
-        private int GetTowerConstructionCost(
+        private TowerConstructionQuote CreateTowerConstructionQuote(
+            TowerDefinitionId definitionId,
+            string stableId)
+        {
+            bool isUnlocked =
+                ownedTowerDefinitions.Contains(
+                    definitionId.Value);
+            bool isEligible =
+                isUnlocked &&
+                (phase == RunPhase.Planning ||
+                 phase == RunPhase.Combat);
+            int constructionCost =
+                CalculateTowerConstructionCost(
+                    definitionId);
+            return new TowerConstructionQuote(
+                stableId,
+                constructionCost,
+                true,
+                isUnlocked,
+                isEligible,
+                gold >= constructionCost);
+        }
+
+        private int CalculateTowerConstructionCost(
             TowerDefinitionId definitionId)
         {
-            if (towers.Count == 0)
+            if (towers.Count < run.FreeInitialTowerCount)
             {
                 return 0;
             }
@@ -602,14 +599,47 @@ namespace RuleforgeTD.GameLogic.Simulation
             }
 
             long multiplierBps =
-                10_000L +
+                DeterministicMath.BasisPointScale +
                 (long)definition.DuplicateCostStepBps *
                 sameTypeCount;
             long scaled =
                 (long)definition.ConstructionCost *
                 multiplierBps;
-            long roundedUp = (scaled + 9_999L) / 10_000L;
+            long roundedUp =
+                (scaled +
+                 DeterministicMath.BasisPointScale -
+                 1L) /
+                DeterministicMath.BasisPointScale;
             return (int)Math.Min(int.MaxValue, roundedUp);
+        }
+
+        private TowerUpgradeQuote CreateTowerUpgradeQuote(
+            TowerState tower)
+        {
+            CompiledTowerDefinition definition =
+                content.GetTower(tower.DefinitionId);
+            bool hasNextLevel =
+                definition.TryGetLevel(
+                    tower.Level + 1,
+                    out CompiledTowerLevelBalance nextLevel);
+            int cost = hasNextLevel
+                ? nextLevel.UpgradeCost
+                : 0;
+            bool isEligible =
+                hasNextLevel &&
+                IsLoadoutEditablePhase();
+            return new TowerUpgradeQuote(
+                tower.Id.Value,
+                tower.Level,
+                definition.MaxLevel,
+                hasNextLevel
+                    ? tower.Level + 1
+                    : tower.Level,
+                cost,
+                true,
+                hasNextLevel,
+                isEligible,
+                hasNextLevel && gold >= cost);
         }
 
         private CompiledTowerLevelBalance GetTowerLevelBalance(
@@ -617,36 +647,17 @@ namespace RuleforgeTD.GameLogic.Simulation
         {
             CompiledTowerDefinition definition =
                 content.GetTower(tower.DefinitionId);
-            CompiledTowerLevelBalance level =
-                definition.GetLevel(tower.Level);
-            if (level != null)
+            if (definition.TryGetLevel(
+                    tower.Level,
+                    out CompiledTowerLevelBalance level))
             {
                 return level;
             }
 
-            // 구형 콘텐츠를 읽을 때만 사용하는 안전망이다.
-            return new CompiledTowerLevelBalance
-            {
-                UnlockedSlots = Math.Min(
-                    definition.SlotCount,
-                    GetTowerCardCapacityForLevel(tower.Level)),
-                ComputeCapacity = definition.ComputeCapacity,
-                CooldownTicks = definition.CooldownTicks,
-                RangeMilli = definition.RangeMilli,
-                SelectorRadiusMilli =
-                    definition.SelectorRadiusMilli,
-                TargetLimit = definition.TargetLimit,
-                PerTargetCooldownTicks =
-                    definition.PerTargetCooldownTicks,
-                VolleyCount =
-                    definition.Trigger == TowerTrigger.Attack
-                        ? tower.Level <= 1
-                            ? 1
-                            : tower.Level <= 5
-                                ? 2
-                                : 3
-                        : 0
-            };
+            throw new InvalidOperationException(
+                "Tower '" + definition.StableId +
+                "' has no level balance for level " +
+                tower.Level + ".");
         }
 
         private int GetTowerUnlockedSlotCount(TowerState tower)
@@ -689,11 +700,155 @@ namespace RuleforgeTD.GameLogic.Simulation
         }
 
         /// <summary>
-        /// 장착된 카드를 타워에서 빼고 보유 카드 목록으로 되돌린다.
+        /// 목적 슬롯의 기존 카드를 제거하고 새 카드를 한 번에 배치한다.
+        /// 모든 범위·슬롯·연산력 검증을 복사본에서 마친 뒤 상태를 바꾸므로
+        /// 실패해도 기존 장착 구성이 그대로 유지된다.
         /// </summary>
-        private CommandResult UnequipCard(int cardInstanceId)
+        private CommandResult ReplaceCard(
+            int cardInstanceId,
+            int towerInstanceId,
+            int slotIndex)
         {
             if (!IsLoadoutEditablePhase())
+            {
+                return CommandResult.Reject(
+                    phase == RunPhase.Combat
+                        ? CommandError.CombatLoadoutLocked
+                        : CommandError.InvalidPhase,
+                    "Cards cannot be replaced during combat.");
+            }
+
+            CardInstanceState replacement =
+                FindCardInstance(cardInstanceId);
+            TowerState tower =
+                FindTower(new TowerId(towerInstanceId));
+            int unlockedSlotCount = tower == null
+                ? 0
+                : GetTowerUnlockedSlotCount(tower);
+            if (replacement == null ||
+                tower == null ||
+                slotIndex < 0 ||
+                slotIndex >= unlockedSlotCount)
+            {
+                return CommandResult.Reject(
+                    CommandError.SlotOutOfRange,
+                    "Card, tower, or replacement slot does not exist.");
+            }
+
+            int displacedCardInstanceId =
+                tower.CardInstanceIds[slotIndex];
+            if (displacedCardInstanceId < 0 ||
+                displacedCardInstanceId == cardInstanceId)
+            {
+                return CommandResult.Reject(
+                    CommandError.InvalidTarget,
+                    "The replacement slot must contain another card.");
+            }
+
+            CardInstanceState displaced =
+                FindCardInstance(displacedCardInstanceId);
+            if (displaced == null ||
+                displaced.EquippedSlot != slotIndex)
+            {
+                return CommandResult.Reject(
+                    CommandError.InvalidTarget,
+                    "Only a card's primary slot can be replaced.");
+            }
+
+            CompiledCardDefinition replacementDefinition =
+                content.GetCard(replacement.DefinitionId);
+            int[] candidateSlots =
+                (int[])tower.CardInstanceIds.Clone();
+            ClearCardFromSlots(
+                candidateSlots,
+                displacedCardInstanceId);
+            ClearCardFromSlots(
+                candidateSlots,
+                cardInstanceId);
+            if (slotIndex + replacementDefinition.SlotCost >
+                    unlockedSlotCount ||
+                !CanPlaceCardInSlots(
+                    candidateSlots,
+                    cardInstanceId,
+                    replacementDefinition.SlotCost,
+                    slotIndex))
+            {
+                return CommandResult.Reject(
+                    CommandError.SlotOccupied,
+                    "Replacement card does not fit in the target slot.");
+            }
+
+            PlaceCardInSlots(
+                candidateSlots,
+                cardInstanceId,
+                replacementDefinition.SlotCost,
+                slotIndex);
+            int candidateComputeCost = 0;
+            for (int slot = 0;
+                 slot < unlockedSlotCount;
+                 slot++)
+            {
+                int candidateCardId = candidateSlots[slot];
+                if (candidateCardId < 0)
+                {
+                    continue;
+                }
+
+                CardInstanceState candidateCard =
+                    FindCardInstance(candidateCardId);
+                if (candidateCard != null)
+                {
+                    candidateComputeCost +=
+                        content.GetCard(
+                            candidateCard.DefinitionId)
+                            .ComputeCost;
+                }
+            }
+
+            if (candidateComputeCost >
+                GetTowerLevelBalance(tower).ComputeCapacity)
+            {
+                return CommandResult.Reject(
+                    CommandError.ComputeCapacityExceeded,
+                    "Tower compute capacity would be exceeded.");
+            }
+
+            TowerState previousTower = replacement.Equipped
+                ? FindTower(replacement.EquippedTowerId)
+                : null;
+            if (previousTower != null && previousTower != tower)
+            {
+                ClearCardFromTower(
+                    previousTower,
+                    replacement.InstanceId);
+            }
+
+            tower.CardInstanceIds = candidateSlots;
+            displaced.Equipped = false;
+            displaced.EquippedTowerId = TowerId.Invalid;
+            displaced.EquippedSlot = -1;
+            replacement.Equipped = true;
+            replacement.EquippedTowerId = tower.Id;
+            replacement.EquippedSlot = slotIndex;
+
+            if (previousTower != null && previousTower != tower)
+            {
+                CompileTowerProgram(previousTower);
+            }
+
+            CompileTowerProgram(tower);
+            return CommandResult.Success();
+        }
+
+        /// <summary>
+        /// 장착된 카드를 타워에서 빼고 보유 카드 목록으로 되돌린다.
+        /// </summary>
+        private CommandResult UnequipCard(
+            int cardInstanceId,
+            bool bypassPhaseLock = false)
+        {
+            if (!bypassPhaseLock &&
+                !IsLoadoutEditablePhase())
             {
                 return CommandResult.Reject(
                     phase == RunPhase.Combat
@@ -881,6 +1036,7 @@ namespace RuleforgeTD.GameLogic.Simulation
             }
 
             currentWaveIndex = nextWave;
+            ResetWaveCombatTelemetry();
 
             // 스폰 정의의 상대 틱을 현재 시뮬레이션 절대 틱으로 바꾸는 기준점이다.
             waveStartTick = tick;
@@ -897,6 +1053,10 @@ namespace RuleforgeTD.GameLogic.Simulation
                 waveSpawns[i] = new WaveSpawnRuntime
                 {
                     Definition = wave.SpawnsInternal[i],
+                    TargetCount =
+                        WaveEnemyStatResolver.ResolveSpawnCount(
+                            wave.SpawnsInternal[i].Count,
+                            currentStageNumber),
                     Spawned = 0,
                     NextTick =
                         tick +
@@ -929,6 +1089,52 @@ namespace RuleforgeTD.GameLogic.Simulation
                 -1,
                 0,
                 wave.StableId);
+            return CommandResult.Success();
+        }
+
+        /// <summary>
+        /// 최종 웨이브를 끝낸 현재 빌드와 경제를 유지한 채 다음 이어하기
+        /// 스테이지를 준비한다. 전투 개체와 웨이브 원장만 새 스테이지 경계에서
+        /// 정리하며 타워, 카드, 강화, 골드와 본진 체력은 그대로 이어진다.
+        /// </summary>
+        private CommandResult ContinueStage()
+        {
+            if (phase != RunPhase.Victory)
+            {
+                return CommandResult.Reject(
+                    CommandError.InvalidPhase,
+                    "A cleared stage is required before continuing.");
+            }
+            if (currentStageNumber == int.MaxValue)
+            {
+                return CommandResult.Reject(
+                    CommandError.InvalidTarget,
+                    "The maximum stage number has been reached.");
+            }
+
+            enemies.Clear();
+            projectiles.Clear();
+            hazards.Clear();
+            hazardContactsThisTick.Clear();
+            lineages.Clear();
+            chainBudgets.Clear();
+            cardPacks.Clear();
+            draftOffers.Clear();
+            cardPackOffers.Clear();
+            waveSpawns = new WaveSpawnRuntime[0];
+
+            currentStageNumber++;
+            currentWaveIndex = -1;
+            waveStartTick = tick;
+            activeShimmeringLineageId = -1;
+            activeCardPackId = -1;
+            pendingCardInstanceId = -1;
+            phaseAfterCardPack = RunPhase.Planning;
+            waveRewardsPending = false;
+            regularDraftPending = false;
+            bossCardPackAwardedThisWave = false;
+            victoryPending = false;
+            phase = RunPhase.Planning;
             return CommandResult.Success();
         }
 
@@ -972,10 +1178,16 @@ namespace RuleforgeTD.GameLogic.Simulation
             for (int i = 0; i < waveSpawns.Length; i++)
             {
                 WaveSpawnRuntime runtime = waveSpawns[i];
-                while (runtime.Spawned < runtime.Definition.Count &&
-                       tick >= runtime.NextTick)
+                while (runtime.Spawned < runtime.TargetCount &&
+                       tick >= runtime.NextTick &&
+                       enemies.Count <
+                       content.Safety.MaxActiveEnemies)
                 {
-                    SpawnEnemy(runtime.Definition.EnemyId);
+                    SpawnEnemy(
+                        runtime.Definition.EnemyId,
+                        EnemySpawnOrigin.Scheduled,
+                        eliteTraitIds:
+                            runtime.Definition.EliteTraitIdsInternal);
                     runtime.Spawned++;
 
                     // 다음 출현 시각은 현재 프레임 시간이 아니라 이전 예정 시각에 간격을 더한다.
@@ -997,14 +1209,33 @@ namespace RuleforgeTD.GameLogic.Simulation
             EnemyDefinitionId definitionId,
             EnemySpawnOrigin origin = EnemySpawnOrigin.Scheduled,
             int summonerEntityId = -1,
-            int spawnHealthBps = 10_000)
+            int spawnHealthBps = 10_000,
+            EliteTraitId[] eliteTraitIds = null)
         {
             CompiledEnemyDefinition definition = content.GetEnemy(definitionId);
             var id = new EntityId(nextEntityId++);
+            EliteTraitId[] appliedEliteTraits =
+                eliteTraitIds == null || eliteTraitIds.Length == 0
+                    ? Array.Empty<EliteTraitId>()
+                    : (EliteTraitId[])eliteTraitIds.Clone();
+            ResolvedWaveEnemyStats resolvedStats =
+                WaveEnemyStatResolver.Resolve(
+                    content,
+                    definition,
+                    appliedEliteTraits);
+            if (origin != EnemySpawnOrigin.Sandbox)
+            {
+                resolvedStats =
+                    WaveEnemyStatResolver.ApplyEndlessStage(
+                        resolvedStats,
+                        currentStageNumber);
+            }
             int cardPackBudget = 0;
             if (origin == EnemySpawnOrigin.Scheduled)
             {
-                cardPackBudget = definition.Rank == EnemyRank.Elite
+                cardPackBudget =
+                    definition.Rank == EnemyRank.Elite ||
+                    appliedEliteTraits.Length > 0
                     ? run.EliteKillProgress
                     : definition.Rank == EnemyRank.Normal
                         ? run.NormalKillProgress
@@ -1020,15 +1251,20 @@ namespace RuleforgeTD.GameLogic.Simulation
                 Generation = 0,
                 SpawnOrigin = origin,
                 SummonerId = new EntityId(summonerEntityId),
+                EliteTraitIds = appliedEliteTraits,
                 PathProgressMilli = 0,
                 Position = path.GetPosition(0),
-                HealthMilli = definition.MaxHealthMilli,
-                MaxHealthMilli = definition.MaxHealthMilli,
-                Armor = definition.Armor,
-                BaseSpeedMilliPerTick = definition.SpeedMilliPerTick,
-                RewardBudget = definition.RewardBudget,
+                HealthMilli = resolvedStats.MaxHealthMilli,
+                MaxHealthMilli = resolvedStats.MaxHealthMilli,
+                Armor = resolvedStats.Armor,
+                BaseSpeedMilliPerTick =
+                    resolvedStats.SpeedMilliPerTick,
+                RewardBudget = resolvedStats.RewardBudget,
                 WaveProgressBudget = definition.WaveProgressBudget,
                 CardPackProgressBudget = cardPackBudget,
+                ShieldMilli = resolvedStats.ShieldMilli,
+                EliteRenderScaleBps =
+                    resolvedStats.RenderScaleBps,
                 ControlThreshold = definition.ControlGaugeThreshold,
                 ControlThresholdStep = definition.ControlGaugeStep,
                 BossAbilityCooldownTicks =
@@ -1062,6 +1298,14 @@ namespace RuleforgeTD.GameLogic.Simulation
                 enemy.SizeMultiplierBps =
                     run.ShimmeringSizeBps;
             }
+            else if (origin == EnemySpawnOrigin.Sandbox)
+            {
+                // 테스트 맵의 수동/무한 스폰은 정규 웨이브의 경제와 진행도를
+                // 오염시키지 않는다. 카드 자체가 새로 만든 보상만 별도 규칙을 탄다.
+                enemy.RewardBudget = 0;
+                enemy.WaveProgressBudget = 0;
+                enemy.CardPackProgressBudget = 0;
+            }
             enemies.Add(enemy);
 
             // 적 본체와 별도로 가계 전체의 최초/최대 예산을 기록한다.
@@ -1089,6 +1333,13 @@ namespace RuleforgeTD.GameLogic.Simulation
             return enemy;
         }
 
+        private bool UsesEliteControlRules(EnemyState enemy)
+        {
+            return enemy != null &&
+                   content.GetEnemy(enemy.DefinitionId).Rank !=
+                   EnemyRank.Normal;
+        }
+
         /// <summary>
         /// 현재 웨이브가 완전히 끝났는지 확인하고 승리 또는 드래프트 단계로 전환한다.
         /// </summary>
@@ -1099,6 +1350,13 @@ namespace RuleforgeTD.GameLogic.Simulation
         /// </remarks>
         private void CheckWaveCompletion()
         {
+            // TestLab은 Runtime이 원하는 시점에 적을 계속 넣는 열린 전투다.
+            // 빈 순간이 생겨도 정규 웨이브 보상/승리 단계로 넘어가지 않는다.
+            if (sandboxTestingMode)
+            {
+                return;
+            }
+
             // 전투가 아니거나, 아직 출현할 적 또는 처리할 이벤트가 있으면 종료 판정을 미룬다.
             if (phase != RunPhase.Combat ||
                 !AllWaveSpawnsFinished() ||
@@ -1119,6 +1377,7 @@ namespace RuleforgeTD.GameLogic.Simulation
             projectiles.Clear();
             hazards.Clear();
             chainBudgets.Clear();
+            GrantWaveCompletionReward();
             AddPresentation(
                 PresentationEventType.WaveCompleted,
                 currentWaveIndex,
@@ -1138,7 +1397,7 @@ namespace RuleforgeTD.GameLogic.Simulation
         {
             for (int i = 0; i < waveSpawns.Length; i++)
             {
-                if (waveSpawns[i].Spawned < waveSpawns[i].Definition.Count)
+                if (waveSpawns[i].Spawned < waveSpawns[i].TargetCount)
                 {
                     return false;
                 }

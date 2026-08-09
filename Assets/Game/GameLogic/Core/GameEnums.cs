@@ -29,7 +29,13 @@ namespace RuleforgeTD.GameLogic.Core
         /// <summary>상점 구매 취소 등으로 돌려받은 골드다.</summary>
         ShopRefund = 3,
         /// <summary>테스트 또는 개발 도구가 만든 골드다.</summary>
-        Debug = 4
+        Debug = 4,
+        /// <summary>짧은 간격의 연속 처치가 만든 소액 보너스다.</summary>
+        KillStreak = 5,
+        /// <summary>정예 적 처치로 지급되는 추가 보너스다.</summary>
+        EliteBonus = 6,
+        /// <summary>웨이브를 모두 정리한 뒤 지급되는 완료 보너스다.</summary>
+        WaveCompletion = 7
     }
 
     /// <summary>
@@ -196,7 +202,15 @@ namespace RuleforgeTD.GameLogic.Core
         /// <summary>정수 범위를 넘는 계산을 적용 전에 차단했다.</summary>
         IntegerOverflowPrevented = 10,
         /// <summary>동시에 유지할 수 있는 위험 지대 수에 도달했다.</summary>
-        ActiveHazardLimitReached = 11
+        ActiveHazardLimitReached = 11,
+        /// <summary>TestLab에서 설정한 동시 활성 적 수 상한에 도달했다.</summary>
+        SandboxActiveEnemyLimitReached = 12,
+        /// <summary>한 RootChain에서 재귀 카드의 추가 패스 상한에 도달했다.</summary>
+        RecursionLimitReached = 13,
+        /// <summary>한 RootChain에서 신화 카드의 반복 패스 상한에 도달했다.</summary>
+        MythicRepeatLimitReached = 14,
+        /// <summary>한 RootChain의 적·탄환 통합 생성 상한에 도달했다.</summary>
+        EntitySpawnLimitReached = 15
     }
 
     /// <summary>
@@ -226,6 +240,8 @@ namespace RuleforgeTD.GameLogic.Core
         /// <summary>한 연쇄에서 허용한 신화 반복 패스 수를 넘는다.</summary>
         MythicRepeatLimit = 9,
         /// <summary>현재 틱 전체 이벤트 수 상한을 넘는다.</summary>
-        TickEventLimit = 10
+        TickEventLimit = 10,
+        /// <summary>적과 탄환을 합친 연쇄 개체 생성 상한을 넘는다.</summary>
+        EntitySpawnLimit = 11
     }
 }

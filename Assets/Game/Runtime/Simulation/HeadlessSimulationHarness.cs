@@ -9,6 +9,8 @@ namespace RuleforgeTD.Simulation
     public sealed class HeadlessSimulationHarness : MonoBehaviour
     {
         [SerializeField] private TextAsset contentJson;
+        [SerializeField] private TextAsset[] cardContentModules =
+            Array.Empty<TextAsset>();
         [SerializeField] private ulong seed = 12345UL;
         [SerializeField, Min(1)] private int ticksPerFrame = 30;
         [SerializeField, Min(1)] private int maximumTicks = 60000;
@@ -29,7 +31,9 @@ namespace RuleforgeTD.Simulation
             try
             {
                 CompiledContent compiledContent =
-                    LogicContentJsonLoader.Load(contentJson);
+                    LogicContentJsonLoader.Load(
+                        contentJson,
+                        cardContentModules ?? Array.Empty<TextAsset>());
                 maximumEventsPerTick =
                     compiledContent.Safety.MaxEventsPerTick;
                 simulation = HeadlessReplayDriver.Create(
@@ -97,9 +101,13 @@ namespace RuleforgeTD.Simulation
             ulong replaySeed,
             int simulationTicksPerFrame,
             int tickLimit,
-            ulong expectedHash)
+            ulong expectedHash,
+            TextAsset[] contentModules = null)
         {
             contentJson = sourceContent;
+            cardContentModules = contentModules == null
+                ? Array.Empty<TextAsset>()
+                : (TextAsset[])contentModules.Clone();
             seed = replaySeed;
             ticksPerFrame = Mathf.Max(1, simulationTicksPerFrame);
             maximumTicks = Mathf.Max(1, tickLimit);

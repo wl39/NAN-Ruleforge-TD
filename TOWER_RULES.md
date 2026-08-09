@@ -4,7 +4,7 @@
 
 타워는 카드 효과를 직접 정의하지 않는다. 타워는 문장의 앞부분인 실행 문맥만 제공한다.
 
-이 문서의 18종은 전체 게임 설계 카탈로그다. 현재 Phase 1 런타임에 컴파일된 타워는 `ballista`, `mutation_obelisk`, `death_engine` 세 종뿐이다.
+이 문서의 18종은 전체 게임 설계 카탈로그다. 현재 정상 런에서 선택하고 건설할 수 있는 타워는 내부 ID `ballista`를 사용하는 궁수 타워 하나뿐이다. `mutation_obelisk`와 `death_engine` 정의 및 실행기는 카드의 적 해석과 사망 연쇄 회귀 테스트를 위해 남겨 두지만 정상 런에서는 선택·해금하지 않는다.
 
 ```text
 Trigger
@@ -24,11 +24,26 @@ Trigger
 | `Selector` | Subject와 보조 타깃 선택 규칙 |
 | `SlotCount` | 장착 가능한 물리 슬롯 수 |
 | `ComputeCapacity` | 장착 카드 ComputeCost 합계 상한 |
+| `ConstructionCost` | 첫 무료 배치 이후의 타워별 기본 건설비 |
+| `DuplicateCostStepBps` | 같은 정의의 기존 배치 수에 따른 단계별 할증 |
+| `Levels` | 단계별 업그레이드 비용, 슬롯, 연산력, 쿨다운, 범위와 발동 수치 |
 | `CooldownTicks` | 기본 발동 간격 |
 | `TriggerLimits` | 대상별/웨이브별/연쇄별 재발동 제한 |
 | `PassiveProgram` | 카드보다 먼저 컴파일되는 타워 고유 효과 |
 
 UI용 Prefab ID, 스프라이트, VFX는 게임 로직 정의에 포함하지 않는다.
+
+`Levels` 배열 길이가 해당 타워의 게임플레이 `MaxLevel`이다. UI와 명령 처리는 `7` 같은 전역 최대 레벨이나 `1/4/6` 같은 슬롯 해금 규칙을 별도로 갖지 않는다. 건설과 업그레이드 화면은 GameLogic의 권위 있는 견적을 표시하고, 비용·최대 레벨·잔액 판정을 다시 계산하지 않는다. CraftPix 궁수 타워 표현 모듈은 실제 제공된 7개 외형을 자체 authored profile로 관리하며, 더 높은 데이터 레벨은 가장 가까운 이전 외형으로 fallback하므로 아트 에셋 수가 진행 상한이 되지 않는다.
+
+Trigger와 Selector는 각각 registry에 등록된 handler가 실행한다. 현재 지원 계약은 다음과 같다.
+
+| Trigger | Subject mode | Selector |
+| --- | --- | --- |
+| `Attack` | `Projectile` 또는 지원되는 공격 문맥 | `PrimaryProjectile` |
+| `EnemyEnteredRange` | `Enemy` | `EnteringEnemy` |
+| `EnemyDied` | `Enemy` | `EnemiesNearEvent` |
+
+지원되지 않는 조합과 아직 구현되지 않은 `Alternating`/`Inherited`는 콘텐츠 컴파일 단계에서 거절한다. 데이터 필드를 파싱한 뒤 실행에서 무시하는 상태는 허용하지 않는다.
 
 ## 2. 공통 장착 규칙
 
@@ -55,9 +70,9 @@ UI용 Prefab ID, 스프라이트, VFX는 게임 로직 정의에 포함하지 �
 
 ## 4. Phase 1 타워 상세 계약
 
-런 시작 화면에는 `ballista`와 `mutation_obelisk`만 선택지로 제시된다. 둘 중 하나를 선택하면 `death_engine`은 `initiallyUnlockedTowers`에 의해 함께 소유되어, 빈 건설 지점이 있으면 같은 계획 단계부터 배치할 수 있다.
+런 시작 화면에는 궁수 타워(`ballista`) 하나만 제시된다. 시작 선택 이후에도 추가 타워 정의는 해금하지 않으며, 모든 건설 지점에는 궁수 타워만 배치할 수 있다.
 
-### 4.1 발리스타 타워 (`ballista`)
+### 4.1 궁수 타워 (`ballista`)
 
 문장:
 
@@ -120,7 +135,7 @@ UI용 Prefab ID, 스프라이트, VFX는 게임 로직 정의에 포함하지 �
 
 | ID | 타워 | Trigger | Subject / Selector | 슬롯 | 연산력 | 패시브 또는 제한 |
 | --- | --- | --- | --- | ---: | ---: | --- |
-| `ballista` | 발리스타 타워 | 공격할 때 | 생성한 기본 탄환 | 3 | 5 | 범용 단일 발사 |
+| `ballista` | 궁수 타워 | 공격할 때 | 생성한 기본 탄환 | 3 | 5 | 범용 단일 발사 |
 | `cannon_bastion` | 캐논 바스티온 | 세 번째 공격마다 | 생성한 대포탄 | 4 | 7 | 큰 탄환, 약한 기본 폭발, 높은 밀치기 |
 | `repeater_outpost` | 리피터 아웃포스트 | 같은 적을 세 번 공격하면 | 해당 적을 향한 추가 탄환 | 3 | 5 | 적별 연속 적중 카운터 |
 | `beacon_spire` | 비콘 스파이어 | 적이 처음 사거리에 들어오면 | 진입 적을 향한 신호탄 | 3 | 5 | 적/가계별 첫 진입 기록 |

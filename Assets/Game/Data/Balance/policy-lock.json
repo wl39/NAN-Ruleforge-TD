@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "frozenAtUtc": "2026-08-09T12:12:58Z",
+  "hashAlgorithm": "SHA-256",
+  "policyVersions": {
+    "adversarial-random": "1.0.0",
+    "card-fixture": "1.3.0",
+    "good-standalone": "1.3.0",
+    "no-spend": "1.3.0",
+    "novice-build-first": "1.3.0",
+    "novice-random-spender": "1.3.0",
+    "novice-upgrade-first": "1.3.0",
+    "oracle-search": "1.3.0-public-search",
+    "synergy-disabled": "1.3.0",
+    "synergy-no-combat-build": "1.3.0",
+    "synergy-tactical": "1.3.0"
+  },
+  "files": {
+    "Assets/Game/Data/Balance/balance-targets.json": "ccd6bb0aa834b9f57683bc0c64b91eed1057bce383fddea24a6b71e055911bde",
+    "Assets/Game/Data/Balance/current.profile.json": "9c1e280adaa8c6e75a6f7c75463c83aa8f42ca50867d14b75316b3d2817c8587",
+    "Assets/Game/Data/Balance/easy.profile.json": "880b72ae0b9b6f9da3287f8432ef9c01ba55cf35410ec430d26aeaa3262232d2",
+    "Assets/Game/Data/Balance/hard.profile.json": "a6c96e4fb6ac5cc22eb1f3e4d6053943de869fcd08a4f56f5e3ac44349eb1e52",
+    "Assets/Game/Data/Balance/medium.profile.json": "cb18b07d21cc5423c73174a3c7831010613ded4c06e6e2e2a27f42d11990eae9",
+    "Assets/Game/Data/Balance/seed-sets.json": "41956e0ae5e655af10a9d9882a4c3858faf2f4bcb2d9c7a13b4d89a4709f70aa",
+    "Tools/Ruleforge.BalanceCli/Policies/DeterministicPolicies.cs": "9fcb41f8d9779dde89a76f7c414f3f1cfe3b806d4d705b5899831406b040ae0c",
+    "Tools/Ruleforge.BalanceCli/Policies/PolicyContracts.cs": "797d24bcc7601fe0f0e4bbd14f5bbeaec9badc57dfcbab339715aae537d9f30d",
+    "Tools/Ruleforge.BalanceCli/Prompts/balance-director.md": "589c159447f073fbb81eb5b132bf373876b62b27bd8592a91c7078d5c61ce4ec",
+    "Tools/Ruleforge.BalanceCli/Prompts/player-easy.md": "0fc21a7881596da7026dd464bb359af4a48e36ba869076f04ec378d4922509b7",
+    "Tools/Ruleforge.BalanceCli/Prompts/player-hard.md": "e5272ab464e62bc993624c8217cec978cc22bad1bdc29015e8801b5b316afbca",
+    "Tools/Ruleforge.BalanceCli/Prompts/player-medium.md": "760160b249ac432dbf7e6ad4b917d7ac934fd04b3b1a3dc907a214151233e81c"
+  }
+}

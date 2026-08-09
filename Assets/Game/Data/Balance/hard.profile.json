@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "difficultyId": "hard",
+  "baseContentHash": "22796887E869E39D",
+  "description": "Expert tactical overlay tuned around in-combat economy breakpoints and late-wave reinforcement.",
+  "modifiers": {
+    "startingGold": 50,
+    "enemyHealthPermille": 950,
+    "enemyArmorPermille": 1000,
+    "enemySpeedPermille": 1000,
+    "enemyResistancePermille": 1000,
+    "enemyCountPermille": 1000,
+    "spawnIntervalPermille": 1000,
+    "goldRewardPermille": 1100,
+    "towerBuildCostPermille": 950,
+    "towerUpgradeCostPermille": 950,
+    "bossAbilityIntervalPermille": 1000
+  },
+  "enemyOverrides": [],
+  "waveOverrides": [],
+  "bossOverrides": []
+}

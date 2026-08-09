@@ -1,48 +1,75 @@
+using System;
 using RuleforgeTD.GameLogic.Content;
 using RuleforgeTD.GameLogic.Core;
 
 namespace RuleforgeTD.GameLogic.Simulation
 {
     /// <summary>
-    /// 판정 상태를 다시 추론하지 않고 카드별 투사체 색상·궤적을 표현하기 위한 비트 집합이다.
-    /// 복수 카드가 한 탄환에 함께 적용될 수 있으므로 단일 종류가 아니라 플래그로 노출한다.
+    /// 판정 상태를 다시 추론하지 않고 카드별 탄환·적 연출을 표현하기 위한 비트 집합이다.
+    /// 복수 카드가 한 대상에 함께 적용될 수 있으므로 단일 종류가 아니라 플래그로 노출한다.
     /// </summary>
     [System.Flags]
-    public enum ProjectileEffectVisualFlags : uint
+    public enum CardEffectVisualFlags : ulong
     {
         None = 0,
-        Ricochet = 1u << 0,
-        Bleed = 1u << 1,
-        Accelerate = 1u << 2,
-        Homing = 1u << 3,
-        Delay = 1u << 4,
-        Curse = 1u << 5,
-        Bind = 1u << 6,
-        Airborne = 1u << 7,
-        Shock = 1u << 8,
-        Freeze = 1u << 9,
-        Afterimage = 1u << 10,
-        Pulse = 1u << 11,
-        Magnet = 1u << 12,
-        Reflect = 1u << 13,
-        Contagion = 1u << 14,
-        Seal = 1u << 15,
-        Corrosion = 1u << 16,
-        Orbit = 1u << 17,
-        Lifesteal = 1u << 18,
-        Fear = 1u << 19,
-        Split = 1u << 20,
-        Pierce = 1u << 21,
-        Burn = 1u << 22,
-        Slow = 1u << 23,
-        Explode = 1u << 24,
-        Knockback = 1u << 25,
-        Mark = 1u << 26,
-        GoldBounty = 1u << 27,
-        Poison = 1u << 28,
-        Enlarge = 1u << 29,
-        Shrink = 1u << 30,
-        Stun = 1u << 31
+        Ricochet = 1UL << 0,
+        Bleed = 1UL << 1,
+        Accelerate = 1UL << 2,
+        Homing = 1UL << 3,
+        Delay = 1UL << 4,
+        Curse = 1UL << 5,
+        Bind = 1UL << 6,
+        Airborne = 1UL << 7,
+        Shock = 1UL << 8,
+        Freeze = 1UL << 9,
+        Afterimage = 1UL << 10,
+        Pulse = 1UL << 11,
+        Magnet = 1UL << 12,
+        Reflect = 1UL << 13,
+        Contagion = 1UL << 14,
+        Seal = 1UL << 15,
+        Corrosion = 1UL << 16,
+        Orbit = 1UL << 17,
+        Lifesteal = 1UL << 18,
+        Fear = 1UL << 19,
+        Split = 1UL << 20,
+        Pierce = 1UL << 21,
+        Burn = 1UL << 22,
+        Slow = 1UL << 23,
+        Explode = 1UL << 24,
+        Knockback = 1UL << 25,
+        Mark = 1UL << 26,
+        GoldBounty = 1UL << 27,
+        Poison = 1UL << 28,
+        Enlarge = 1UL << 29,
+        Shrink = 1UL << 30,
+        Stun = 1UL << 31,
+        Duplicate = 1UL << 32,
+        Sacrifice = 1UL << 33,
+        Return = 1UL << 34,
+        Retrograde = 1UL << 35,
+        Resonance = 1UL << 36,
+        Absorb = 1UL << 37,
+        TimeStop = 1UL << 38,
+        Mutation = 1UL << 39,
+        Execute = 1UL << 40,
+        Parasite = 1UL << 41,
+        Rebirth = 1UL << 42,
+        Chain = 1UL << 43,
+        Recursion = 1UL << 44,
+        ReverseOrder = 1UL << 45,
+        DualInterpretation = 1UL << 46,
+        InfiniteOrbit = 1UL << 47,
+        Overclone = 1UL << 48,
+        ForbiddenDeal = 1UL << 49,
+        LastCommand = 1UL << 50,
+        FateLock = 1UL << 51,
+        Overload = 1UL << 52,
+        Singularity = 1UL << 53,
+        PhoenixCore = 1UL << 54,
+        TimeRift = 1UL << 55,
+        MirrorWorld = 1UL << 56,
+        Ouroboros = 1UL << 57
     }
 
     /// <summary>
@@ -113,7 +140,12 @@ namespace RuleforgeTD.GameLogic.Simulation
         /// <summary>도탄 상태의 적이 강제 이동 중 주변 적과 충돌했다.</summary>
         EnemyRicochet = 31,
         /// <summary>카드 전용 연출을 재생할 수 있는 논리 효과가 확정되었다.</summary>
-        EffectTriggered = 32
+        EffectTriggered = 32,
+        /// <summary>
+        /// 실제 범위 판정이 확정되었다. Value는 반경(milli world unit),
+        /// ContentId는 색상을 찾을 카드 효과 id다.
+        /// </summary>
+        AreaEffectTriggered = 33
     }
 
     /// <summary>
@@ -133,7 +165,9 @@ namespace RuleforgeTD.GameLogic.Simulation
             int sourceId,
             int value,
             string contentId,
-            uint effectVisualFlags = 0u)
+            ulong effectVisualFlags = 0UL,
+            SimPosition effectPosition = default(SimPosition),
+            bool hasEffectPosition = false)
         {
             Tick = tick;
             Type = type;
@@ -142,6 +176,8 @@ namespace RuleforgeTD.GameLogic.Simulation
             Value = value;
             ContentId = contentId ?? string.Empty;
             EffectVisualFlags = effectVisualFlags;
+            EffectPosition = effectPosition;
+            HasEffectPosition = hasEffectPosition;
         }
 
         /// <summary>사건이 확정된 0 기반 시뮬레이션 틱이다.</summary>
@@ -166,7 +202,14 @@ namespace RuleforgeTD.GameLogic.Simulation
         /// 적중 또는 사망 시점에 확정된 카드 VFX 플래그 비트다.
         /// 화면 계층이 이미 소멸한 탄환이나 초기화된 적 상태를 다시 추측하지 않게 한다.
         /// </summary>
-        public uint EffectVisualFlags { get; }
+        public ulong EffectVisualFlags { get; }
+
+        /// <summary>
+        /// 개체 뷰의 이전 프레임 위치를 사용하면 안 되는 범위 효과의
+        /// 권위 판정 중심이다.
+        /// </summary>
+        public SimPosition EffectPosition { get; }
+        public bool HasEffectPosition { get; }
     }
 
     /// <summary>
@@ -224,7 +267,10 @@ namespace RuleforgeTD.GameLogic.Simulation
             long shieldMilli,
             StatusType[] statuses,
             StatusSnapshot[] statusDetails,
-            int deathBindingCount)
+            int deathBindingCount,
+            string[] eliteTraitIds = null,
+            int eliteRenderScaleBps = 10000,
+            int baseSpeedMilliPerTick = 0)
         {
             Id = id;
             DefinitionId = definitionId;
@@ -249,6 +295,11 @@ namespace RuleforgeTD.GameLogic.Simulation
             Statuses = statuses;
             StatusDetails = statusDetails;
             DeathBindingCount = deathBindingCount;
+            EliteTraitIds = eliteTraitIds == null
+                ? Array.Empty<string>()
+                : (string[])eliteTraitIds.Clone();
+            EliteRenderScaleBps = Math.Max(1000, eliteRenderScaleBps);
+            BaseSpeedMilliPerTick = Math.Max(0, baseSpeedMilliPerTick);
         }
 
         /// <summary>런 안에서 재사용되지 않는 적 개체 ID다.</summary>
@@ -294,6 +345,12 @@ namespace RuleforgeTD.GameLogic.Simulation
         public StatusSnapshot[] StatusDetails { get; }
         /// <summary>사망 시 실행하도록 이 적에 예약된 카드 바인딩 수다.</summary>
         public int DeathBindingCount { get; }
+        /// <summary>기본 적에 조합된 엘리트 특성의 안정 문자열 ID 복사본이다.</summary>
+        public string[] EliteTraitIds { get; }
+        /// <summary>전투 히트박스와 독립적인 엘리트 외형 크기 배율이다.</summary>
+        public int EliteRenderScaleBps { get; }
+        /// <summary>엘리트 특성 적용 뒤, 둔화 전의 틱당 기본 이동 거리다.</summary>
+        public int BaseSpeedMilliPerTick { get; }
     }
 
     /// <summary>적에게 붙은 상태이상 인스턴스 하나의 외부 읽기 모델이다.</summary>
@@ -367,8 +424,8 @@ namespace RuleforgeTD.GameLogic.Simulation
             bool applyEnemyProgramOnHit,
             int bindingCount,
             int targetId = -1,
-            ProjectileEffectVisualFlags visualFlags =
-                ProjectileEffectVisualFlags.None,
+            CardEffectVisualFlags visualFlags =
+                CardEffectVisualFlags.None,
             int ricochetsUsed = 0,
             int ricochetsRemaining = 0,
             long distanceTravelledMilli = 0,
@@ -427,7 +484,7 @@ namespace RuleforgeTD.GameLogic.Simulation
         /// <summary>적중·소멸 시 실행할 효과 바인딩 수다.</summary>
         public int BindingCount { get; }
         /// <summary>현재 탄환에 적용된 카드별 표현 힌트다. 전투 판정에는 사용하지 않는다.</summary>
-        public ProjectileEffectVisualFlags VisualFlags { get; }
+        public CardEffectVisualFlags VisualFlags { get; }
         /// <summary>현재 탄환이 이미 사용한 도탄 횟수다.</summary>
         public int RicochetsUsed { get; }
         /// <summary>현재 탄환이 추가로 사용할 수 있는 도탄 횟수다.</summary>
@@ -616,6 +673,100 @@ namespace RuleforgeTD.GameLogic.Simulation
         public bool Unlocked { get; }
     }
 
+    /// <summary>
+    /// 특정 타워 정의를 지금 한 기 건설할 때 적용되는 권위 있는 경제 조회 결과다.
+    /// UI는 타워 수와 할증 규칙을 다시 계산하지 않고 이 값만 표시한다.
+    /// </summary>
+    public readonly struct TowerConstructionQuote
+    {
+        internal TowerConstructionQuote(
+            string definitionId,
+            int cost,
+            bool isKnown,
+            bool isUnlocked,
+            bool isEligible,
+            bool canAfford)
+        {
+            DefinitionId = definitionId ?? string.Empty;
+            Cost = cost;
+            IsKnown = isKnown;
+            IsUnlocked = isUnlocked;
+            IsEligible = isEligible;
+            CanAfford = canAfford;
+        }
+
+        public string DefinitionId { get; }
+        public int Cost { get; }
+        public bool IsKnown { get; }
+        public bool IsUnlocked { get; }
+
+        /// <summary>
+        /// 현재 런 단계와 타워 해금 상태가 건설을 허용하는지 나타낸다.
+        /// 건설 지점의 잠금·점유 여부는 지점별 조건이므로 포함하지 않는다.
+        /// </summary>
+        public bool IsEligible { get; }
+
+        public bool CanAfford { get; }
+        public bool CanConstruct =>
+            IsKnown &&
+            IsUnlocked &&
+            IsEligible &&
+            CanAfford;
+    }
+
+    /// <summary>
+    /// 특정 타워 인스턴스의 다음 레벨 비용과 진행 가능 여부를 한 번에 제공한다.
+    /// 최대 레벨과 골드 판정을 UI가 다시 구현하지 않게 하는 읽기 모델이다.
+    /// </summary>
+    public readonly struct TowerUpgradeQuote
+    {
+        internal TowerUpgradeQuote(
+            int towerId,
+            int currentLevel,
+            int maximumLevel,
+            int targetLevel,
+            int cost,
+            bool exists,
+            bool hasNextLevel,
+            bool isEligible,
+            bool canAfford)
+        {
+            TowerId = towerId;
+            CurrentLevel = currentLevel;
+            MaximumLevel = maximumLevel;
+            TargetLevel = targetLevel;
+            Cost = cost;
+            Exists = exists;
+            HasNextLevel = hasNextLevel;
+            IsEligible = isEligible;
+            CanAfford = canAfford;
+        }
+
+        public int TowerId { get; }
+        public int CurrentLevel { get; }
+        public int MaximumLevel { get; }
+        public int TargetLevel { get; }
+        public int Cost { get; }
+        public bool Exists { get; }
+        public bool HasNextLevel { get; }
+        public bool IsMaximumLevel =>
+            Exists && !HasNextLevel &&
+            CurrentLevel >= MaximumLevel;
+
+        /// <summary>
+        /// 현재 단계에서 다음 레벨 데이터까지 모두 유효해 업그레이드 명령을
+        /// 제출할 수 있는 상태인지 나타낸다. 골드 보유량은 별도다.
+        /// </summary>
+        public bool IsEligible { get; }
+
+        public bool CanAfford { get; }
+        public bool CanUpgrade =>
+            Exists &&
+            HasNextLevel &&
+            IsEligible &&
+            CanAfford;
+    }
+
     /// <summary>배치된 타워 한 개의 외부 읽기 모델이다.</summary>
     public readonly struct TowerSnapshot
     {
@@ -676,7 +827,7 @@ namespace RuleforgeTD.GameLogic.Simulation
         public int BuildPointIndex { get; }
         /// <summary>건설 지점에서 얻은 논리 좌표다.</summary>
         public SimPosition Position { get; }
-        /// <summary>1~7 범위의 현재 타워 레벨이다.</summary>
+        /// <summary>타워 정의의 레벨 데이터 범위에 속하는 현재 레벨이다.</summary>
         public int Level { get; }
         /// <summary>호환용으로 유지되는 마지막 선택 해석이다.</summary>
         public SubjectType SubjectType { get; }
@@ -727,6 +878,7 @@ namespace RuleforgeTD.GameLogic.Simulation
         internal SimulationSnapshot(
             long tick,
             RunPhase phase,
+            int stageNumber,
             int waveIndex,
             int baseHealth,
             int gold,
@@ -745,11 +897,11 @@ namespace RuleforgeTD.GameLogic.Simulation
             int cardPackProgressBps,
             int nextCardPackThreshold,
             int[] rewardQueueCardPackIds,
-            int pendingCardInstanceId,
-            int towerConstructionCost)
+            int pendingCardInstanceId)
         {
             Tick = tick;
             Phase = phase;
+            StageNumber = Math.Max(1, stageNumber);
             WaveIndex = waveIndex;
             BaseHealth = baseHealth;
             Gold = gold;
@@ -769,13 +921,14 @@ namespace RuleforgeTD.GameLogic.Simulation
             NextCardPackThreshold = nextCardPackThreshold;
             RewardQueueCardPackIds = rewardQueueCardPackIds;
             PendingCardInstanceId = pendingCardInstanceId;
-            TowerConstructionCost = towerConstructionCost;
         }
 
         /// <summary>이 상태를 만든 시뮬레이션 틱이다.</summary>
         public long Tick { get; }
         /// <summary>현재 런 진행 단계다.</summary>
         public RunPhase Phase { get; }
+        /// <summary>이어하기를 포함한 현재 1 기반 스테이지 번호다.</summary>
+        public int StageNumber { get; }
         /// <summary>현재 웨이브의 0 기반 인덱스이며 시작 전에는 음수다.</summary>
         public int WaveIndex { get; }
         /// <summary>남은 본진 체력이다.</summary>
@@ -810,6 +963,5 @@ namespace RuleforgeTD.GameLogic.Simulation
         /// <summary>웨이브 종료 보상 처리 순서의 카드팩 ID 복사본이다.</summary>
         public int[] RewardQueueCardPackIds { get; }
         public int PendingCardInstanceId { get; }
-        public int TowerConstructionCost { get; }
     }
 }

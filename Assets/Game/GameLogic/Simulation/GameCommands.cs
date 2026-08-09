@@ -62,7 +62,7 @@ namespace RuleforgeTD.GameLogic.Simulation
             hash.Add(definition.TickRate);
             hash.Add(definition.BaseHealth);
             hash.Add(definition.StartingGold);
-            hash.Add(definition.TowerConstructionCost);
+            hash.Add(definition.FreeInitialTowerCount);
 
             TowerDefinitionId[] startingChoices =
                 definition.StartingTowerChoices;
@@ -121,9 +121,16 @@ namespace RuleforgeTD.GameLogic.Simulation
             }
 
             hash.Add(definition.CriticalDamageBps);
+            hash.Add(definition.ArmorMitigationScale);
+            hash.Add(definition.AreaArmorSensitivityBps);
+            hash.Add(definition.BurnArmorSensitivityBps);
             hash.Add(definition.ControlInterruptTicks);
             hash.Add(definition.MaxControlGaugeThreshold);
+            hash.Add(definition.MovementEscapeStationaryTicks);
+            hash.Add(definition.MovementEscapeImmunityTicks);
             hash.Add(definition.EnemyBaseHitRadiusMilli);
+            hash.Add(definition.EnemyHitboxCenterOffsetYMilli);
+            hash.Add(definition.EnemyHitboxHalfHeightMilli);
             return hash.Finish();
         }
 
@@ -195,13 +202,16 @@ namespace RuleforgeTD.GameLogic.Simulation
         StartWave = 5,
         MoveCard = 6,
         UnequipCard = 7,
+        ReplaceCard = 8,
         OpenCardPack = 9,
         SelectCardPack = 10,
         ResumeCardPackCombat = 11,
         UpgradeTower = 12,
         SetTowerSubjectType = 13,
         SetTowerSlotSubjectType = 14,
-        GrantDebugGold = 15
+        GrantDebugGold = 15,
+        /// <summary>승리한 빌드와 자원을 유지한 채 다음 강화 스테이지로 간다.</summary>
+        ContinueStage = 16
     }
 
     /// <summary>
@@ -408,6 +418,23 @@ namespace RuleforgeTD.GameLogic.Simulation
                 slotIndex);
         }
 
+        /// <summary>
+        /// 지정 슬롯을 점유한 카드를 보유 카드로 원자적으로 교체한다.
+        /// 교체 카드가 다른 타워에 장착돼 있으면 그 위치에서도 함께 이동한다.
+        /// </summary>
+        public static GameCommand ReplaceCard(
+            int cardInstanceId,
+            int towerInstanceId,
+            int slotIndex)
+        {
+            return new GameCommand(
+                GameCommandType.ReplaceCard,
+                string.Empty,
+                cardInstanceId,
+                towerInstanceId,
+                slotIndex);
+        }
+
         /// <summary>장착 카드를 타워에서 빼 인벤토리로 돌려놓는다.</summary>
         public static GameCommand UnequipCard(int cardInstanceId)
         {
@@ -443,6 +470,20 @@ namespace RuleforgeTD.GameLogic.Simulation
                 GameCommandType.GrantDebugGold,
                 string.Empty,
                 amount,
+                -1,
+                -1);
+        }
+
+        /// <summary>
+        /// 최종 웨이브 승리 뒤 현재 타워·카드·골드를 유지하고 다음
+        /// 이어하기 스테이지를 준비한다.
+        /// </summary>
+        public static GameCommand ContinueStage()
+        {
+            return new GameCommand(
+                GameCommandType.ContinueStage,
+                string.Empty,
+                -1,
                 -1,
                 -1);
         }

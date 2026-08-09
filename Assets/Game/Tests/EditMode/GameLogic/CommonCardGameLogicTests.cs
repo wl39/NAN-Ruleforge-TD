@@ -28,7 +28,7 @@ namespace RuleforgeTD.Tests.EditMode.GameLogic
             ContentCatalogDto source =
                 JsonUtility.FromJson<ContentCatalogDto>(
                     asset.text);
-            content = ContentCompiler.Compile(
+            content = EffectContentCompiler.Compile(
                 source,
                 GameSimulation.IsEffectOperationSupported);
             simulation = new GameSimulation();
@@ -47,9 +47,14 @@ namespace RuleforgeTD.Tests.EditMode.GameLogic
             GetPrivateField<List<EnemyState>>(
                 simulation,
                 "enemies").Add(enemy);
+            Assert.That(
+                content.TryGetCardId(
+                    "explode",
+                    out CardId explodeCardId),
+                Is.True);
             simulation.MarkEnemyCardVisual(
                 enemy.Id,
-                "explode");
+                content.GetCard(explodeCardId));
             enemy.Statuses.Add(new StatusInstance
             {
                 InstanceId = 91,
@@ -58,15 +63,15 @@ namespace RuleforgeTD.Tests.EditMode.GameLogic
                 RemainingTicks = 30
             });
 
-            ProjectileEffectVisualFlags deathFlags =
+            CardEffectVisualFlags deathFlags =
                 GameSimulation.GetEnemyDeathVisualFlags(enemy);
             Assert.That(
                 deathFlags.HasFlag(
-                    ProjectileEffectVisualFlags.Explode),
+                    CardEffectVisualFlags.Explode),
                 Is.True);
             Assert.That(
                 deathFlags.HasFlag(
-                    ProjectileEffectVisualFlags.Burn),
+                    CardEffectVisualFlags.Burn),
                 Is.True);
 
             var projectile = new ProjectileState
@@ -74,14 +79,89 @@ namespace RuleforgeTD.Tests.EditMode.GameLogic
                 Id = new EntityId(8),
                 SourceTowerId = new TowerId(1),
                 VisualFlags =
-                    ProjectileEffectVisualFlags.Split |
-                    ProjectileEffectVisualFlags.Poison,
+                    CardEffectVisualFlags.Split |
+                    CardEffectVisualFlags.Poison,
                 Alive = true
             };
             Assert.That(
                 simulation.GetProjectileImpactVisualFlags(
                     projectile),
                 Is.EqualTo(projectile.VisualFlags));
+        }
+
+        [Test]
+        public void
+            Explosion_UsesTunedDamageAndExpandedRadii()
+        {
+            Assert.That(
+                content.TryGetCardId(
+                    "explode",
+                    out CardId explodeCardId),
+                Is.True);
+            CompiledCardDefinition explode =
+                content.GetCard(explodeCardId);
+
+            Assert.That(
+                explode.ProjectileEffects[0].Amount,
+                Is.EqualTo(6300));
+            Assert.That(
+                explode.ProjectileEffects[0].RadiusMilli,
+                Is.EqualTo(1400));
+            Assert.That(
+                explode.EnemyEffects[0].Amount,
+                Is.EqualTo(2250));
+            Assert.That(
+                explode.EnemyEffects[0].Amount2,
+                Is.EqualTo(21600));
+            Assert.That(
+                explode.EnemyEffects[0].RadiusMilli,
+                Is.EqualTo(1650));
+        }
+
+        [Test]
+        public void
+            Explosion_DamagesWhenItsCircleOnlyTouchesEnemyCapsuleHitbox()
+        {
+            EnemyState enemy = CreateEnemy(
+                9,
+                0,
+                0,
+                0);
+            List<EnemyState> enemies =
+                GetPrivateField<List<EnemyState>>(
+                    simulation,
+                    "enemies");
+            enemies.Add(enemy);
+            GetPrivateField<SpatialHashGrid>(
+                simulation,
+                "spatialIndex").Rebuild(enemies);
+
+            // The authored capsule spans Y 0..700. Its path anchor is at Y 0,
+            // so a center-only circle test would miss this exact top-edge touch.
+            InvokeExplosion(
+                SimPosition.FromMilliUnits(0, 1000),
+                radiusMilli: 300);
+
+            EventQueue queue = GetPrivateField<EventQueue>(
+                simulation,
+                "eventQueue");
+            Assert.That(queue.Count, Is.EqualTo(1));
+            Assert.That(queue.TryDequeue(out GameEvent damage), Is.True);
+            Assert.That(
+                damage.EventType,
+                Is.EqualTo(RuleforgeTD.GameLogic.Core.EventType.DamageRequested));
+            Assert.That(damage.SubjectEntityId, Is.EqualTo(enemy.Id));
+            Assert.That(
+                damage.Tags.HasFlag(EventTags.Area),
+                Is.True);
+
+            InvokeExplosion(
+                SimPosition.FromMilliUnits(0, 1001),
+                radiusMilli: 300);
+            Assert.That(
+                queue.Count,
+                Is.Zero,
+                "An explosion one milli-unit outside the capsule must miss.");
         }
 
         [Test]
@@ -307,20 +387,20 @@ namespace RuleforgeTD.Tests.EditMode.GameLogic
                 projectile.TargetId,
                 Is.EqualTo(priority.Id));
             Assert.That(projectile.Homing, Is.True);
-            ProjectileEffectVisualFlags flags =
+            CardEffectVisualFlags flags =
                 simulation.GetCommonProjectileVisualFlags(
                     projectile);
             Assert.That(
                 flags.HasFlag(
-                    ProjectileEffectVisualFlags.Accelerate),
+                    CardEffectVisualFlags.Accelerate),
                 Is.True);
             Assert.That(
                 flags.HasFlag(
-                    ProjectileEffectVisualFlags.Homing),
+                    CardEffectVisualFlags.Homing),
                 Is.True);
             Assert.That(
                 flags.HasFlag(
-                    ProjectileEffectVisualFlags.Delay),
+                    CardEffectVisualFlags.Delay),
                 Is.True);
 
             SimPosition previous = projectile.Position;
@@ -483,6 +563,36 @@ namespace RuleforgeTD.Tests.EditMode.GameLogic
                 limit,
                 chanceBps,
                 null);
+        }
+
+        private void InvokeExplosion(
+            SimPosition center,
+            int radiusMilli)
+        {
+            MethodInfo method = typeof(GameSimulation).GetMethod(
+                "ExecuteExplosion",
+                BindingFlags.Instance |
+                BindingFlags.NonPublic);
+            Assert.That(method, Is.Not.Null);
+            method.Invoke(
+                simulation,
+                new object[]
+                {
+                    center,
+                    10000L,
+                    new TowerId(0),
+                    new CardId(0),
+                    new EntityId(99),
+                    Node(
+                        EffectOperation.BindExplosion,
+                        amount: 10000,
+                        radiusMilli: radiusMilli),
+                    ChainId.Invalid,
+                    ActivationId.Invalid,
+                    EventId.Invalid,
+                    0,
+                    int.MaxValue
+                });
         }
 
         private static T GetPrivateField<T>(

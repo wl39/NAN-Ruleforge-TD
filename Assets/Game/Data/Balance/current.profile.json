@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "difficultyId": "current",
+  "baseContentHash": "22796887E869E39D",
+  "description": "Identity overlay that preserves the authoritative phase1-content.json behavior.",
+  "modifiers": {
+    "startingGold": 0,
+    "enemyHealthPermille": 1000,
+    "enemySpeedPermille": 1000,
+    "goldRewardPermille": 1000,
+    "towerBuildCostPermille": 1000,
+    "towerUpgradeCostPermille": 1000
+  }
+}

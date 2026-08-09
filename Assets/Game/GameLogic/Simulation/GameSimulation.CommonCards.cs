@@ -393,6 +393,7 @@ namespace RuleforgeTD.GameLogic.Simulation
 
                 runtime.Remaining--;
                 runtime.Used++;
+                RecordRicochet();
                 projectile.DamageMilli =
                     DeterministicMath.MultiplyBasisPoints(
                         projectile.DamageMilli,
@@ -751,44 +752,44 @@ namespace RuleforgeTD.GameLogic.Simulation
         }
 
         /// <summary>Snapshot에 노출할 Common 카드 투사체 표현 비트를 계산한다.</summary>
-        internal ProjectileEffectVisualFlags
+        internal CardEffectVisualFlags
             GetCommonProjectileVisualFlags(
             ProjectileState projectile)
         {
             if (projectile == null)
             {
-                return ProjectileEffectVisualFlags.None;
+                return CardEffectVisualFlags.None;
             }
 
-            ProjectileEffectVisualFlags flags =
-                ProjectileEffectVisualFlags.None;
+            CardEffectVisualFlags flags =
+                CardEffectVisualFlags.None;
             if (commonProjectileRicochets.ContainsKey(
                     projectile.Id.Value))
             {
-                flags |= ProjectileEffectVisualFlags.Ricochet;
+                flags |= CardEffectVisualFlags.Ricochet;
             }
             for (int i = 0; i < projectile.Bindings.Count; i++)
             {
                 if (projectile.Bindings[i].Kind ==
                     BindingKind.Bleed)
                 {
-                    flags |= ProjectileEffectVisualFlags.Bleed;
+                    flags |= CardEffectVisualFlags.Bleed;
                     break;
                 }
             }
             if (commonProjectileAccelerations.ContainsKey(
                     projectile.Id.Value))
             {
-                flags |= ProjectileEffectVisualFlags.Accelerate;
+                flags |= CardEffectVisualFlags.Accelerate;
             }
             if (projectile.Homing)
             {
-                flags |= ProjectileEffectVisualFlags.Homing;
+                flags |= CardEffectVisualFlags.Homing;
             }
             if (commonProjectileDelays.ContainsKey(
                     projectile.Id.Value))
             {
-                flags |= ProjectileEffectVisualFlags.Delay;
+                flags |= CardEffectVisualFlags.Delay;
             }
             return flags;
         }
@@ -1143,79 +1144,4 @@ namespace RuleforgeTD.GameLogic.Simulation
         }
     }
 
-    /// <summary>
-    /// Common 5장의 데이터 operation을 GameSimulation의 전용 규칙 메서드로 연결한다.
-    /// EffectRegistry는 operation별로 이 executor 인스턴스를 하나씩 등록한다.
-    /// </summary>
-    internal sealed class CommonCardEffectExecutor :
-        IEffectExecutor
-    {
-        private readonly EffectOperation operation;
-
-        public CommonCardEffectExecutor(
-            EffectOperation operation)
-        {
-            this.operation = operation;
-        }
-
-        public EffectExecutionOutcome Execute(
-            GameSimulation simulation,
-            in EffectExecutionContext context,
-            in CompiledEffectNode node)
-        {
-            switch (operation)
-            {
-                case EffectOperation.ConfigureProjectileRicochet:
-                    simulation.ConfigureProjectileRicochet(
-                        context,
-                        node);
-                    break;
-                case EffectOperation.ApplyEnemyRicochet:
-                    simulation.ApplyEnemyRicochet(
-                        context,
-                        node);
-                    break;
-                case EffectOperation.BindBleed:
-                    simulation.AddProjectileBinding(
-                        context,
-                        BindingTrigger.OnHit,
-                        BindingKind.Bleed,
-                        node);
-                    break;
-                case EffectOperation.ApplyBleed:
-                    simulation.ApplyBleed(context, node);
-                    break;
-                case EffectOperation.AccelerateProjectile:
-                    simulation.AccelerateProjectile(
-                        context,
-                        node);
-                    break;
-                case EffectOperation.AccelerateEnemy:
-                    simulation.AccelerateEnemy(
-                        context,
-                        node);
-                    break;
-                case EffectOperation.EnableProjectileHoming:
-                    simulation.EnableProjectileHoming(context);
-                    break;
-                case EffectOperation.ApplyHomingPriority:
-                    simulation.ApplyHomingPriority(
-                        context,
-                        node);
-                    break;
-                case EffectOperation.DelayProjectile:
-                    simulation.DelayProjectile(context, node);
-                    break;
-                case EffectOperation.ApplyDelay:
-                    simulation.ApplyDelay(context, node);
-                    break;
-                default:
-                    throw new InvalidOperationException(
-                        "Unsupported common card operation " +
-                        operation + ".");
-            }
-
-            return EffectExecutionOutcome.Continue();
-        }
-    }
 }

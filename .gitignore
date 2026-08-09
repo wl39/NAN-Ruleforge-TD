@@ -2,6 +2,7 @@
 [Ll]ibrary/
 [Tt]emp/
 [Oo]bj/
+[Bb]in/
 [Ll]ogs/
 [Uu]ser[Ss]ettings/
 [Mm]emoryCaptures/
@@ -10,6 +11,17 @@
 # Build output
 [Bb]uild/
 [Bb]uilds/
+
+# Local verification, browser capture, and generated report output
+[Aa]rtifacts/
+[Tt]est[Rr]esults/
+[Bb]uild-results/
+[Tt]est-results/
+[Oo]utput/
+[Tt]mp/
+.playwright-cli/
+__pycache__/
+*.pyc
 
 # IDE-generated files
 .idea/
@@ -32,6 +44,10 @@
 sysinfo.txt
 .DS_Store
 
+# Pure .NET headless balance tooling is authored source, not Unity-generated IDE output.
+!Tools/Ruleforge.GameLogic.Net/Ruleforge.GameLogic.Net.csproj
+!Tools/Ruleforge.BalanceCli/Ruleforge.BalanceCli.csproj
+!Tests/Ruleforge.BalanceCli.Tests/Ruleforge.BalanceCli.Tests.csproj
+
 # Crash reports
 crashlytics-build.properties
-

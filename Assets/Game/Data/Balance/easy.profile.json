@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "difficultyId": "easy",
+  "baseContentHash": "22796887E869E39D",
+  "description": "Novice onboarding overlay with generous build freedom and a fixed fast-runner leakage budget that preserves a visible base-health margin.",
+  "modifiers": {
+    "startingGold": 600,
+    "enemyHealthPermille": 500,
+    "enemyArmorPermille": 500,
+    "enemySpeedPermille": 800,
+    "enemyResistancePermille": 500,
+    "enemyCountPermille": 500,
+    "spawnIntervalPermille": 1500,
+    "goldRewardPermille": 1500,
+    "towerBuildCostPermille": 500,
+    "towerUpgradeCostPermille": 500,
+    "bossAbilityIntervalPermille": 1500
+  },
+  "enemyOverrides": [
+    {
+      "enemyId": "runner",
+      "speedMilliPerTick": 2000
+    }
+  ],
+  "waveOverrides": [
+    { "waveId": "wave_2", "spawns": [{ "enemyId": "runner", "occurrence": 0, "count": 1 }] },
+    { "waveId": "wave_3", "spawns": [{ "enemyId": "runner", "occurrence": 0, "count": 1 }] },
+    { "waveId": "wave_4", "spawns": [{ "enemyId": "runner", "occurrence": 0, "count": 1 }] },
+    { "waveId": "wave_5", "spawns": [{ "enemyId": "runner", "occurrence": 0, "count": 1 }] },
+    { "waveId": "wave_6", "spawns": [{ "enemyId": "runner", "occurrence": 0, "count": 1 }] },
+    { "waveId": "wave_7", "spawns": [{ "enemyId": "runner", "occurrence": 0, "count": 1 }] },
+    { "waveId": "wave_8", "spawns": [{ "enemyId": "runner", "occurrence": 0, "count": 1 }] },
+    { "waveId": "wave_9", "spawns": [{ "enemyId": "runner", "occurrence": 0, "count": 6 }] }
+  ],
+  "bossOverrides": []
+}

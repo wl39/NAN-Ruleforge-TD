@@ -243,6 +243,10 @@ namespace RuleforgeTD.GameLogic.Simulation
                         StatusType.Fear,
                         node);
                     break;
+                default:
+                    throw new InvalidOperationException(
+                        "Uncommon effect dispatch does not handle " +
+                        operation + ".");
             }
         }
 
@@ -310,7 +314,10 @@ namespace RuleforgeTD.GameLogic.Simulation
             in CompiledEffectNode node)
         {
             ProjectileState original = FindProjectile(context.SubjectId);
-            if (original == null || !original.Alive)
+            if (original == null ||
+                !original.Alive ||
+                !CanCreateProjectileEntity(
+                    original.Generation + 1))
             {
                 return;
             }
@@ -405,6 +412,9 @@ namespace RuleforgeTD.GameLogic.Simulation
                 original,
                 ghost);
             projectiles.Add(ghost);
+            InheritLegendaryProjectileState(
+                original,
+                ghost);
             AddPresentation(
                 PresentationEventType.ProjectileSpawned,
                 ghost.Id.Value,
@@ -457,9 +467,7 @@ namespace RuleforgeTD.GameLogic.Simulation
                 return;
             }
 
-            CompiledEnemyDefinition definition =
-                content.GetEnemy(enemy.DefinitionId);
-            if (definition.Rank != EnemyRank.Normal)
+            if (UsesEliteControlRules(enemy))
             {
                 ApplyControlGauge(
                     enemy,
@@ -783,7 +791,8 @@ namespace RuleforgeTD.GameLogic.Simulation
         /// true이면 이 틱의 일반 이동 처리를 건너뛴다.
         /// </summary>
         internal bool TryProcessUncommonEnemyMovement(
-            EnemyState enemy)
+            EnemyState enemy,
+            bool ignoreMovementRestrictions = false)
         {
             if (enemy == null || !enemy.Alive)
             {
@@ -798,7 +807,8 @@ namespace RuleforgeTD.GameLogic.Simulation
                 return true;
             }
 
-            if (HasAnyStatus(
+            if (!ignoreMovementRestrictions &&
+                HasAnyStatus(
                     enemy,
                     StatusType.Bind,
                     StatusType.Airborne,
@@ -1217,6 +1227,12 @@ namespace RuleforgeTD.GameLogic.Simulation
                         enemy.Id,
                         status.SourceEntityId,
                         status.Stacks);
+                    AddUncommonAreaPresentation(
+                        "pulse",
+                        enemy.Id,
+                        status.SourceEntityId,
+                        status.RadiusMilli,
+                        GetEnemyHitboxCenter(enemy));
                     break;
                 case StatusType.Magnet:
                     PullProjectilesToEnemy(enemy, status);
@@ -1256,7 +1272,7 @@ namespace RuleforgeTD.GameLogic.Simulation
             {
                 case StatusType.Airborne:
                     ExecuteUncommonAreaDamage(
-                        enemy.Position,
+                        GetEnemyHitboxCenter(enemy),
                         Math.Max(
                             1,
                             status.ArmorIgnoreBps > 0
@@ -1489,7 +1505,7 @@ namespace RuleforgeTD.GameLogic.Simulation
             {
                 StatusInstance curse = curses[i];
                 EnemyState target = SelectNearestUncommonEnemy(
-                    enemy.Position,
+                    GetEnemyHitboxCenter(enemy),
                     curse.RadiusMilli > 0
                         ? curse.RadiusMilli
                         : DefaultEffectRadiusMilli,
@@ -1641,18 +1657,18 @@ namespace RuleforgeTD.GameLogic.Simulation
             }
         }
 
-        internal ProjectileEffectVisualFlags
+        internal CardEffectVisualFlags
             GetProjectileUncommonEffectFlags(EntityId projectileId)
         {
             if (!uncommonProjectileEffects.TryGetValue(
                     projectileId.Value,
                     out List<UncommonProjectileEffectRuntime> effects))
             {
-                return ProjectileEffectVisualFlags.None;
+                return CardEffectVisualFlags.None;
             }
 
-            ProjectileEffectVisualFlags result =
-                ProjectileEffectVisualFlags.None;
+            CardEffectVisualFlags result =
+                CardEffectVisualFlags.None;
             for (int i = 0; i < effects.Count; i++)
             {
                 result |= GetVisualFlag(effects[i].Operation);
@@ -1796,10 +1812,6 @@ namespace RuleforgeTD.GameLogic.Simulation
                 maxStacks: 1,
                 radiusMilli: ResolveRadius(node),
                 limit: node.Limit);
-            ApplyStatus(
-                context,
-                StatusType.Afterimage,
-                effective);
 
             foreach (KeyValuePair<int, EnemyAfterimageLink> pair
                      in uncommonAfterimageLinks)
@@ -1807,6 +1819,10 @@ namespace RuleforgeTD.GameLogic.Simulation
                 EnemyAfterimageLink existing = pair.Value;
                 if (existing.OriginalId == original.Id)
                 {
+                    ApplyStatus(
+                        context,
+                        StatusType.Afterimage,
+                        effective);
                     existing.ExpireTick = Math.Max(
                         existing.ExpireTick,
                         tick + effective.DurationTicks);
@@ -1822,11 +1838,37 @@ namespace RuleforgeTD.GameLogic.Simulation
                     original.LineageId.Value,
                     out LineageState lineage) ||
                 lineage.SpawnedEntityCount >=
-                content.Safety.MaxEnemiesPerLineage)
+                content.Safety.MaxEnemiesPerLineage ||
+                !CanCreateEnemyEntity(original.Generation))
+            {
+                ApplyStatus(
+                    context,
+                    StatusType.Afterimage,
+                    effective);
+                return;
+            }
+
+            GameEvent diagnosticEvent =
+                WithDiagnosticDepth(
+                    CreateDiagnosticEvent(
+                        EventType.EnemySplit,
+                        context.RootChainId,
+                        context.TowerId,
+                        context.CardId,
+                        context.SubjectId,
+                        SubjectType.Enemy),
+                    context.Depth);
+            if (!TryPassSandboxEnemyCreationGate(
+                    1,
+                    in diagnosticEvent))
             {
                 return;
             }
 
+            ApplyStatus(
+                context,
+                StatusType.Afterimage,
+                effective);
             long trailDistance = effective.RadiusMilli > 0
                 ? Math.Min(2000, effective.RadiusMilli)
                 : 750;
@@ -1841,6 +1883,8 @@ namespace RuleforgeTD.GameLogic.Simulation
                 Generation = original.Generation,
                 SpawnOrigin = EnemySpawnOrigin.Split,
                 SummonerId = original.Id,
+                EliteTraitIds =
+                    (EliteTraitId[])original.EliteTraitIds.Clone(),
                 PathProgressMilli = phantomProgress,
                 PathLateralOffset =
                     original.PathLateralOffset,
@@ -1856,6 +1900,8 @@ namespace RuleforgeTD.GameLogic.Simulation
                     original.SpeedMultiplierBps,
                 SizeMultiplierBps =
                     original.SizeMultiplierBps,
+                EliteRenderScaleBps =
+                    original.EliteRenderScaleBps,
                 AreaDamageTakenBps =
                     original.AreaDamageTakenBps,
                 SingleDamageTakenBps =
@@ -1870,6 +1916,9 @@ namespace RuleforgeTD.GameLogic.Simulation
             };
             enemies.Add(phantom);
             InheritRangeEntryLocks(original, phantom);
+            InheritLegendaryEnemyState(
+                original,
+                phantom);
             lineage.SpawnedEntityCount++;
             lineage.LiveMembers++;
             uncommonAfterimageLinks.Add(
@@ -1929,11 +1978,12 @@ namespace RuleforgeTD.GameLogic.Simulation
                     StatusType.Bind,
                     effect.Node);
             }
-            AddUncommonPresentation(
+            AddUncommonAreaPresentation(
                 "bind_pulse",
                 projectile.Id,
                 projectile.Id,
-                uncommonEnemyScratch.Count);
+                ResolveRadius(effect.Node),
+                projectile.Position);
         }
 
         private void ProcessProjectilePulse(
@@ -2278,8 +2328,10 @@ namespace RuleforgeTD.GameLogic.Simulation
             in GameEvent parentEvent)
         {
             int radius = ResolveRadius(effect.Node);
+            SimPosition landingCenter =
+                GetEnemyHitboxCenter(directTarget);
             CollectNearbyEnemies(
-                directTarget.Position,
+                landingCenter,
                 radius,
                 EntityId.Invalid,
                 effect.Node.Limit);
@@ -2311,7 +2363,7 @@ namespace RuleforgeTD.GameLogic.Simulation
             }
 
             ExecuteUncommonAreaDamage(
-                directTarget.Position,
+                landingCenter,
                 ResolveDamage(
                     projectile.DamageMilli,
                     effect.Node.Amount2),
@@ -2326,7 +2378,8 @@ namespace RuleforgeTD.GameLogic.Simulation
                 parentEvent.Depth + 1,
                 DamageKind.Collision,
                 EventTags.Area | EventTags.Control,
-                "airborne_land");
+                "airborne_land",
+                directTarget.Id.Value);
         }
 
         private void ExecuteChainDamage(
@@ -2348,8 +2401,10 @@ namespace RuleforgeTD.GameLogic.Simulation
                 return;
             }
 
+            SimPosition areaCenter =
+                GetEnemyHitboxCenter(origin);
             CollectNearbyEnemies(
-                origin.Position,
+                areaCenter,
                 radiusMilli > 0
                     ? radiusMilli
                     : DefaultEffectRadiusMilli,
@@ -2371,7 +2426,7 @@ namespace RuleforgeTD.GameLogic.Simulation
                         activationId,
                         parentEventId,
                         depth,
-                        EventTags.SingleTarget |
+                        EventTags.Area |
                         EventTags.Repeated,
                         out GameEvent damageEvent))
                 {
@@ -2382,11 +2437,20 @@ namespace RuleforgeTD.GameLogic.Simulation
             if (TryEnqueueBatch(uncommonEventScratch) &&
                 uncommonEventScratch.Count > 0)
             {
-                AddUncommonPresentation(
+                if (string.Equals(
+                        presentationId,
+                        "shock_chain",
+                        StringComparison.Ordinal))
+                {
+                    RecordShockChainHits(
+                        uncommonEventScratch.Count);
+                }
+                AddUncommonAreaPresentation(
                     presentationId,
-                    uncommonEnemyScratch[0].Id,
                     origin.Id,
-                    damageMilli);
+                    origin.Id,
+                    radiusMilli,
+                    areaCenter);
             }
         }
 
@@ -2404,7 +2468,8 @@ namespace RuleforgeTD.GameLogic.Simulation
             int depth,
             DamageKind damageKind,
             EventTags tags,
-            string presentationId)
+            string presentationId,
+            int presentationSubjectId = -1)
         {
             if (damageMilli <= 0)
             {
@@ -2444,11 +2509,14 @@ namespace RuleforgeTD.GameLogic.Simulation
             if (TryEnqueueBatch(uncommonEventScratch) &&
                 uncommonEventScratch.Count > 0)
             {
-                AddUncommonPresentation(
+                AddUncommonAreaPresentation(
                     presentationId,
-                    uncommonEnemyScratch[0].Id,
+                    presentationSubjectId >= 0
+                        ? new EntityId(presentationSubjectId)
+                        : sourceEntityId,
                     sourceEntityId,
-                    damageMilli);
+                    radiusMilli,
+                    position);
             }
         }
 
@@ -2459,8 +2527,8 @@ namespace RuleforgeTD.GameLogic.Simulation
             int limit)
         {
             uncommonEnemyScratch.Clear();
-            int maximumEnemyRadius = checked(
-                run.EnemyBaseHitRadiusMilli * 3);
+            int maximumEnemyRadius =
+                GetMaximumEnemyHitboxReachMilli();
             spatialIndex.Query(
                 origin,
                 checked(
@@ -2474,12 +2542,10 @@ namespace RuleforgeTD.GameLogic.Simulation
                     !enemy.Alive ||
                     enemy.DeathQueued ||
                     enemy.Id == excludedId ||
-                    !PathModel.IsWithin(
+                    !DoesAreaCircleOverlapEnemyHitbox(
                         origin,
-                        enemy.Position,
-                        checked(
-                            Math.Max(1, radiusMilli) +
-                            GetEnemyHitRadiusMilli(enemy))))
+                        Math.Max(1, radiusMilli),
+                        enemy))
                 {
                     continue;
                 }
@@ -2577,7 +2643,7 @@ namespace RuleforgeTD.GameLogic.Simulation
             }
 
             EnemyState target = SelectNearestUncommonEnemy(
-                source.Position,
+                GetEnemyHitboxCenter(source),
                 trigger.RadiusMilli > 0
                     ? trigger.RadiusMilli
                     : DefaultEffectRadiusMilli,
@@ -2630,6 +2696,7 @@ namespace RuleforgeTD.GameLogic.Simulation
                 target.Id,
                 source.Id,
                 (int)transferable.Type);
+            RecordStatusSpread();
         }
 
         private void TickCorrosion(
@@ -2678,7 +2745,7 @@ namespace RuleforgeTD.GameLogic.Simulation
             StatusInstance status)
         {
             EnemyState target = SelectNearestUncommonEnemy(
-                enemy.Position,
+                GetEnemyHitboxCenter(enemy),
                 Math.Max(
                     GetEnemyHitRadiusMilli(enemy) * 2,
                     status.RadiusMilli),
@@ -3164,6 +3231,23 @@ namespace RuleforgeTD.GameLogic.Simulation
                 contentId);
         }
 
+        private void AddUncommonAreaPresentation(
+            string contentId,
+            EntityId subjectId,
+            EntityId sourceId,
+            int radiusMilli,
+            SimPosition position)
+        {
+            AddPresentation(
+                PresentationEventType.AreaEffectTriggered,
+                subjectId.Value,
+                sourceId.Value,
+                Math.Max(1, radiusMilli),
+                contentId,
+                effectPosition: position,
+                hasEffectPosition: true);
+        }
+
         private static void GetEightDirectionOffset(
             int phase,
             int radius,
@@ -3211,43 +3295,43 @@ namespace RuleforgeTD.GameLogic.Simulation
             }
         }
 
-        private static ProjectileEffectVisualFlags GetVisualFlag(
+        private static CardEffectVisualFlags GetVisualFlag(
             EffectOperation operation)
         {
             switch (operation)
             {
                 case EffectOperation.BindCurse:
-                    return ProjectileEffectVisualFlags.Curse;
+                    return CardEffectVisualFlags.Curse;
                 case EffectOperation.CreateBindTrap:
-                    return ProjectileEffectVisualFlags.Bind;
+                    return CardEffectVisualFlags.Bind;
                 case EffectOperation.MakeAirborneProjectile:
-                    return ProjectileEffectVisualFlags.Airborne;
+                    return CardEffectVisualFlags.Airborne;
                 case EffectOperation.BindShock:
-                    return ProjectileEffectVisualFlags.Shock;
+                    return CardEffectVisualFlags.Shock;
                 case EffectOperation.BindFreeze:
-                    return ProjectileEffectVisualFlags.Freeze;
+                    return CardEffectVisualFlags.Freeze;
                 case EffectOperation.CreateAfterimageProjectile:
-                    return ProjectileEffectVisualFlags.Afterimage;
+                    return CardEffectVisualFlags.Afterimage;
                 case EffectOperation.EnableProjectilePulse:
-                    return ProjectileEffectVisualFlags.Pulse;
+                    return CardEffectVisualFlags.Pulse;
                 case EffectOperation.EnableProjectileMagnet:
-                    return ProjectileEffectVisualFlags.Magnet;
+                    return CardEffectVisualFlags.Magnet;
                 case EffectOperation.EnableProjectileReflect:
-                    return ProjectileEffectVisualFlags.Reflect;
+                    return CardEffectVisualFlags.Reflect;
                 case EffectOperation.EnableProjectileContagion:
-                    return ProjectileEffectVisualFlags.Contagion;
+                    return CardEffectVisualFlags.Contagion;
                 case EffectOperation.BindSeal:
-                    return ProjectileEffectVisualFlags.Seal;
+                    return CardEffectVisualFlags.Seal;
                 case EffectOperation.BindCorrosion:
-                    return ProjectileEffectVisualFlags.Corrosion;
+                    return CardEffectVisualFlags.Corrosion;
                 case EffectOperation.EnableProjectileOrbit:
-                    return ProjectileEffectVisualFlags.Orbit;
+                    return CardEffectVisualFlags.Orbit;
                 case EffectOperation.BindLifesteal:
-                    return ProjectileEffectVisualFlags.Lifesteal;
+                    return CardEffectVisualFlags.Lifesteal;
                 case EffectOperation.BindFear:
-                    return ProjectileEffectVisualFlags.Fear;
+                    return CardEffectVisualFlags.Fear;
                 default:
-                    return ProjectileEffectVisualFlags.None;
+                    return CardEffectVisualFlags.None;
             }
         }
 
@@ -3282,38 +3366,6 @@ namespace RuleforgeTD.GameLogic.Simulation
             {
                 hash.Add(contacts[i]);
             }
-        }
-    }
-}
-
-namespace RuleforgeTD.GameLogic.Effects
-{
-    using RuleforgeTD.GameLogic.Content;
-    using RuleforgeTD.GameLogic.Simulation;
-
-    /// <summary>
-    /// 고급 카드 operation은 데이터가 탄환/적 해석을 이미 구분하므로 하나의
-    /// 무상태 adapter를 공유하고 실제 규칙은 GameSimulation partial에 둔다.
-    /// </summary>
-    internal sealed class UncommonEffectExecutor : IEffectExecutor
-    {
-        private readonly EffectOperation operation;
-
-        public UncommonEffectExecutor(EffectOperation operation)
-        {
-            this.operation = operation;
-        }
-
-        public EffectExecutionOutcome Execute(
-            GameSimulation simulation,
-            in EffectExecutionContext context,
-            in CompiledEffectNode node)
-        {
-            simulation.ExecuteUncommonEffect(
-                context,
-                operation,
-                node);
-            return EffectExecutionOutcome.Continue();
         }
     }
 }

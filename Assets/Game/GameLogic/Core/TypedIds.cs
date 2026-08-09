@@ -138,6 +138,25 @@ namespace RuleforgeTD.GameLogic.Core
         public static bool operator >(EnemyDefinitionId left, EnemyDefinitionId right) { return left.Value > right.Value; }
     }
 
+    /// <summary>기본 적 데이터에 조합하는 엘리트 특성 정의를 가리키는 ID다.</summary>
+    public readonly struct EliteTraitId : IEquatable<EliteTraitId>, IComparable<EliteTraitId>
+    {
+        public static readonly EliteTraitId Invalid = new EliteTraitId(-1);
+        public int Value { get; }
+        public bool IsValid { get { return Value >= 0; } }
+
+        public EliteTraitId(int value) { Value = value; }
+        public int CompareTo(EliteTraitId other) { return Value.CompareTo(other.Value); }
+        public bool Equals(EliteTraitId other) { return Value == other.Value; }
+        public override bool Equals(object obj) { return obj is EliteTraitId other && Equals(other); }
+        public override int GetHashCode() { return Value; }
+        public override string ToString() { return IsValid ? Value.ToString() : "Invalid"; }
+        public static bool operator ==(EliteTraitId left, EliteTraitId right) { return left.Equals(right); }
+        public static bool operator !=(EliteTraitId left, EliteTraitId right) { return !left.Equals(right); }
+        public static bool operator <(EliteTraitId left, EliteTraitId right) { return left.Value < right.Value; }
+        public static bool operator >(EliteTraitId left, EliteTraitId right) { return left.Value > right.Value; }
+    }
+
     /// <summary>분열, 화상 같은 카드의 컴파일된 콘텐츠 정의를 가리키는 ID다.</summary>
     public readonly struct CardId : IEquatable<CardId>, IComparable<CardId>
     {

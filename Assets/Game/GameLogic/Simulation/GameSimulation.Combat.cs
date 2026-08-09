@@ -27,17 +27,51 @@ namespace RuleforgeTD.GameLogic.Simulation
                 {
                     continue;
                 }
+                if (ProcessMythicEnemyMovement(enemy))
+                {
+                    // 시간 잔상과 거울 환영은 신화 모듈이 위치와 수명을 소유한다.
+                    // 다른 이동 상태가 붙어도 일반 전진·본진 누출 판정으로 빠지지 않는다.
+                    continue;
+                }
 
                 SimPosition previousPosition = enemy.Position;
-                int movementMultiplier = enemy.SpeedMultiplierBps;
+                bool ignoreMovementRestrictions =
+                    UpdateMovementRestrictionEscape(enemy);
+                int movementMultiplier = ignoreMovementRestrictions
+                    ? Math.Max(10000, enemy.SpeedMultiplierBps)
+                    : enemy.SpeedMultiplierBps;
                 // 기절은 이동 배율을 0으로 만들고, 일반 둔화는 여러 효과를 합성한 뒤 상한을 적용한다.
                 // Bps는 10,000을 100%로 보는 정수 비율 단위라 부동소수점 오차가 없다.
-                if (HasActiveStatus(enemy, StatusType.Stun) ||
-                    IsEnemyDelayed(enemy))
+                if (!ignoreMovementRestrictions &&
+                    TryProcessRareResonanceAbsorbTimeMutationEnemyMovement(
+                        enemy))
                 {
                     movementMultiplier = 0;
                 }
-                else if (TryProcessUncommonEnemyMovement(enemy))
+                else if (ProcessRareEnemyMovement(enemy))
+                {
+                    continue;
+                }
+                else if (!ignoreMovementRestrictions &&
+                    (HasActiveStatus(enemy, StatusType.Stun) ||
+                     IsEnemyDelayed(enemy)))
+                {
+                    movementMultiplier = 0;
+                }
+                else if (TryProcessLegendaryEnemyMovement(enemy))
+                {
+                    if (enemy.Alive &&
+                        enemy.PathProgressMilli >=
+                        path.TotalLengthMilli)
+                    {
+                        LeakEnemy(enemy);
+                    }
+                    continue;
+                }
+                else if (TryProcessRareEnemyMovement(enemy) ||
+                         TryProcessUncommonEnemyMovement(
+                             enemy,
+                             ignoreMovementRestrictions))
                 {
                     // 공포·회전처럼 고급 카드가 직접 위치를 처리한 경우에도 출혈은
                     // 실제 월드 이동 거리를 동일하게 소비한다.
@@ -60,7 +94,9 @@ namespace RuleforgeTD.GameLogic.Simulation
                 }
                 else
                 {
-                    int slowBps = GetSlowBps(enemy);
+                    int slowBps = ignoreMovementRestrictions
+                        ? 0
+                        : GetSlowBps(enemy);
                     movementMultiplier = (int)DeterministicMath.MultiplyBasisPoints(
                         movementMultiplier,
                         10000 - slowBps);
@@ -105,6 +141,14 @@ namespace RuleforgeTD.GameLogic.Simulation
                 return;
             }
 
+            // 시간 잔상과 거울 환영은 공격 가능한 논리 프록시지만 웨이브 개체가 아니다.
+            // 경로 끝에 닿아도 본진 피해·보상 몰수·가계 진행도를 만들지 않고 조용히 정리한다.
+            if (IsMythicEnemyProxyForLifecycle(enemy.Id))
+            {
+                enemy.Alive = false;
+                return;
+            }
+
             enemy.Alive = false;
             // 분열한 여러 개체가 하나의 원래 적 보상을 나눠 갖기 때문에, 개체가 아니라 lineage 장부에
             // 지급·몰수·진행도 소진을 누적한다. 그래야 분열로 총 골드나 웨이브 진행도가 늘어나지 않는다.
@@ -134,7 +178,13 @@ namespace RuleforgeTD.GameLogic.Simulation
             CompiledEnemyDefinition definition = content.GetEnemy(enemy.DefinitionId);
             int leakDamage =
                 enemy.IsShimmering ? 0 : definition.LeakDamage;
-            baseHealth = Math.Max(0, baseHealth - leakDamage);
+            // TestLab은 유출 피해와 연출을 그대로 보여 주되 열린 전투를
+            // 계속 유지한다. 일반 런만 0 체력과 패배 단계로 전환한다.
+            int minimumBaseHealth =
+                sandboxTestingMode ? 1 : 0;
+            baseHealth = Math.Max(
+                minimumBaseHealth,
+                baseHealth - leakDamage);
             DecrementLineage(enemy);
             AddPresentation(
                 PresentationEventType.EnemyLeaked,
@@ -144,32 +194,11 @@ namespace RuleforgeTD.GameLogic.Simulation
                 definition.StableId);
 
             // 본진 체력이 정확히 0이 된 순간 런 상태를 패배로 바꾸고, 앞단용 알림만 별도로 남긴다.
-            if (baseHealth == 0)
+            if (!sandboxTestingMode &&
+                baseHealth == 0)
             {
                 phase = RunPhase.Defeat;
                 AddPresentation(PresentationEventType.RunLost, currentWaveIndex);
-            }
-        }
-
-        /// <summary>
-        /// 배치된 타워를 안정된 목록 순서대로 순회하며 각 타워 정의의 Trigger에 맞는 로직을 호출한다.
-        /// 타워 종류마다 별도 MonoBehaviour를 만들지 않고, 데이터의 Trigger가 실행 문맥을 선택한다.
-        /// </summary>
-        private void ProcessTowers()
-        {
-            for (int i = 0; i < towers.Count; i++)
-            {
-                TowerState tower = towers[i];
-                CompiledTowerDefinition definition = content.GetTower(tower.DefinitionId);
-                switch (definition.Trigger)
-                {
-                    case TowerTrigger.Attack:
-                        ProcessAttackTower(tower, definition);
-                        break;
-                    case TowerTrigger.EnemyEnteredRange:
-                        ProcessRangeEntryTower(tower, definition);
-                        break;
-                }
             }
         }
 
@@ -402,6 +431,12 @@ namespace RuleforgeTD.GameLogic.Simulation
             ChainId chainId,
             ActivationId activationId)
         {
+            if (projectiles.Count >=
+                content.Safety.MaxActiveProjectiles)
+            {
+                return null;
+            }
+
             if (!chainBudgets.TryGetValue(chainId.Value, out ChainBudget budget))
             {
                 return null;
@@ -482,7 +517,14 @@ namespace RuleforgeTD.GameLogic.Simulation
                     continue;
                 }
 
-                if (ShouldPauseProjectileForDelay(projectile) ||
+                // 시간 균열은 모든 살아 있는 탄환의 위치 이력을 요구한다. 다른 이동
+                // 훅이 이 틱을 소비하더라도 기록이 빠지지 않게 단축 평가 밖에서 호출한다.
+                ProcessMythicProjectileMovement(projectile);
+                if (ProcessRareProjectileTick(projectile) ||
+                    ProcessRareResonanceAbsorbTimeMutationProjectileTick(
+                        projectile) ||
+                    ShouldPauseProjectileForDelay(projectile) ||
+                    ProcessLegendaryProjectileTick(projectile) ||
                     ProcessUncommonProjectileTick(projectile))
                 {
                     continue;
@@ -600,13 +642,36 @@ namespace RuleforgeTD.GameLogic.Simulation
 
             projectile.HitEnemies.Add(target.Id.Value);
             // 치명타 난수는 전투 전용 PCG 스트림에서 뽑으며, 결과 피해는 이후 방어 계산 이벤트로 넘긴다.
-            bool critical = projectile.CriticalChanceBps > 0 &&
-                            combatRandom.NextBasisPoints() < projectile.CriticalChanceBps;
+            bool fateResolved = ResolveLegendaryCritical(
+                projectile,
+                target,
+                out bool critical,
+                out int criticalEffectPowerBps);
+            if (!fateResolved)
+            {
+                critical =
+                    projectile.CriticalChanceBps > 0 &&
+                    combatRandom.NextBasisPoints() <
+                    projectile.CriticalChanceBps;
+            }
+            long baseDamage = projectile.DamageMilli;
             long damage = critical
                 ? DeterministicMath.MultiplyBasisPoints(
-                    projectile.DamageMilli,
+                    baseDamage,
                     run.CriticalDamageBps)
-                : projectile.DamageMilli;
+                : baseDamage;
+            if (critical)
+            {
+                damage = ApplyLegendaryCriticalDamagePolicy(
+                    baseDamage,
+                    damage,
+                    criticalEffectPowerBps);
+            }
+            damage = ModifyRareProjectileHitDamage(
+                projectile,
+                target,
+                damage,
+                gameEvent);
             int piercedArmorIgnoreBps =
                 GetPiercedArmorIgnoreBps(target);
             EnqueueDamage(
@@ -679,16 +744,32 @@ namespace RuleforgeTD.GameLogic.Simulation
                 projectile.Id.Value,
                 (int)Math.Min(int.MaxValue, damage),
                 effectVisualFlags:
-                    (uint)GetProjectileImpactVisualFlags(
+                    (ulong)GetProjectileImpactVisualFlags(
                         projectile));
 
             // 함정·귀환·공전은 적중 뒤 탄환 생존을 직접 인수한다. 그 밖의 탄환은
             // 도탄을 먼저 시도한 뒤 기존 관통/소멸 규칙으로 진행한다.
-            if (HandleUncommonProjectileHit(
+            if (HandleRareProjectileHit(
                     projectile,
                     target,
                     gameEvent) ||
-                TryRicochetProjectile(projectile, target))
+                HandleLegendaryProjectileHit(
+                    projectile,
+                    target,
+                    gameEvent) ||
+                TryHandleMythicProjectileHit(
+                    projectile,
+                    target,
+                    gameEvent) ||
+                HandleUncommonProjectileHit(
+                    projectile,
+                    target,
+                    gameEvent) ||
+                TryRicochetProjectile(projectile, target) ||
+                TryHandleRareProjectileHit(
+                    projectile,
+                    target,
+                    gameEvent))
             {
                 return;
             }
@@ -810,6 +891,38 @@ namespace RuleforgeTD.GameLogic.Simulation
                 }
             }
 
+            if (TryHandleRareProjectileExpired(
+                    projectile,
+                    gameEvent))
+            {
+                return;
+            }
+            if (TryHandleMythicProjectilePhoenix(
+                    projectile,
+                    gameEvent))
+            {
+                return;
+            }
+            if (HandleRareProjectileExpired(
+                    projectile,
+                    gameEvent))
+            {
+                projectile.Alive = false;
+                AddPresentation(
+                    PresentationEventType.ProjectileExpired,
+                    projectile.Id.Value,
+                    projectile.SourceTowerId.Value);
+                return;
+            }
+            HandleMythicProjectileFinalExpired(
+                projectile,
+                gameEvent);
+            if (HandleLegendaryProjectileExpired(
+                    projectile,
+                    gameEvent))
+            {
+                return;
+            }
             projectile.Alive = false;
             AddPresentation(
                 PresentationEventType.ProjectileExpired,
@@ -1025,7 +1138,8 @@ namespace RuleforgeTD.GameLogic.Simulation
         }
 
         /// <summary>
-        /// 적의 크기 배율을 논리 충돌 반지름으로 바꾼다. 최소 1을 보장해 축소된 적도 충돌 가능하다.
+        /// 적의 크기 배율을 캡슐 히트박스 반지름으로 바꾼다.
+        /// 최소 1을 보장해 축소된 적도 충돌 가능하다.
         /// </summary>
         private int GetEnemyHitRadiusMilli(EnemyState enemy)
         {
@@ -1034,6 +1148,104 @@ namespace RuleforgeTD.GameLogic.Simulation
                 (int)DeterministicMath.MultiplyBasisPoints(
                     run.EnemyBaseHitRadiusMilli,
                     enemy.SizeMultiplierBps));
+        }
+
+        private int GetEnemyHitboxCenterOffsetYMilli(
+            EnemyState enemy)
+        {
+            return (int)DeterministicMath.MultiplyBasisPoints(
+                run.EnemyHitboxCenterOffsetYMilli,
+                enemy.SizeMultiplierBps);
+        }
+
+        private int GetEnemyHitboxHalfHeightMilli(
+            EnemyState enemy)
+        {
+            return Math.Max(
+                GetEnemyHitRadiusMilli(enemy),
+                (int)DeterministicMath.MultiplyBasisPoints(
+                    run.EnemyHitboxHalfHeightMilli,
+                    enemy.SizeMultiplierBps));
+        }
+
+        /// <summary>
+        /// Bottom Center 경로 기준점을 실제 세로 캡슐 히트박스 중심으로 바꾼다.
+        /// 폭발 위치와 표시 원이 적 발밑으로 내려가지 않도록 적중·사망 폭발에도 사용한다.
+        /// </summary>
+        private SimPosition GetEnemyHitboxCenter(
+            EnemyState enemy)
+        {
+            return SimPosition.FromMilliUnits(
+                enemy.Position.X.MilliUnits,
+                checked(
+                    enemy.Position.Y.MilliUnits +
+                    GetEnemyHitboxCenterOffsetYMilli(enemy)));
+        }
+
+        /// <summary>
+        /// 범위 원과 적의 실제 세로 캡슐 히트박스가 한 점이라도 겹치는지 판정한다.
+        /// 경계 접촉도 적중이며 Unity 물리엔진 없이 정수 연산으로 결정성을 유지한다.
+        /// </summary>
+        internal bool DoesAreaCircleOverlapEnemyHitbox(
+            SimPosition areaCenter,
+            int areaRadiusMilli,
+            EnemyState enemy)
+        {
+            if (enemy == null || areaRadiusMilli < 0)
+            {
+                return false;
+            }
+
+            int hitRadius = GetEnemyHitRadiusMilli(enemy);
+            int halfHeight =
+                GetEnemyHitboxHalfHeightMilli(enemy);
+            long segmentHalfHeight = Math.Max(
+                0,
+                halfHeight - hitRadius);
+            SimPosition hitboxCenter =
+                GetEnemyHitboxCenter(enemy);
+            long closestY = Math.Max(
+                hitboxCenter.Y.MilliUnits - segmentHalfHeight,
+                Math.Min(
+                    hitboxCenter.Y.MilliUnits + segmentHalfHeight,
+                    areaCenter.Y.MilliUnits));
+            long dx = checked(
+                areaCenter.X.MilliUnits -
+                hitboxCenter.X.MilliUnits);
+            long dy = checked(
+                areaCenter.Y.MilliUnits - closestY);
+            long combinedRadius = checked(
+                (long)areaRadiusMilli + hitRadius);
+            return checked(dx * dx + dy * dy) <=
+                   checked(combinedRadius * combinedRadius);
+        }
+
+        /// <summary>
+        /// 공간 인덱스가 적 기준점만 저장하므로 현재 가장 큰 히트박스의 기준점
+        /// 이탈 거리만큼 검색 범위를 넓힌다. 거대화된 적도 후보에서 빠지지 않는다.
+        /// </summary>
+        private int GetMaximumEnemyHitboxReachMilli()
+        {
+            int maximum = 1;
+            for (int i = 0; i < enemies.Count; i++)
+            {
+                EnemyState enemy = enemies[i];
+                if (!enemy.Alive)
+                {
+                    continue;
+                }
+
+                int verticalReach = checked(
+                    Math.Abs(
+                        GetEnemyHitboxCenterOffsetYMilli(enemy)) +
+                    GetEnemyHitboxHalfHeightMilli(enemy));
+                maximum = Math.Max(
+                    maximum,
+                    Math.Max(
+                        verticalReach,
+                        GetEnemyHitRadiusMilli(enemy)));
+            }
+            return maximum;
         }
 
         /// <summary>
@@ -1149,6 +1361,11 @@ namespace RuleforgeTD.GameLogic.Simulation
         private void CleanupDeadEntities()
         {
             CleanupUncommonCardState();
+            CleanupRareGenerationMotionState();
+            CleanupRareResonanceAbsorbTimeMutationState();
+            CleanupRareDeathChainState();
+            CleanupLegendaryState();
+            CleanupMythicCardState();
             for (int i = projectiles.Count - 1; i >= 0; i--)
             {
                 if (!projectiles[i].Alive)

@@ -75,9 +75,14 @@ namespace RuleforgeTD.Editor.BuildTools
                 GameObject harnessObject = new GameObject(HarnessObjectName);
                 HeadlessSimulationHarness harness =
                     harnessObject.AddComponent<HeadlessSimulationHarness>();
+                TextAsset[] cardContentModules =
+                    CardContentModuleAssetDiscovery
+                        .DiscoverTextAssets();
                 ulong expectedHash =
                     HeadlessReplayDriver.ComputeVictoryHash(
-                        LogicContentJsonLoader.Load(content),
+                        LogicContentJsonLoader.Load(
+                            content,
+                            cardContentModules),
                         ReplaySeed,
                         MaximumTicks,
                         out int editorTicks);
@@ -86,7 +91,8 @@ namespace RuleforgeTD.Editor.BuildTools
                     ReplaySeed,
                     TicksPerFrame,
                     MaximumTicks,
-                    expectedHash);
+                    expectedHash,
+                    cardContentModules);
 
                 EditorUtility.SetDirty(harness);
 

@@ -121,29 +121,23 @@ namespace RuleforgeTD.GameLogic.Simulation
             int chainEventCount,
             int queueSlotCount,
             int projectileSpawnCount,
-            int cardTriggerCount)
+            int cardTriggerCount,
+            int enemySpawnCount = 0,
+            int recursionCount = 0,
+            int mythicRepeatCount = 0)
         {
             if (chainEventCount < 0 ||
                 queueSlotCount < 0 ||
                 projectileSpawnCount < 0 ||
-                cardTriggerCount < 0)
+                enemySpawnCount < 0 ||
+                cardTriggerCount < 0 ||
+                recursionCount < 0 ||
+                mythicRepeatCount < 0)
             {
                 AddDiagnostic(
                     DiagnosticCode.InvalidEvent,
                     diagnosticEvent,
                     chainEventCount);
-                return false;
-            }
-
-            // 한 틱 전체 이벤트 예산은 여러 RootChain이 동시에 폭주하는 경우까지 막는 최종 방어선이다.
-            if (chainEventCount >
-                content.Safety.MaxEventsPerTick -
-                eventsEnqueuedThisTick)
-            {
-                AddDiagnostic(
-                    DiagnosticCode.TickEventBudgetExceeded,
-                    diagnosticEvent,
-                    eventsEnqueuedThisTick);
                 return false;
             }
 
@@ -174,7 +168,10 @@ namespace RuleforgeTD.GameLogic.Simulation
                 diagnosticEvent.Depth,
                 chainEventCount,
                 projectileSpawnCount,
-                cardTriggerCount);
+                cardTriggerCount,
+                enemySpawnCount,
+                recursionCount,
+                mythicRepeatCount);
             if (!budget.TryReserve(
                     in reservation,
                     out BudgetFailure failure))
@@ -310,6 +307,62 @@ namespace RuleforgeTD.GameLogic.Simulation
                 return false;
             }
 
+            ProgramExecutionSpec execution =
+                CreateDefaultProgramExecution(
+                    tower,
+                    subjectType);
+            return EnqueueProgramPass(
+                subjectType,
+                subjectId,
+                towerId,
+                cardIndex,
+                rootChainId,
+                activationId,
+                parentEventId,
+                depth,
+                phase,
+                in execution);
+        }
+
+        /// <summary>
+        /// 고티어 문법이 만든 명시적 순회 명세로 새 프로그램 패스를 시작한다.
+        /// 첫 CardExecute와 재귀/신화 토큰을 하나의 예약으로 처리해 부분 소비를 막는다.
+        /// </summary>
+        private bool EnqueueProgramPass(
+            SubjectType subjectType,
+            EntityId subjectId,
+            TowerId towerId,
+            int cardIndex,
+            ChainId rootChainId,
+            ActivationId activationId,
+            EventId parentEventId,
+            int depth,
+            EventPhase phase,
+            in ProgramExecutionSpec execution,
+            int recursionCount = 0,
+            int mythicRepeatCount = 0,
+            int projectileSpawnCount = 0)
+        {
+            TowerState tower = FindTower(towerId);
+            if (tower == null ||
+                cardIndex < 0 ||
+                cardIndex >= tower.Program.Length)
+            {
+                return false;
+            }
+
+            // A pass is one grammar-level transaction. Reserve every card in
+            // its current subject/direction before the first CardExecute is
+            // visible so Recursion, Overload and Ouroboros cannot stop halfway
+            // after consuming their one-shot token.
+            int continuationCount =
+                CountRemainingProgramCards(
+                    tower,
+                    cardIndex,
+                    subjectType,
+                    in execution);
+            int passCardCount = checked(
+                continuationCount + 1);
             if (!TryCreateProgramEvent(
                     subjectType,
                     subjectId,
@@ -320,14 +373,23 @@ namespace RuleforgeTD.GameLogic.Simulation
                     parentEventId,
                     depth,
                     phase,
-                    0,
+                    continuationCount,
+                    in execution,
                     out GameEvent gameEvent,
                     out int frameIndex))
             {
                 return false;
             }
 
-            if (!TryEnqueue(in gameEvent, out _))
+            if (!TryReserveComposite(
+                    in gameEvent,
+                    chainEventCount: passCardCount,
+                    queueSlotCount: 1,
+                    projectileSpawnCount: projectileSpawnCount,
+                    cardTriggerCount: passCardCount,
+                    recursionCount: recursionCount,
+                    mythicRepeatCount: mythicRepeatCount) ||
+                !EnqueueReserved(in gameEvent, out _))
             {
                 ReleaseProgramFrame(frameIndex);
                 return false;
@@ -336,30 +398,161 @@ namespace RuleforgeTD.GameLogic.Simulation
             return true;
         }
 
-        private static int FindFirstProgramIndex(
+        /// <summary>
+        /// 같은 적 프로그램 패스를 여러 대상에게 적용할 때 전체 대상의 카드·큐 예산을
+        /// 한 번에 예약한다. 마지막 명령처럼 하나의 효과가 고른 대상 중 일부만 실행되는
+        /// 반쪽 성공을 허용하지 않는다.
+        /// </summary>
+        private bool EnqueueEnemyProgramPassBatch(
+            IReadOnlyList<EnemyState> targets,
+            TowerId towerId,
+            int cardIndex,
+            ChainId rootChainId,
+            ActivationId activationId,
+            EventId parentEventId,
+            int depth,
+            EventPhase phase,
+            in ProgramExecutionSpec execution)
+        {
+            if (targets == null || targets.Count == 0)
+            {
+                return true;
+            }
+
+            TowerState tower = FindTower(towerId);
+            if (tower == null ||
+                cardIndex < 0 ||
+                cardIndex >= tower.Program.Length)
+            {
+                return false;
+            }
+
+            int continuationCount =
+                CountRemainingProgramCards(
+                    tower,
+                    cardIndex,
+                    SubjectType.Enemy,
+                    in execution);
+            int passCardCount = checked(
+                continuationCount + 1);
+            int totalCardCount = checked(
+                passCardCount * targets.Count);
+            var events = new GameEvent[targets.Count];
+            var frameIndices = new int[targets.Count];
+            int preparedCount = 0;
+            for (int i = 0; i < targets.Count; i++)
+            {
+                EnemyState target = targets[i];
+                if (target == null ||
+                    !target.Alive ||
+                    !TryCreateProgramEvent(
+                        SubjectType.Enemy,
+                        target.Id,
+                        towerId,
+                        cardIndex,
+                        rootChainId,
+                        activationId,
+                        parentEventId,
+                        depth,
+                        phase,
+                        continuationCount,
+                        in execution,
+                        out events[i],
+                        out frameIndices[i]))
+                {
+                    for (int releaseIndex = 0;
+                         releaseIndex < preparedCount;
+                         releaseIndex++)
+                    {
+                        ReleaseProgramFrame(
+                            frameIndices[releaseIndex]);
+                    }
+                    return false;
+                }
+                preparedCount++;
+            }
+
+            if (!TryReserveComposite(
+                    in events[0],
+                    chainEventCount: totalCardCount,
+                    queueSlotCount: targets.Count,
+                    projectileSpawnCount: 0,
+                    cardTriggerCount: totalCardCount))
+            {
+                for (int i = 0; i < preparedCount; i++)
+                {
+                    ReleaseProgramFrame(frameIndices[i]);
+                }
+                return false;
+            }
+
+            for (int i = 0; i < events.Length; i++)
+            {
+                if (!EnqueueReserved(in events[i], out _))
+                {
+                    throw new InvalidOperationException(
+                        "An enemy program batch lost a reserved queue slot.");
+                }
+            }
+            return true;
+        }
+
+        private int FindFirstProgramIndex(
             TowerState tower,
             SubjectType subjectType)
         {
+            ProgramExecutionSpec execution =
+                CreateDefaultProgramExecution(
+                    tower,
+                    subjectType);
             return FindNextProgramIndex(
                 tower,
-                -1,
-                subjectType);
+                execution.Direction > 0
+                    ? -1
+                    : tower == null
+                        ? 0
+                        : tower.Program.Length,
+                subjectType,
+                in execution);
+        }
+
+        private int FindNextProgramIndex(
+            TowerState tower,
+            int currentIndex,
+            SubjectType subjectType)
+        {
+            ProgramExecutionSpec execution =
+                CreateDefaultProgramExecution(
+                    tower,
+                    subjectType);
+            return FindNextProgramIndex(
+                tower,
+                currentIndex,
+                subjectType,
+                in execution);
         }
 
         private static int FindNextProgramIndex(
             TowerState tower,
             int currentIndex,
-            SubjectType subjectType)
+            SubjectType subjectType,
+            in ProgramExecutionSpec execution)
         {
             if (tower == null)
             {
                 return -1;
             }
 
-            int start = Math.Max(-1, currentIndex) + 1;
-            for (int index = start;
-                 index < tower.Program.Length;
-                 index++)
+            if (execution.HasFlag(
+                    EffectExecutionFlags.SingleCard))
+            {
+                return -1;
+            }
+
+            int direction = execution.Direction;
+            int index = currentIndex + direction;
+            while (index >= 0 &&
+                   index < tower.Program.Length)
             {
                 SubjectType configured =
                     index < tower.ProgramSubjectTypes.Length
@@ -369,9 +562,30 @@ namespace RuleforgeTD.GameLogic.Simulation
                 {
                     return index;
                 }
+
+                index += direction;
             }
 
             return -1;
+        }
+
+        private static int CountRemainingProgramCards(
+            TowerState tower,
+            int currentIndex,
+            SubjectType subjectType,
+            in ProgramExecutionSpec execution)
+        {
+            int count = 0;
+            int cursor = currentIndex;
+            while ((cursor = FindNextProgramIndex(
+                       tower,
+                       cursor,
+                       subjectType,
+                       in execution)) >= 0)
+            {
+                count++;
+            }
+            return count;
         }
 
         /// <summary>
@@ -388,7 +602,8 @@ namespace RuleforgeTD.GameLogic.Simulation
             EventId parentEventId,
             int depth,
             EventPhase phase,
-            int reservedContinuationEvents)
+            int reservedContinuationEvents,
+            in ProgramExecutionSpec execution)
         {
             if (!TryCreateProgramEvent(
                     subjectType,
@@ -401,6 +616,7 @@ namespace RuleforgeTD.GameLogic.Simulation
                     depth,
                     phase,
                     reservedContinuationEvents,
+                    in execution,
                     out GameEvent gameEvent,
                     out int frameIndex))
             {
@@ -431,6 +647,7 @@ namespace RuleforgeTD.GameLogic.Simulation
             int depth,
             EventPhase phase,
             int reservedContinuationEvents,
+            in ProgramExecutionSpec execution,
             out GameEvent gameEvent,
             out int frameIndex)
         {
@@ -453,7 +670,8 @@ namespace RuleforgeTD.GameLogic.Simulation
                 activationId,
                 parentEventId,
                 depth,
-                reservedContinuationEvents);
+                reservedContinuationEvents,
+                in execution);
             frameIndex = AllocateProgramFrame(frame);
             CardId cardId = tower.Program[cardIndex];
             int generation = GetGeneration(subjectType, subjectId);
@@ -505,9 +723,18 @@ namespace RuleforgeTD.GameLogic.Simulation
                 return;
             }
 
+            // ProgramFrame의 프로퍼티는 readonly-ref 인자로 직접 전달할 수 없다.
+            // 이벤트 한 건 동안 동일한 실행 사양을 쓰도록 값 타입 로컬 스냅샷을 둔다.
+            ProgramExecutionSpec execution = frame.Execution;
             CardId cardId = tower.Program[frame.CardIndex];
             int cardInstanceId = tower.ProgramInstances[frame.CardIndex];
+            cardId = ResolveRareMutatedCard(
+                frame.SubjectType,
+                frame.SubjectId,
+                cardInstanceId,
+                cardId);
             CompiledCardDefinition card = content.GetCard(cardId);
+            RecordCardActivation(cardId);
             // 타워가 정한 SubjectType이 동일 카드의 두 해석 중 어느 프로그램을 실행할지 결정한다.
             CompiledEffectNode[] nodes = frame.SubjectType == SubjectType.Projectile
                 ? card.ProjectileEffectsInternal
@@ -523,8 +750,17 @@ namespace RuleforgeTD.GameLogic.Simulation
                 frame.ActivationId,
                 gameEvent.EventId,
                 frame.Depth,
-                tower.Program.Length - frame.CardIndex - 1,
-                frame.ReservedContinuationEvents);
+                CountRemainingProgramCards(
+                    tower,
+                    frame.CardIndex,
+                    frame.SubjectType,
+                    in execution),
+                frame.ReservedContinuationEvents,
+                frame.CardIndex,
+                execution.Direction,
+                execution.PowerBps,
+                execution.RepeatIndex,
+                execution.Flags);
 
             if (frame.SubjectType == SubjectType.Projectile)
             {
@@ -533,7 +769,7 @@ namespace RuleforgeTD.GameLogic.Simulation
                 // 시점의 플래그를 새 탄환에도 상속한다.
                 MarkProjectileCardVisual(
                     frame.SubjectId,
-                    card.StableId);
+                    card);
             }
             else
             {
@@ -543,15 +779,27 @@ namespace RuleforgeTD.GameLogic.Simulation
                 // 사망 위치에서 정확한 VFX를 낼 수 있다.
                 MarkEnemyCardVisual(
                     frame.SubjectId,
-                    card.StableId);
+                    card);
             }
 
             EffectExecutionOutcome outcome = EffectExecutionOutcome.Continue();
             // 한 카드 안의 효과 노드는 데이터에 컴파일된 순서대로 실행된다.
             for (int nodeIndex = 0; nodeIndex < nodes.Length; nodeIndex++)
             {
-                IEffectExecutor executor = effectRegistry.Get(nodes[nodeIndex].Operation);
-                outcome = executor.Execute(this, in context, in nodes[nodeIndex]);
+                CompiledEffectNode effectiveNode =
+                    ScaleRareChainNode(
+                        context,
+                        nodes[nodeIndex]);
+                effectiveNode = ScaleProgramPassNode(
+                    effectiveNode,
+                    execution.PowerBps);
+                IEffectExecutor executor =
+                    effectRegistry.Get(
+                        effectiveNode.Operation);
+                outcome = executor.Execute(
+                    this,
+                    context,
+                    effectiveNode);
                 if (outcome.SubjectReplaced)
                 {
                     // 분열처럼 대상을 두 갈래로 만든 executor가 이후 continuation을 직접 설명하므로
@@ -571,9 +819,45 @@ namespace RuleforgeTD.GameLogic.Simulation
                 FindNextProgramIndex(
                     tower,
                     frame.CardIndex,
-                    frame.SubjectType);
+                    frame.SubjectType,
+                    in execution);
             if (nextCardIndex < 0)
             {
+                HandleProgramPassCompleted(
+                    frame.SubjectType,
+                    frame.SubjectId,
+                    frame.TowerId,
+                    frame.RootChainId,
+                    frame.ActivationId,
+                    gameEvent.EventId,
+                    frame.Depth,
+                    in execution);
+                if (outcome.SubjectReplaced &&
+                    outcome.AdditionalSubject.IsValid)
+                {
+                    HandleProgramPassCompleted(
+                        frame.SubjectType,
+                        outcome.AdditionalSubject,
+                        frame.TowerId,
+                        frame.RootChainId,
+                        frame.ActivationId,
+                        gameEvent.EventId,
+                        frame.Depth,
+                        in execution);
+                }
+                if (outcome.SubjectReplaced &&
+                    outcome.SecondAdditionalSubject.IsValid)
+                {
+                    HandleProgramPassCompleted(
+                        frame.SubjectType,
+                        outcome.SecondAdditionalSubject,
+                        frame.TowerId,
+                        frame.RootChainId,
+                        frame.ActivationId,
+                        gameEvent.EventId,
+                        frame.Depth,
+                        in execution);
+                }
                 return;
             }
 
@@ -593,7 +877,8 @@ namespace RuleforgeTD.GameLogic.Simulation
                     gameEvent.EventId,
                     frame.Depth,
                     gameEvent.Phase,
-                    outcome.OriginalContinuationReservations - 1);
+                    outcome.OriginalContinuationReservations - 1,
+                    in execution);
                 bool childQueued = EnqueueProgramReserved(
                     frame.SubjectType,
                     outcome.AdditionalSubject,
@@ -604,8 +889,28 @@ namespace RuleforgeTD.GameLogic.Simulation
                     gameEvent.EventId,
                     frame.Depth,
                     gameEvent.Phase,
-                    outcome.AdditionalContinuationReservations - 1);
-                if (!originalQueued || !childQueued)
+                    outcome.AdditionalContinuationReservations - 1,
+                    in execution);
+                bool secondChildQueued = true;
+                if (outcome.SecondAdditionalSubject.IsValid)
+                {
+                    secondChildQueued = EnqueueProgramReserved(
+                        frame.SubjectType,
+                        outcome.SecondAdditionalSubject,
+                        frame.TowerId,
+                        nextCardIndex,
+                        frame.RootChainId,
+                        frame.ActivationId,
+                        gameEvent.EventId,
+                        frame.Depth,
+                        gameEvent.Phase,
+                        outcome
+                            .SecondAdditionalContinuationReservations - 1,
+                        in execution);
+                }
+                if (!originalQueued ||
+                    !childQueued ||
+                    !secondChildQueued)
                 {
                     // 여기서 한쪽이라도 실패하면 사전 예약 계약이 깨진 프로그래밍 오류다.
                     throw new InvalidOperationException(
@@ -627,7 +932,8 @@ namespace RuleforgeTD.GameLogic.Simulation
                         gameEvent.EventId,
                         frame.Depth,
                         gameEvent.Phase,
-                        frame.ReservedContinuationEvents - 1))
+                        frame.ReservedContinuationEvents - 1,
+                        in execution))
                 {
                     throw new InvalidOperationException(
                         "A card continuation lost its atomic reservation.");
@@ -636,7 +942,7 @@ namespace RuleforgeTD.GameLogic.Simulation
             }
 
             // 특별한 사전 예약이 없는 일반 카드 흐름은 다음 카드 하나의 예산을 새로 확보한다.
-            EnqueueProgram(
+            EnqueueProgramPass(
                 frame.SubjectType,
                 frame.SubjectId,
                 frame.TowerId,
@@ -645,7 +951,8 @@ namespace RuleforgeTD.GameLogic.Simulation
                 frame.ActivationId,
                 gameEvent.EventId,
                 frame.Depth,
-                gameEvent.Phase);
+                gameEvent.Phase,
+                in execution);
         }
 
         /// <summary>
@@ -793,6 +1100,10 @@ namespace RuleforgeTD.GameLogic.Simulation
                 enemy,
                 amount,
                 tags);
+            amount = ModifyDamageForRareResonance(
+                enemy,
+                amount,
+                tags);
 
             CompiledEnemyDefinition definition =
                 content.GetEnemy(enemy.DefinitionId);
@@ -810,18 +1121,16 @@ namespace RuleforgeTD.GameLogic.Simulation
                     10000 - definition.PoisonResistanceBps);
             }
 
-            int boundedArmorIgnore =
-                Math.Max(0, Math.Min(10000, armorIgnoreBps));
-            // 방어 무시는 방어력 자체를 줄인 뒤 100 / (100 + 유효 방어력) 공식을 적용한다.
-            int effectiveArmor = (int)
-                DeterministicMath.MultiplyBasisPoints(
-                    Math.Max(0, enemy.Armor),
-                    10000 - boundedArmorIgnore);
-            amount = DeterministicMath.MultiplyDivide(
+            // 방어 무시는 먼저 방어력을 줄인다. 이후 피해 성격에 따라 광역은 5배,
+            // 화상은 4배 민감도로 방어력을 읽어 소수의 중장갑 적에게 광역만으로
+            // 대응하기 어렵게 만든다. 두 조건은 곱하지 않고 더 강한 쪽을 사용한다.
+            return DamageArmorMitigation.Apply(
                 amount,
-                100,
-                100 + effectiveArmor);
-            return Math.Max(1, amount);
+                enemy.Armor,
+                armorIgnoreBps,
+                kind,
+                tags,
+                run);
         }
 
         /// <summary>
@@ -896,8 +1205,17 @@ namespace RuleforgeTD.GameLogic.Simulation
                 case BudgetFailure.ProjectileSpawnLimit:
                     code = DiagnosticCode.ProjectileSpawnBudgetExceeded;
                     break;
+                case BudgetFailure.EntitySpawnLimit:
+                    code = DiagnosticCode.EntitySpawnLimitReached;
+                    break;
                 case BudgetFailure.CardTriggerLimit:
                     code = DiagnosticCode.CardTriggerLimitReached;
+                    break;
+                case BudgetFailure.RecursionLimit:
+                    code = DiagnosticCode.RecursionLimitReached;
+                    break;
+                case BudgetFailure.MythicRepeatLimit:
+                    code = DiagnosticCode.MythicRepeatLimitReached;
                     break;
                 default:
                     code = DiagnosticCode.ChainEventBudgetExceeded;

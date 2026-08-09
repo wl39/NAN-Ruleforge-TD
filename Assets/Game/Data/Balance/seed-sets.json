@@ -1,0 +1,1034 @@
+{
+  "schemaVersion": 1,
+  "description": "Immutable deterministic seed pairs. Train is for discovery, validation is for candidate approval, and holdout is evaluated once after profiles and policies are frozen.",
+  "train": [
+    {
+      "gameSeed": 100001,
+      "policySeed": 200001
+    },
+    {
+      "gameSeed": 100002,
+      "policySeed": 200002
+    },
+    {
+      "gameSeed": 100003,
+      "policySeed": 200003
+    },
+    {
+      "gameSeed": 100004,
+      "policySeed": 200004
+    },
+    {
+      "gameSeed": 100005,
+      "policySeed": 200005
+    },
+    {
+      "gameSeed": 100006,
+      "policySeed": 200006
+    },
+    {
+      "gameSeed": 100007,
+      "policySeed": 200007
+    },
+    {
+      "gameSeed": 100008,
+      "policySeed": 200008
+    },
+    {
+      "gameSeed": 100009,
+      "policySeed": 200009
+    },
+    {
+      "gameSeed": 100010,
+      "policySeed": 200010
+    },
+    {
+      "gameSeed": 100011,
+      "policySeed": 200011
+    },
+    {
+      "gameSeed": 100012,
+      "policySeed": 200012
+    },
+    {
+      "gameSeed": 100013,
+      "policySeed": 200013
+    },
+    {
+      "gameSeed": 100014,
+      "policySeed": 200014
+    },
+    {
+      "gameSeed": 100015,
+      "policySeed": 200015
+    },
+    {
+      "gameSeed": 100016,
+      "policySeed": 200016
+    },
+    {
+      "gameSeed": 100017,
+      "policySeed": 200017
+    },
+    {
+      "gameSeed": 100018,
+      "policySeed": 200018
+    },
+    {
+      "gameSeed": 100019,
+      "policySeed": 200019
+    },
+    {
+      "gameSeed": 100020,
+      "policySeed": 200020
+    },
+    {
+      "gameSeed": 100021,
+      "policySeed": 200021
+    },
+    {
+      "gameSeed": 100022,
+      "policySeed": 200022
+    },
+    {
+      "gameSeed": 100023,
+      "policySeed": 200023
+    },
+    {
+      "gameSeed": 100024,
+      "policySeed": 200024
+    },
+    {
+      "gameSeed": 100025,
+      "policySeed": 200025
+    },
+    {
+      "gameSeed": 100026,
+      "policySeed": 200026
+    },
+    {
+      "gameSeed": 100027,
+      "policySeed": 200027
+    },
+    {
+      "gameSeed": 100028,
+      "policySeed": 200028
+    },
+    {
+      "gameSeed": 100029,
+      "policySeed": 200029
+    },
+    {
+      "gameSeed": 100030,
+      "policySeed": 200030
+    },
+    {
+      "gameSeed": 100031,
+      "policySeed": 200031
+    },
+    {
+      "gameSeed": 100032,
+      "policySeed": 200032
+    },
+    {
+      "gameSeed": 100033,
+      "policySeed": 200033
+    },
+    {
+      "gameSeed": 100034,
+      "policySeed": 200034
+    },
+    {
+      "gameSeed": 100035,
+      "policySeed": 200035
+    },
+    {
+      "gameSeed": 100036,
+      "policySeed": 200036
+    },
+    {
+      "gameSeed": 100037,
+      "policySeed": 200037
+    },
+    {
+      "gameSeed": 100038,
+      "policySeed": 200038
+    },
+    {
+      "gameSeed": 100039,
+      "policySeed": 200039
+    },
+    {
+      "gameSeed": 100040,
+      "policySeed": 200040
+    },
+    {
+      "gameSeed": 100041,
+      "policySeed": 200041
+    },
+    {
+      "gameSeed": 100042,
+      "policySeed": 200042
+    },
+    {
+      "gameSeed": 100043,
+      "policySeed": 200043
+    },
+    {
+      "gameSeed": 100044,
+      "policySeed": 200044
+    },
+    {
+      "gameSeed": 100045,
+      "policySeed": 200045
+    },
+    {
+      "gameSeed": 100046,
+      "policySeed": 200046
+    },
+    {
+      "gameSeed": 100047,
+      "policySeed": 200047
+    },
+    {
+      "gameSeed": 100048,
+      "policySeed": 200048
+    },
+    {
+      "gameSeed": 100049,
+      "policySeed": 200049
+    },
+    {
+      "gameSeed": 100050,
+      "policySeed": 200050
+    },
+    {
+      "gameSeed": 100051,
+      "policySeed": 200051
+    },
+    {
+      "gameSeed": 100052,
+      "policySeed": 200052
+    },
+    {
+      "gameSeed": 100053,
+      "policySeed": 200053
+    },
+    {
+      "gameSeed": 100054,
+      "policySeed": 200054
+    },
+    {
+      "gameSeed": 100055,
+      "policySeed": 200055
+    },
+    {
+      "gameSeed": 100056,
+      "policySeed": 200056
+    },
+    {
+      "gameSeed": 100057,
+      "policySeed": 200057
+    },
+    {
+      "gameSeed": 100058,
+      "policySeed": 200058
+    },
+    {
+      "gameSeed": 100059,
+      "policySeed": 200059
+    },
+    {
+      "gameSeed": 100060,
+      "policySeed": 200060
+    },
+    {
+      "gameSeed": 100061,
+      "policySeed": 200061
+    },
+    {
+      "gameSeed": 100062,
+      "policySeed": 200062
+    },
+    {
+      "gameSeed": 100063,
+      "policySeed": 200063
+    },
+    {
+      "gameSeed": 100064,
+      "policySeed": 200064
+    }
+  ],
+  "validation": [
+    {
+      "gameSeed": 300001,
+      "policySeed": 400001
+    },
+    {
+      "gameSeed": 300002,
+      "policySeed": 400002
+    },
+    {
+      "gameSeed": 300003,
+      "policySeed": 400003
+    },
+    {
+      "gameSeed": 300004,
+      "policySeed": 400004
+    },
+    {
+      "gameSeed": 300005,
+      "policySeed": 400005
+    },
+    {
+      "gameSeed": 300006,
+      "policySeed": 400006
+    },
+    {
+      "gameSeed": 300007,
+      "policySeed": 400007
+    },
+    {
+      "gameSeed": 300008,
+      "policySeed": 400008
+    },
+    {
+      "gameSeed": 300009,
+      "policySeed": 400009
+    },
+    {
+      "gameSeed": 300010,
+      "policySeed": 400010
+    },
+    {
+      "gameSeed": 300011,
+      "policySeed": 400011
+    },
+    {
+      "gameSeed": 300012,
+      "policySeed": 400012
+    },
+    {
+      "gameSeed": 300013,
+      "policySeed": 400013
+    },
+    {
+      "gameSeed": 300014,
+      "policySeed": 400014
+    },
+    {
+      "gameSeed": 300015,
+      "policySeed": 400015
+    },
+    {
+      "gameSeed": 300016,
+      "policySeed": 400016
+    },
+    {
+      "gameSeed": 300017,
+      "policySeed": 400017
+    },
+    {
+      "gameSeed": 300018,
+      "policySeed": 400018
+    },
+    {
+      "gameSeed": 300019,
+      "policySeed": 400019
+    },
+    {
+      "gameSeed": 300020,
+      "policySeed": 400020
+    },
+    {
+      "gameSeed": 300021,
+      "policySeed": 400021
+    },
+    {
+      "gameSeed": 300022,
+      "policySeed": 400022
+    },
+    {
+      "gameSeed": 300023,
+      "policySeed": 400023
+    },
+    {
+      "gameSeed": 300024,
+      "policySeed": 400024
+    },
+    {
+      "gameSeed": 300025,
+      "policySeed": 400025
+    },
+    {
+      "gameSeed": 300026,
+      "policySeed": 400026
+    },
+    {
+      "gameSeed": 300027,
+      "policySeed": 400027
+    },
+    {
+      "gameSeed": 300028,
+      "policySeed": 400028
+    },
+    {
+      "gameSeed": 300029,
+      "policySeed": 400029
+    },
+    {
+      "gameSeed": 300030,
+      "policySeed": 400030
+    },
+    {
+      "gameSeed": 300031,
+      "policySeed": 400031
+    },
+    {
+      "gameSeed": 300032,
+      "policySeed": 400032
+    },
+    {
+      "gameSeed": 300033,
+      "policySeed": 400033
+    },
+    {
+      "gameSeed": 300034,
+      "policySeed": 400034
+    },
+    {
+      "gameSeed": 300035,
+      "policySeed": 400035
+    },
+    {
+      "gameSeed": 300036,
+      "policySeed": 400036
+    },
+    {
+      "gameSeed": 300037,
+      "policySeed": 400037
+    },
+    {
+      "gameSeed": 300038,
+      "policySeed": 400038
+    },
+    {
+      "gameSeed": 300039,
+      "policySeed": 400039
+    },
+    {
+      "gameSeed": 300040,
+      "policySeed": 400040
+    },
+    {
+      "gameSeed": 300041,
+      "policySeed": 400041
+    },
+    {
+      "gameSeed": 300042,
+      "policySeed": 400042
+    },
+    {
+      "gameSeed": 300043,
+      "policySeed": 400043
+    },
+    {
+      "gameSeed": 300044,
+      "policySeed": 400044
+    },
+    {
+      "gameSeed": 300045,
+      "policySeed": 400045
+    },
+    {
+      "gameSeed": 300046,
+      "policySeed": 400046
+    },
+    {
+      "gameSeed": 300047,
+      "policySeed": 400047
+    },
+    {
+      "gameSeed": 300048,
+      "policySeed": 400048
+    },
+    {
+      "gameSeed": 300049,
+      "policySeed": 400049
+    },
+    {
+      "gameSeed": 300050,
+      "policySeed": 400050
+    },
+    {
+      "gameSeed": 300051,
+      "policySeed": 400051
+    },
+    {
+      "gameSeed": 300052,
+      "policySeed": 400052
+    },
+    {
+      "gameSeed": 300053,
+      "policySeed": 400053
+    },
+    {
+      "gameSeed": 300054,
+      "policySeed": 400054
+    },
+    {
+      "gameSeed": 300055,
+      "policySeed": 400055
+    },
+    {
+      "gameSeed": 300056,
+      "policySeed": 400056
+    },
+    {
+      "gameSeed": 300057,
+      "policySeed": 400057
+    },
+    {
+      "gameSeed": 300058,
+      "policySeed": 400058
+    },
+    {
+      "gameSeed": 300059,
+      "policySeed": 400059
+    },
+    {
+      "gameSeed": 300060,
+      "policySeed": 400060
+    },
+    {
+      "gameSeed": 300061,
+      "policySeed": 400061
+    },
+    {
+      "gameSeed": 300062,
+      "policySeed": 400062
+    },
+    {
+      "gameSeed": 300063,
+      "policySeed": 400063
+    },
+    {
+      "gameSeed": 300064,
+      "policySeed": 400064
+    }
+  ],
+  "holdout": [
+    {
+      "gameSeed": 500001,
+      "policySeed": 600001
+    },
+    {
+      "gameSeed": 500002,
+      "policySeed": 600002
+    },
+    {
+      "gameSeed": 500003,
+      "policySeed": 600003
+    },
+    {
+      "gameSeed": 500004,
+      "policySeed": 600004
+    },
+    {
+      "gameSeed": 500005,
+      "policySeed": 600005
+    },
+    {
+      "gameSeed": 500006,
+      "policySeed": 600006
+    },
+    {
+      "gameSeed": 500007,
+      "policySeed": 600007
+    },
+    {
+      "gameSeed": 500008,
+      "policySeed": 600008
+    },
+    {
+      "gameSeed": 500009,
+      "policySeed": 600009
+    },
+    {
+      "gameSeed": 500010,
+      "policySeed": 600010
+    },
+    {
+      "gameSeed": 500011,
+      "policySeed": 600011
+    },
+    {
+      "gameSeed": 500012,
+      "policySeed": 600012
+    },
+    {
+      "gameSeed": 500013,
+      "policySeed": 600013
+    },
+    {
+      "gameSeed": 500014,
+      "policySeed": 600014
+    },
+    {
+      "gameSeed": 500015,
+      "policySeed": 600015
+    },
+    {
+      "gameSeed": 500016,
+      "policySeed": 600016
+    },
+    {
+      "gameSeed": 500017,
+      "policySeed": 600017
+    },
+    {
+      "gameSeed": 500018,
+      "policySeed": 600018
+    },
+    {
+      "gameSeed": 500019,
+      "policySeed": 600019
+    },
+    {
+      "gameSeed": 500020,
+      "policySeed": 600020
+    },
+    {
+      "gameSeed": 500021,
+      "policySeed": 600021
+    },
+    {
+      "gameSeed": 500022,
+      "policySeed": 600022
+    },
+    {
+      "gameSeed": 500023,
+      "policySeed": 600023
+    },
+    {
+      "gameSeed": 500024,
+      "policySeed": 600024
+    },
+    {
+      "gameSeed": 500025,
+      "policySeed": 600025
+    },
+    {
+      "gameSeed": 500026,
+      "policySeed": 600026
+    },
+    {
+      "gameSeed": 500027,
+      "policySeed": 600027
+    },
+    {
+      "gameSeed": 500028,
+      "policySeed": 600028
+    },
+    {
+      "gameSeed": 500029,
+      "policySeed": 600029
+    },
+    {
+      "gameSeed": 500030,
+      "policySeed": 600030
+    },
+    {
+      "gameSeed": 500031,
+      "policySeed": 600031
+    },
+    {
+      "gameSeed": 500032,
+      "policySeed": 600032
+    },
+    {
+      "gameSeed": 500033,
+      "policySeed": 600033
+    },
+    {
+      "gameSeed": 500034,
+      "policySeed": 600034
+    },
+    {
+      "gameSeed": 500035,
+      "policySeed": 600035
+    },
+    {
+      "gameSeed": 500036,
+      "policySeed": 600036
+    },
+    {
+      "gameSeed": 500037,
+      "policySeed": 600037
+    },
+    {
+      "gameSeed": 500038,
+      "policySeed": 600038
+    },
+    {
+      "gameSeed": 500039,
+      "policySeed": 600039
+    },
+    {
+      "gameSeed": 500040,
+      "policySeed": 600040
+    },
+    {
+      "gameSeed": 500041,
+      "policySeed": 600041
+    },
+    {
+      "gameSeed": 500042,
+      "policySeed": 600042
+    },
+    {
+      "gameSeed": 500043,
+      "policySeed": 600043
+    },
+    {
+      "gameSeed": 500044,
+      "policySeed": 600044
+    },
+    {
+      "gameSeed": 500045,
+      "policySeed": 600045
+    },
+    {
+      "gameSeed": 500046,
+      "policySeed": 600046
+    },
+    {
+      "gameSeed": 500047,
+      "policySeed": 600047
+    },
+    {
+      "gameSeed": 500048,
+      "policySeed": 600048
+    },
+    {
+      "gameSeed": 500049,
+      "policySeed": 600049
+    },
+    {
+      "gameSeed": 500050,
+      "policySeed": 600050
+    },
+    {
+      "gameSeed": 500051,
+      "policySeed": 600051
+    },
+    {
+      "gameSeed": 500052,
+      "policySeed": 600052
+    },
+    {
+      "gameSeed": 500053,
+      "policySeed": 600053
+    },
+    {
+      "gameSeed": 500054,
+      "policySeed": 600054
+    },
+    {
+      "gameSeed": 500055,
+      "policySeed": 600055
+    },
+    {
+      "gameSeed": 500056,
+      "policySeed": 600056
+    },
+    {
+      "gameSeed": 500057,
+      "policySeed": 600057
+    },
+    {
+      "gameSeed": 500058,
+      "policySeed": 600058
+    },
+    {
+      "gameSeed": 500059,
+      "policySeed": 600059
+    },
+    {
+      "gameSeed": 500060,
+      "policySeed": 600060
+    },
+    {
+      "gameSeed": 500061,
+      "policySeed": 600061
+    },
+    {
+      "gameSeed": 500062,
+      "policySeed": 600062
+    },
+    {
+      "gameSeed": 500063,
+      "policySeed": 600063
+    },
+    {
+      "gameSeed": 500064,
+      "policySeed": 600064
+    },
+    {
+      "gameSeed": 500065,
+      "policySeed": 600065
+    },
+    {
+      "gameSeed": 500066,
+      "policySeed": 600066
+    },
+    {
+      "gameSeed": 500067,
+      "policySeed": 600067
+    },
+    {
+      "gameSeed": 500068,
+      "policySeed": 600068
+    },
+    {
+      "gameSeed": 500069,
+      "policySeed": 600069
+    },
+    {
+      "gameSeed": 500070,
+      "policySeed": 600070
+    },
+    {
+      "gameSeed": 500071,
+      "policySeed": 600071
+    },
+    {
+      "gameSeed": 500072,
+      "policySeed": 600072
+    },
+    {
+      "gameSeed": 500073,
+      "policySeed": 600073
+    },
+    {
+      "gameSeed": 500074,
+      "policySeed": 600074
+    },
+    {
+      "gameSeed": 500075,
+      "policySeed": 600075
+    },
+    {
+      "gameSeed": 500076,
+      "policySeed": 600076
+    },
+    {
+      "gameSeed": 500077,
+      "policySeed": 600077
+    },
+    {
+      "gameSeed": 500078,
+      "policySeed": 600078
+    },
+    {
+      "gameSeed": 500079,
+      "policySeed": 600079
+    },
+    {
+      "gameSeed": 500080,
+      "policySeed": 600080
+    },
+    {
+      "gameSeed": 500081,
+      "policySeed": 600081
+    },
+    {
+      "gameSeed": 500082,
+      "policySeed": 600082
+    },
+    {
+      "gameSeed": 500083,
+      "policySeed": 600083
+    },
+    {
+      "gameSeed": 500084,
+      "policySeed": 600084
+    },
+    {
+      "gameSeed": 500085,
+      "policySeed": 600085
+    },
+    {
+      "gameSeed": 500086,
+      "policySeed": 600086
+    },
+    {
+      "gameSeed": 500087,
+      "policySeed": 600087
+    },
+    {
+      "gameSeed": 500088,
+      "policySeed": 600088
+    },
+    {
+      "gameSeed": 500089,
+      "policySeed": 600089
+    },
+    {
+      "gameSeed": 500090,
+      "policySeed": 600090
+    },
+    {
+      "gameSeed": 500091,
+      "policySeed": 600091
+    },
+    {
+      "gameSeed": 500092,
+      "policySeed": 600092
+    },
+    {
+      "gameSeed": 500093,
+      "policySeed": 600093
+    },
+    {
+      "gameSeed": 500094,
+      "policySeed": 600094
+    },
+    {
+      "gameSeed": 500095,
+      "policySeed": 600095
+    },
+    {
+      "gameSeed": 500096,
+      "policySeed": 600096
+    },
+    {
+      "gameSeed": 500097,
+      "policySeed": 600097
+    },
+    {
+      "gameSeed": 500098,
+      "policySeed": 600098
+    },
+    {
+      "gameSeed": 500099,
+      "policySeed": 600099
+    },
+    {
+      "gameSeed": 500100,
+      "policySeed": 600100
+    },
+    {
+      "gameSeed": 500101,
+      "policySeed": 600101
+    },
+    {
+      "gameSeed": 500102,
+      "policySeed": 600102
+    },
+    {
+      "gameSeed": 500103,
+      "policySeed": 600103
+    },
+    {
+      "gameSeed": 500104,
+      "policySeed": 600104
+    },
+    {
+      "gameSeed": 500105,
+      "policySeed": 600105
+    },
+    {
+      "gameSeed": 500106,
+      "policySeed": 600106
+    },
+    {
+      "gameSeed": 500107,
+      "policySeed": 600107
+    },
+    {
+      "gameSeed": 500108,
+      "policySeed": 600108
+    },
+    {
+      "gameSeed": 500109,
+      "policySeed": 600109
+    },
+    {
+      "gameSeed": 500110,
+      "policySeed": 600110
+    },
+    {
+      "gameSeed": 500111,
+      "policySeed": 600111
+    },
+    {
+      "gameSeed": 500112,
+      "policySeed": 600112
+    },
+    {
+      "gameSeed": 500113,
+      "policySeed": 600113
+    },
+    {
+      "gameSeed": 500114,
+      "policySeed": 600114
+    },
+    {
+      "gameSeed": 500115,
+      "policySeed": 600115
+    },
+    {
+      "gameSeed": 500116,
+      "policySeed": 600116
+    },
+    {
+      "gameSeed": 500117,
+      "policySeed": 600117
+    },
+    {
+      "gameSeed": 500118,
+      "policySeed": 600118
+    },
+    {
+      "gameSeed": 500119,
+      "policySeed": 600119
+    },
+    {
+      "gameSeed": 500120,
+      "policySeed": 600120
+    },
+    {
+      "gameSeed": 500121,
+      "policySeed": 600121
+    },
+    {
+      "gameSeed": 500122,
+      "policySeed": 600122
+    },
+    {
+      "gameSeed": 500123,
+      "policySeed": 600123
+    },
+    {
+      "gameSeed": 500124,
+      "policySeed": 600124
+    },
+    {
+      "gameSeed": 500125,
+      "policySeed": 600125
+    },
+    {
+      "gameSeed": 500126,
+      "policySeed": 600126
+    },
+    {
+      "gameSeed": 500127,
+      "policySeed": 600127
+    },
+    {
+      "gameSeed": 500128,
+      "policySeed": 600128
+    }
+  ]
+}

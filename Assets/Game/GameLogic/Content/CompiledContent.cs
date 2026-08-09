@@ -81,6 +81,8 @@ namespace RuleforgeTD.GameLogic.Content
     /// </summary>
     public sealed class CompiledCardDefinition
     {
+        public const int VisualStyleCapacity = 64;
+
         // 배열은 C#에서 참조형이다. 그대로 반환하면 호출자가 원소를 바꾸어
         // 실행 중인 밸런스를 변조할 수 있으므로, 내부 원본과 외부 복사본을 분리한다.
         private string[] tags = Array.Empty<string>();
@@ -97,6 +99,22 @@ namespace RuleforgeTD.GameLogic.Content
 
         /// <summary>실제 표시 문자열을 로컬라이제이션 테이블에서 찾는 키다.</summary>
         public string DisplayNameKey { get; internal set; }
+
+        /// <summary>카드 슬롯의 축약 표기를 찾는 로컬라이제이션 키다.</summary>
+        public string SymbolKey { get; internal set; }
+
+        /// <summary>64-bit 카드 표현 플래그에서 사용하는 비트 위치다. -1은 미지정이다.</summary>
+        public int VisualStyleIndex { get; internal set; }
+
+        /// <summary>
+        /// 표현 이벤트와 스냅샷이 전달할 카드별 비트다.
+        /// Simulation enum에 Content 계층이 의존하지 않도록 범용 ulong으로 노출한다.
+        /// </summary>
+        public ulong VisualEffectFlag =>
+            VisualStyleIndex < 0 ||
+            VisualStyleIndex >= VisualStyleCapacity
+                ? 0UL
+                : 1UL << VisualStyleIndex;
 
         /// <summary>드래프트와 규칙 복잡도를 나타내는 카드 티어다.</summary>
         public CardTier Tier { get; internal set; }
@@ -232,17 +250,38 @@ namespace RuleforgeTD.GameLogic.Content
         private CompiledTowerLevelBalance[] levels =
             Array.Empty<CompiledTowerLevelBalance>();
 
-        public CompiledTowerLevelBalance GetLevel(int towerLevel)
+        /// <summary>이 타워가 데이터로 정의한 전체 레벨 수다.</summary>
+        public int LevelCount => levels.Length;
+
+        /// <summary>
+        /// 이 타워가 도달할 수 있는 최대 1 기반 레벨이다.
+        /// </summary>
+        public int MaxLevel => levels.Length;
+
+        /// <summary>
+        /// 요청한 1 기반 레벨이 실제 데이터 범위에 있을 때만 밸런스를 반환한다.
+        /// 범위를 조용히 보정하지 않아 잘못된 진행 상태가 숨겨지지 않게 한다.
+        /// </summary>
+        public bool TryGetLevel(
+            int towerLevel,
+            out CompiledTowerLevelBalance level)
         {
-            if (levels.Length == 0)
+            int index = towerLevel - 1;
+            if (index < 0 || index >= levels.Length)
             {
-                return null;
+                level = null;
+                return false;
             }
 
-            int index = Math.Max(
-                0,
-                Math.Min(levels.Length - 1, towerLevel - 1));
-            return levels[index];
+            level = levels[index];
+            return level != null;
+        }
+
+        public CompiledTowerLevelBalance GetLevel(int towerLevel)
+        {
+            return TryGetLevel(towerLevel, out CompiledTowerLevelBalance level)
+                ? level
+                : null;
         }
 
         internal CompiledTowerLevelBalance[] LevelsInternal
@@ -270,6 +309,15 @@ namespace RuleforgeTD.GameLogic.Content
 
         /// <summary>로컬라이제이션 표시 키다.</summary>
         public string DisplayNameKey { get; internal set; }
+
+        /// <summary>콘텐츠가 명시한 전투 레벨이며 웨이브나 분열 세대와 무관하다.</summary>
+        public int Level { get; internal set; }
+
+        /// <summary>현지화된 적 유형 이름을 찾는 키다.</summary>
+        public string TypeKey { get; internal set; }
+
+        /// <summary>현지화된 적 설명을 찾는 키다.</summary>
+        public string DescriptionKey { get; internal set; }
 
         /// <summary>일반/정예/보스 제어 규칙을 고르는 등급이다.</summary>
         public EnemyRank Rank { get; internal set; }
@@ -319,6 +367,42 @@ namespace RuleforgeTD.GameLogic.Content
         public int BossCastTicks { get; internal set; }
         public int BossTeleportDistanceBps { get; internal set; }
         public int BossEnragedTeleportDistanceBps { get; internal set; }
+
+        /// <summary>다음 웨이브 예고에서 쓰는 검증 완료 설명/추천 데이터다.</summary>
+        public string SpeedRatingKey { get; internal set; }
+        public string[] FeatureKeys { get; internal set; }
+        public string[] SpecialAbilityKeys { get; internal set; }
+        public string[] WeaknessKeys { get; internal set; }
+        public CardId[] RecommendedCardIds { get; internal set; }
+        public string[] RecommendedTagKeys { get; internal set; }
+    }
+
+    /// <summary>
+    /// 기본 적 정의와 조합되는 검증 완료 엘리트 특성이다. 색상은 GameLogic이
+    /// UnityEngine에 의존하지 않도록 검증된 8자리 RGBA hex 문자열로 보관한다.
+    /// </summary>
+    public sealed class CompiledEliteTraitDefinition
+    {
+        public EliteTraitId Id { get; internal set; }
+        public string StableId { get; internal set; }
+        public string DisplayNameKey { get; internal set; }
+        public string PrefixKey { get; internal set; }
+        public string DescriptionKey { get; internal set; }
+        public string CounterHintKey { get; internal set; }
+        public string IconText { get; internal set; }
+        public string BodyTint { get; internal set; }
+        public string OutlineColor { get; internal set; }
+        public string HealthBarColor { get; internal set; }
+        public string ShieldBarColor { get; internal set; }
+        public int OutlineWidthMilli { get; internal set; }
+        public int HealthMultiplierBps { get; internal set; }
+        public int ArmorMultiplierBps { get; internal set; }
+        public int SpeedMultiplierBps { get; internal set; }
+        public int RewardMultiplierBps { get; internal set; }
+        public int ShieldBaseHealthBps { get; internal set; }
+        public int RenderScaleBps { get; internal set; }
+        public CardId[] RecommendedCardIds { get; internal set; }
+        public string[] RecommendedTagKeys { get; internal set; }
     }
 
     /// <summary>
@@ -332,13 +416,19 @@ namespace RuleforgeTD.GameLogic.Content
             EnemyDefinitionId enemyId,
             int count,
             int firstSpawnTick,
-            int intervalTicks)
+            int intervalTicks,
+            EliteTraitId[] eliteTraitIds = null)
         {
             EnemyId = enemyId;
             Count = count;
             FirstSpawnTick = firstSpawnTick;
             IntervalTicks = intervalTicks;
+            this.eliteTraitIds = eliteTraitIds == null
+                ? Array.Empty<EliteTraitId>()
+                : (EliteTraitId[])eliteTraitIds.Clone();
         }
+
+        private readonly EliteTraitId[] eliteTraitIds;
 
         /// <summary>생성할 적 원형의 런타임 정수 ID다.</summary>
         public EnemyDefinitionId EnemyId { get; }
@@ -351,6 +441,14 @@ namespace RuleforgeTD.GameLogic.Content
 
         /// <summary>연속 생성 사이의 틱 간격이다.</summary>
         public int IntervalTicks { get; }
+
+        /// <summary>이 스폰 묶음이 기본 적에 조합할 엘리트 특성 복사본이다.</summary>
+        public EliteTraitId[] EliteTraitIds => eliteTraitIds == null
+            ? Array.Empty<EliteTraitId>()
+            : (EliteTraitId[])eliteTraitIds.Clone();
+
+        internal EliteTraitId[] EliteTraitIdsInternal =>
+            eliteTraitIds ?? Array.Empty<EliteTraitId>();
     }
 
     /// <summary>검증 완료 웨이브 한 개와 그 생성 예약 목록이다.</summary>
@@ -365,6 +463,13 @@ namespace RuleforgeTD.GameLogic.Content
 
         /// <summary>콘텐츠 식별과 로그를 위한 안정 문자열 ID다.</summary>
         public string StableId { get; internal set; }
+
+        public WaveArchetype Archetype { get; internal set; }
+
+        public int TotalSpawnCount { get; internal set; }
+        public int NormalSpawnCount { get; internal set; }
+        public int EliteSpawnCount { get; internal set; }
+        public int BossSpawnCount { get; internal set; }
 
         /// <summary>적 생성 묶음 배열의 방어적 복사본이다.</summary>
         public CompiledWaveSpawn[] Spawns
@@ -412,8 +517,8 @@ namespace RuleforgeTD.GameLogic.Content
         /// <summary>새 런의 시작 골드다.</summary>
         public int StartingGold { get; internal set; }
 
-        /// <summary>무료 시작 타워 이후 추가 타워 한 기의 고정 골드 비용이다.</summary>
-        public int TowerConstructionCost { get; internal set; }
+        /// <summary>건설비를 면제하는 런 최초 타워 수다.</summary>
+        public int FreeInitialTowerCount { get; internal set; }
 
         /// <summary>런 시작 화면에서 하나를 선택할 수 있는 타워 ID 복사본이다.</summary>
         public TowerDefinitionId[] StartingTowerChoices
@@ -546,14 +651,42 @@ namespace RuleforgeTD.GameLogic.Content
         /// <summary>치명타 피해 배율의 basis point 값이다.</summary>
         public int CriticalDamageBps { get; internal set; }
 
+        /// <summary>방어력 감쇠 분수의 기준값이다.</summary>
+        public int ArmorMitigationScale { get; internal set; }
+
+        /// <summary>광역·폭발·다중 대상 피해의 방어 민감도다.</summary>
+        public int AreaArmorSensitivityBps { get; internal set; }
+
+        /// <summary>화상/화염 피해의 방어 민감도다.</summary>
+        public int BurnArmorSensitivityBps { get; internal set; }
+
         /// <summary>정예·보스 제어 게이지 충족 시 행동 방해 지속 틱이다.</summary>
         public int ControlInterruptTicks { get; internal set; }
 
         /// <summary>반복 제어에 따라 증가할 수 있는 게이지 기준값의 상한이다.</summary>
         public int MaxControlGaugeThreshold { get; internal set; }
 
-        /// <summary>적 충돌 판정의 기본 milli 반지름이다.</summary>
+        /// <summary>이동 제한 상태에서 같은 경로 진행도에 허용되는 최대 틱 수다.</summary>
+        public int MovementEscapeStationaryTicks { get; internal set; }
+
+        /// <summary>장기 고정 뒤 이동 제한을 무시하는 틱 수다.</summary>
+        public int MovementEscapeImmunityTicks { get; internal set; }
+
+        /// <summary>적 캡슐 히트박스의 기본 milli 반지름이다.</summary>
         public int EnemyBaseHitRadiusMilli { get; internal set; }
+
+        /// <summary>경로 기준점에서 캡슐 중심까지의 Y축 milli 오프셋이다.</summary>
+        public int EnemyHitboxCenterOffsetYMilli { get; internal set; }
+
+        /// <summary>적 캡슐 히트박스의 기본 Y축 milli 반높이다.</summary>
+        public int EnemyHitboxHalfHeightMilli { get; internal set; }
+
+        public int KillStreakWindowTicks { get; internal set; }
+        public int KillStreakBonusInterval { get; internal set; }
+        public int KillStreakBonusGold { get; internal set; }
+        public int EliteKillBonusGold { get; internal set; }
+        public int WaveCompletionBaseGold { get; internal set; }
+        public int WaveCompletionGoldPerWave { get; internal set; }
 
         // 아래 Internal 접근자는 같은 GameLogic 어셈블리의 성능 민감 코드가
         // 매 틱 Clone 비용 없이 읽도록 제공된다. 외부 표현 계층에는 공개되지 않는다.
@@ -587,10 +720,12 @@ namespace RuleforgeTD.GameLogic.Content
         private readonly CompiledCardDefinition[] cards;
         private readonly CompiledTowerDefinition[] towers;
         private readonly CompiledEnemyDefinition[] enemies;
+        private readonly CompiledEliteTraitDefinition[] eliteTraits;
         private readonly CompiledWaveDefinition[] waves;
         private readonly Dictionary<string, CardId> cardIds;
         private readonly Dictionary<string, TowerDefinitionId> towerIds;
         private readonly Dictionary<string, EnemyDefinitionId> enemyIds;
+        private readonly Dictionary<string, EliteTraitId> eliteTraitIds;
 
         internal CompiledContent(
             int version,
@@ -598,12 +733,14 @@ namespace RuleforgeTD.GameLogic.Content
             CompiledCardDefinition[] cards,
             CompiledTowerDefinition[] towers,
             CompiledEnemyDefinition[] enemies,
+            CompiledEliteTraitDefinition[] eliteTraits,
             CompiledWaveDefinition[] waves,
             SafetyLimits safety,
             CompiledRunDefinition run,
             Dictionary<string, CardId> cardIds,
             Dictionary<string, TowerDefinitionId> towerIds,
-            Dictionary<string, EnemyDefinitionId> enemyIds)
+            Dictionary<string, EnemyDefinitionId> enemyIds,
+            Dictionary<string, EliteTraitId> eliteTraitIds)
         {
             Version = version;
             ContentHash = contentHash;
@@ -613,12 +750,15 @@ namespace RuleforgeTD.GameLogic.Content
             this.cards = (CompiledCardDefinition[])cards.Clone();
             this.towers = (CompiledTowerDefinition[])towers.Clone();
             this.enemies = (CompiledEnemyDefinition[])enemies.Clone();
+            this.eliteTraits =
+                (CompiledEliteTraitDefinition[])eliteTraits.Clone();
             this.waves = (CompiledWaveDefinition[])waves.Clone();
             Safety = safety;
             Run = run;
             this.cardIds = cardIds;
             this.towerIds = towerIds;
             this.enemyIds = enemyIds;
+            this.eliteTraitIds = eliteTraitIds;
         }
 
         /// <summary>JSON에 기록된 콘텐츠 스키마/밸런스 버전이다.</summary>
@@ -642,6 +782,9 @@ namespace RuleforgeTD.GameLogic.Content
         public CompiledEnemyDefinition[] Enemies =>
             (CompiledEnemyDefinition[])enemies.Clone();
 
+        public CompiledEliteTraitDefinition[] EliteTraits =>
+            (CompiledEliteTraitDefinition[])eliteTraits.Clone();
+
         /// <summary>모든 웨이브 정의 배열의 방어적 복사본이다.</summary>
         public CompiledWaveDefinition[] Waves =>
             (CompiledWaveDefinition[])waves.Clone();
@@ -654,6 +797,8 @@ namespace RuleforgeTD.GameLogic.Content
 
         /// <summary>컴파일된 적 원형 수다.</summary>
         public int EnemyCount => enemies.Length;
+
+        public int EliteTraitCount => eliteTraits.Length;
 
         /// <summary>런에 포함된 웨이브 수다.</summary>
         public int WaveCount => waves.Length;
@@ -694,6 +839,13 @@ namespace RuleforgeTD.GameLogic.Content
             return enemyIds.TryGetValue(stableId, out id);
         }
 
+        public bool TryGetEliteTraitId(
+            string stableId,
+            out EliteTraitId id)
+        {
+            return eliteTraitIds.TryGetValue(stableId, out id);
+        }
+
         /// <summary>
         /// 검증된 CardId로 카드 정의를 가져온다.
         /// ID가 유효하다는 내부 계약을 전제로 하며 잘못된 값이면 배열 예외가 발생한다.
@@ -713,6 +865,11 @@ namespace RuleforgeTD.GameLogic.Content
         public CompiledEnemyDefinition GetEnemy(EnemyDefinitionId id)
         {
             return enemies[id.Value];
+        }
+
+        public CompiledEliteTraitDefinition GetEliteTrait(EliteTraitId id)
+        {
+            return eliteTraits[id.Value];
         }
 
         /// <summary>검증된 WaveId로 웨이브 정의를 가져온다.</summary>

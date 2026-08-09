@@ -46,6 +46,14 @@ namespace RuleforgeTD.GameLogic.Core
         public int MaxMythicRepeatsPerChain { get; }
         /// <summary>불길·독안개처럼 월드에 동시에 존재할 수 있는 위험 지대 수다.</summary>
         public int MaxActiveHazards { get; }
+        public int MaxActiveEnemies { get; }
+        public int MaxActiveProjectiles { get; }
+        public int MaxEffectsPerFrame { get; }
+        public int MaxEntitySpawnsPerChain { get; }
+        public int MaxEnemySplitGeneration { get; }
+        public int MaxProjectileCloneGeneration { get; }
+        public int MaxCombatPopups { get; }
+        public int PopupAggregateTicks { get; }
         /// <summary>최근 안전장치 기록을 보관하는 진단 원형 버퍼의 크기다.</summary>
         public int DiagnosticCapacity { get; }
 
@@ -67,6 +75,14 @@ namespace RuleforgeTD.GameLogic.Core
             int maxRecursionsPerChain,
             int maxMythicRepeatsPerChain,
             int maxActiveHazards,
+            int maxActiveEnemies,
+            int maxActiveProjectiles,
+            int maxEffectsPerFrame,
+            int maxEntitySpawnsPerChain,
+            int maxEnemySplitGeneration,
+            int maxProjectileCloneGeneration,
+            int maxCombatPopups,
+            int popupAggregateTicks,
             int diagnosticCapacity)
         {
             MaxChainDepth = RequirePositive(maxChainDepth, nameof(maxChainDepth));
@@ -103,6 +119,30 @@ namespace RuleforgeTD.GameLogic.Core
             MaxActiveHazards = RequirePositive(
                 maxActiveHazards,
                 nameof(maxActiveHazards));
+            MaxActiveEnemies = RequirePositive(
+                maxActiveEnemies,
+                nameof(maxActiveEnemies));
+            MaxActiveProjectiles = RequirePositive(
+                maxActiveProjectiles,
+                nameof(maxActiveProjectiles));
+            MaxEffectsPerFrame = RequirePositive(
+                maxEffectsPerFrame,
+                nameof(maxEffectsPerFrame));
+            MaxEntitySpawnsPerChain = RequirePositive(
+                maxEntitySpawnsPerChain,
+                nameof(maxEntitySpawnsPerChain));
+            MaxEnemySplitGeneration = RequirePositive(
+                maxEnemySplitGeneration,
+                nameof(maxEnemySplitGeneration));
+            MaxProjectileCloneGeneration = RequirePositive(
+                maxProjectileCloneGeneration,
+                nameof(maxProjectileCloneGeneration));
+            MaxCombatPopups = RequirePositive(
+                maxCombatPopups,
+                nameof(maxCombatPopups));
+            PopupAggregateTicks = RequirePositive(
+                popupAggregateTicks,
+                nameof(popupAggregateTicks));
             DiagnosticCapacity = RequirePositive(diagnosticCapacity, nameof(diagnosticCapacity));
 
             if (MaxQueuedEvents < MaxEventsPerTick)
@@ -135,6 +175,14 @@ namespace RuleforgeTD.GameLogic.Core
                 maxRecursionsPerChain: 1,
                 maxMythicRepeatsPerChain: 3,
                 maxActiveHazards: 2_048,
+                maxActiveEnemies: 220,
+                maxActiveProjectiles: 500,
+                maxEffectsPerFrame: 32,
+                maxEntitySpawnsPerChain: 96,
+                maxEnemySplitGeneration: 8,
+                maxProjectileCloneGeneration: 4,
+                maxCombatPopups: 8,
+                popupAggregateTicks: 12,
                 diagnosticCapacity: 256);
         }
 
@@ -164,20 +212,31 @@ namespace RuleforgeTD.GameLogic.Core
         public int EventCount { get; }
         /// <summary>추가로 생성할 탄환 수다.</summary>
         public int ProjectileSpawnCount { get; }
+        public int EnemySpawnCount { get; }
         /// <summary>추가로 실행할 카드 수다.</summary>
         public int CardTriggerCount { get; }
+        /// <summary>추가로 사용할 재귀 패스 토큰 수다.</summary>
+        public int RecursionCount { get; }
+        /// <summary>추가로 사용할 신화 반복 패스 토큰 수다.</summary>
+        public int MythicRepeatCount { get; }
 
         /// <summary>여러 종류의 연쇄 사용량을 한 요청으로 묶는다.</summary>
         public ChainReservation(
             int depth,
             int eventCount,
             int projectileSpawnCount = 0,
-            int cardTriggerCount = 0)
+            int cardTriggerCount = 0,
+            int enemySpawnCount = 0,
+            int recursionCount = 0,
+            int mythicRepeatCount = 0)
         {
             Depth = depth;
             EventCount = eventCount;
             ProjectileSpawnCount = projectileSpawnCount;
+            EnemySpawnCount = enemySpawnCount;
             CardTriggerCount = cardTriggerCount;
+            RecursionCount = recursionCount;
+            MythicRepeatCount = mythicRepeatCount;
         }
 
         /// <summary>지정한 깊이에서 이벤트 하나만 예약하는 편의 요청을 만든다.</summary>
@@ -204,6 +263,7 @@ namespace RuleforgeTD.GameLogic.Core
         public int EventsUsed { get; private set; }
         /// <summary>현재까지 예약한 탄환 생성 수다.</summary>
         public int ProjectileSpawnsUsed { get; private set; }
+        public int EntitySpawnsUsed { get; private set; }
         /// <summary>현재까지 예약한 카드 실행 수다.</summary>
         public int CardTriggersUsed { get; private set; }
         /// <summary>현재까지 사용한 재귀 패스 수다.</summary>
@@ -231,7 +291,10 @@ namespace RuleforgeTD.GameLogic.Core
             if (reservation.Depth < 0 ||
                 reservation.EventCount < 0 ||
                 reservation.ProjectileSpawnCount < 0 ||
-                reservation.CardTriggerCount < 0)
+                reservation.EnemySpawnCount < 0 ||
+                reservation.CardTriggerCount < 0 ||
+                reservation.RecursionCount < 0 ||
+                reservation.MythicRepeatCount < 0)
             {
                 failure = BudgetFailure.InvalidRequest;
                 return false;
@@ -258,6 +321,18 @@ namespace RuleforgeTD.GameLogic.Core
                 return false;
             }
 
+            int requestedEntitySpawns = checked(
+                reservation.ProjectileSpawnCount +
+                reservation.EnemySpawnCount);
+            if (!Fits(
+                    EntitySpawnsUsed,
+                    requestedEntitySpawns,
+                    _limits.MaxEntitySpawnsPerChain))
+            {
+                failure = BudgetFailure.EntitySpawnLimit;
+                return false;
+            }
+
             if (!Fits(
                     CardTriggersUsed,
                     reservation.CardTriggerCount,
@@ -267,11 +342,32 @@ namespace RuleforgeTD.GameLogic.Core
                 return false;
             }
 
+            if (!Fits(
+                    RecursionsUsed,
+                    reservation.RecursionCount,
+                    _limits.MaxRecursionsPerChain))
+            {
+                failure = BudgetFailure.RecursionLimit;
+                return false;
+            }
+
+            if (!Fits(
+                    MythicRepeatsUsed,
+                    reservation.MythicRepeatCount,
+                    _limits.MaxMythicRepeatsPerChain))
+            {
+                failure = BudgetFailure.MythicRepeatLimit;
+                return false;
+            }
+
             // 모든 검사가 끝난 뒤에만 값을 바꾼다. 이 순서 덕분에 앞 항목만 차감되고
             // 뒤 항목에서 실패하는 부분 예약이 발생하지 않는다.
             EventsUsed += reservation.EventCount;
             ProjectileSpawnsUsed += reservation.ProjectileSpawnCount;
+            EntitySpawnsUsed += requestedEntitySpawns;
             CardTriggersUsed += reservation.CardTriggerCount;
+            RecursionsUsed += reservation.RecursionCount;
+            MythicRepeatsUsed += reservation.MythicRepeatCount;
             failure = BudgetFailure.None;
             return true;
         }
@@ -286,29 +382,21 @@ namespace RuleforgeTD.GameLogic.Core
         /// <summary>재귀 카드의 추가 실행 패스 하나를 예약한다.</summary>
         public bool TryReserveRecursion(out BudgetFailure failure)
         {
-            if (!Fits(RecursionsUsed, 1, _limits.MaxRecursionsPerChain))
-            {
-                failure = BudgetFailure.RecursionLimit;
-                return false;
-            }
-
-            RecursionsUsed++;
-            failure = BudgetFailure.None;
-            return true;
+            var reservation = new ChainReservation(
+                depth: 0,
+                eventCount: 0,
+                recursionCount: 1);
+            return TryReserve(in reservation, out failure);
         }
 
         /// <summary>신화 카드의 전체 프로그램 반복 패스 하나를 예약한다.</summary>
         public bool TryReserveMythicRepeat(out BudgetFailure failure)
         {
-            if (!Fits(MythicRepeatsUsed, 1, _limits.MaxMythicRepeatsPerChain))
-            {
-                failure = BudgetFailure.MythicRepeatLimit;
-                return false;
-            }
-
-            MythicRepeatsUsed++;
-            failure = BudgetFailure.None;
-            return true;
+            var reservation = new ChainReservation(
+                depth: 0,
+                eventCount: 0,
+                mythicRepeatCount: 1);
+            return TryReserve(in reservation, out failure);
         }
 
         private static bool Fits(int used, int requested, int limit)

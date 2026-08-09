@@ -31,6 +31,25 @@ namespace RuleforgeTD.GameLogic.Content
     }
 
     /// <summary>
+    /// 웨이브 예고와 스폰 템포를 설명하는 전투 구성 유형이다.
+    /// 실제 적 수와 시각은 각 spawn 데이터가 권위이며 이 값은 숨은 보정값이 아니다.
+    /// </summary>
+    public enum WaveArchetype
+    {
+        Standard = 0,
+        Swarm = 1,
+        EliteMix = 2,
+        Rush = 3,
+        HeavyEscort = 4,
+        Boss = 5,
+
+        /// <summary>
+        /// 소수의 위협을 오래 붙잡아 지속 피해와 제어 빌드로 공략하는 봉쇄전이다.
+        /// </summary>
+        Containment = 6
+    }
+
+    /// <summary>
     /// 카드 효과 노드가 실행할 수 있는 원자 연산의 목록이다.
     /// JSON에는 이 이름을 문자열로 기록하고, 컴파일 시 enum과 EffectRegistry의
     /// 실제 실행 코드로 연결한다. 새 항목만 추가하고 executor를 등록하지 않으면
@@ -181,7 +200,115 @@ namespace RuleforgeTD.GameLogic.Content
         /// <summary>탄환 적중 시 적을 경로 반대 방향으로 도망치게 하는 규칙을 부착한다.</summary>
         BindFear = 59,
         /// <summary>적에게 공포와 종료 후의 일시적 가속을 적용한다.</summary>
-        ApplyFear = 60
+        ApplyFear = 60,
+
+        /// <summary>한 번만 복제 가능한 유령 탄환을 생성한다.</summary>
+        DuplicateProjectile = 61,
+        /// <summary>보상 없는 체력 공유 유령 적 복제체를 생성한다.</summary>
+        DuplicateEnemy = 62,
+        /// <summary>탄환을 희생해 가까운 아군 탄환에 힘과 남은 효과를 전달한다.</summary>
+        SacrificeProjectile = 63,
+        /// <summary>현재 체력 일부를 주변 적에게 피해로 나누어 전달한다.</summary>
+        SacrificeEnemy = 64,
+        /// <summary>탄환 소멸 시 타워에서 한 번 다시 발사되도록 설정한다.</summary>
+        ConfigureProjectileReturn = 65,
+        /// <summary>적을 현재 상태 그대로 과거 경로 위치로 되돌린다.</summary>
+        RewindEnemy = 66,
+        /// <summary>마지막 적중 뒤 탄환이 지나온 궤도를 역방향으로 재주행하게 한다.</summary>
+        ConfigureProjectileRetrograde = 67,
+        /// <summary>적이 일정 시간 경로를 역방향으로 이동하게 한다.</summary>
+        ApplyEnemyRetrograde = 68,
+        /// <summary>같은 태그의 가까운 탄환과 공명해 효과 위력을 높인다.</summary>
+        ConfigureProjectileResonance = 69,
+        /// <summary>같은 상태이상을 가진 적끼리 공명하도록 연결한다.</summary>
+        ApplyEnemyResonance = 70,
+        /// <summary>가까운 아군 탄환을 흡수해 피해·크기·효과를 가져온다.</summary>
+        ConfigureProjectileAbsorb = 71,
+        /// <summary>체력이 낮은 주변 적을 흡수하되 총보상은 늘리지 않는다.</summary>
+        ApplyEnemyAbsorb = 72,
+        /// <summary>정지 중 파동과 효과를 저장했다가 해제 시 방출한다.</summary>
+        ConfigureProjectileTimeStop = 73,
+        /// <summary>적의 이동·행동을 멈추되 지속 피해는 계속 흐르게 한다.</summary>
+        ApplyEnemyTimeStop = 74,
+        /// <summary>장착 카드 하나를 같은 티어의 다른 효과로 결정적으로 변이시킨다.</summary>
+        ConfigureProjectileMutation = 75,
+        /// <summary>적에게 약점 하나와 강화 하나를 가진 변이 상태를 적용한다.</summary>
+        ApplyEnemyMutation = 76,
+        /// <summary>낮은 체력의 적에게 큰 피해를 주고 탄환을 소멸시킨다.</summary>
+        EnableProjectileExecute = 77,
+        /// <summary>일정 체력 이하에서 즉사하는 처형 표식을 적용한다.</summary>
+        ApplyEnemyExecute = 78,
+        /// <summary>탄환이 적 내부에 박혀 남은 효과를 주기적으로 반복하게 한다.</summary>
+        EnableProjectileParasite = 79,
+        /// <summary>사망 시 가까운 적에게 전이되는 기생체를 적용한다.</summary>
+        ApplyEnemyParasite = 80,
+        /// <summary>탄환이 소멸 후 보상 없는 유령 탄환으로 한 번 부활하게 한다.</summary>
+        EnableProjectileRebirth = 81,
+        /// <summary>적이 사망 후 보상 없는 약한 영혼으로 한 번 되돌아오게 한다.</summary>
+        ApplyEnemyRebirth = 82,
+        /// <summary>카드 순서 종료 후 가까운 탄환에 약화된 순서를 전달한다.</summary>
+        EnableProjectileChain = 83,
+        /// <summary>사망 시 가까운 적에게 약화된 카드 순서를 전달한다.</summary>
+        ApplyEnemyChain = 84,
+
+        // Legendary grammar and lifecycle operations. These operations are
+        // intentionally grouped by responsibility rather than by card id:
+        // grammar changes are resolved by the program runner, while lifecycle
+        // effects are stored on the current subject until hit/expire/death.
+        /// <summary>프로그램 종료 뒤 실행 순서의 첫 카드를 연쇄당 한 번 다시 실행한다.</summary>
+        EnableRecursion = 85,
+        /// <summary>현재 대상 문맥의 카드 순회를 오른쪽에서 왼쪽으로 바꾼다.</summary>
+        ReverseProgramOrder = 86,
+        /// <summary>다음 카드의 적 해석을 적중 대상에도 실행하도록 탄환에 연결한다.</summary>
+        EnableProjectileDualInterpretation = 87,
+        /// <summary>다음 카드의 탄환 해석을 가진 유령 탄환을 현재 적에서 생성한다.</summary>
+        ApplyEnemyDualInterpretation = 88,
+        /// <summary>최대 적중 횟수까지 탄환이 목표를 공전하며 반복 적중하게 한다.</summary>
+        EnableProjectileInfiniteOrbit = 89,
+        /// <summary>정해진 피격 횟수까지 적이 짧은 경로 구간을 반복하게 한다.</summary>
+        ApplyEnemyInfiniteOrbit = 90,
+        /// <summary>이후 분열·복제 탄환이 앞선 허용 효과 일부를 상속하게 한다.</summary>
+        EnableProjectileOverclone = 91,
+        /// <summary>이후 분열·복제 적이 상태와 사망 효과 일부를 상속하게 한다.</summary>
+        ApplyEnemyOverclone = 92,
+        /// <summary>적중 시 골드를 소비해 카드 프로그램을 제한적으로 재실행한다.</summary>
+        EnableProjectileForbiddenDeal = 93,
+        /// <summary>생존 중 골드를 만들며 주기마다 체력·크기·속도가 성장하게 한다.</summary>
+        ApplyEnemyForbiddenDeal = 94,
+        /// <summary>소멸 시 잔재 탄환이 카드를 역순으로 한 번 실행하게 한다.</summary>
+        EnableProjectileLastCommand = 95,
+        /// <summary>사망 시 주변 적에게 카드를 역순으로 한 번 전달한다.</summary>
+        ApplyEnemyLastCommand = 96,
+        /// <summary>탄환의 확률 효과를 난수 대신 결정적 누적 주기로 발동하게 한다.</summary>
+        EnableProjectileFateLock = 97,
+        /// <summary>다음 확률 효과를 확정 발동시키되 위력을 감쇠한다.</summary>
+        ApplyEnemyFateLock = 98,
+        /// <summary>프로그램을 한 번 더 실행한 뒤 폭발하며 소멸하게 한다.</summary>
+        EnableProjectileOverload = 99,
+        /// <summary>적 프로그램을 한 번 더 실행한 뒤 일시 강화·저항을 부여한다.</summary>
+        ApplyEnemyOverload = 100,
+
+        // Mythic rule-changing operations.
+        /// <summary>주변 탄환을 흡수하고 소멸 시 저장한 효과를 범위로 방출한다.</summary>
+        EnableProjectileSingularity = 101,
+        /// <summary>주변 적을 끌어당기고 피해를 공유하며 사망 시 폭발하게 한다.</summary>
+        ApplyEnemySingularity = 102,
+        /// <summary>탄환을 더 강한 형태로 한 번 부활시키는 코어를 부착한다.</summary>
+        EnableProjectilePhoenixCore = 103,
+        /// <summary>적을 낮은 체력으로 한 번 부활시키고 상태를 취약으로 변환한다.</summary>
+        ApplyEnemyPhoenixCore = 104,
+        /// <summary>현재 탄환의 과거·미래 잔상 탄환을 각각 하나 생성한다.</summary>
+        CreateProjectileTimeRift = 105,
+        /// <summary>과거·예상 미래 위치에 피해 전달 시간 잔상을 만든다.</summary>
+        ApplyEnemyTimeRift = 106,
+        /// <summary>타워 반대편 방향에 동일한 효과를 잇는 거울 탄환을 만든다.</summary>
+        CreateProjectileMirrorWorld = 107,
+        /// <summary>체력을 공유하는 무보상 환영 적을 하나 만든다.</summary>
+        ApplyEnemyMirrorWorld = 108,
+        /// <summary>감쇠된 전체 탄환 프로그램을 안전 한도까지 반복하게 한다.</summary>
+        EnableProjectileOuroboros = 109,
+        /// <summary>감쇠된 전체 적 프로그램을 가까운 다른 적에게 반복 전달한다.</summary>
+        ApplyEnemyOuroboros = 110
     }
 
     /// <summary>
@@ -387,6 +514,18 @@ namespace RuleforgeTD.GameLogic.Content
         /// <summary>화면 표시 문구를 찾는 로컬라이제이션 키다. 실제 한글 이름 자체가 아니다.</summary>
         public string displayNameKey;
 
+        /// <summary>
+        /// 카드 슬롯과 인벤토리의 축약 표기를 찾는 로컬라이제이션 키다.
+        /// UI가 stable id별 switch를 가지지 않도록 카드 표현 메타데이터에 둔다.
+        /// </summary>
+        public string symbolKey;
+
+        /// <summary>
+        /// 64-bit 표현 플래그에서 사용할 비트 위치다. -1이면 별도 카드 VFX가 없다.
+        /// 전투 판정 값이 아니라 표현 계층으로 전달할 안정적인 스타일 식별자다.
+        /// </summary>
+        public int visualStyleIndex = -1;
+
         /// <summary>CardTier의 숫자값이다.</summary>
         public int tier;
 
@@ -461,7 +600,9 @@ namespace RuleforgeTD.GameLogic.Content
         /// </summary>
         public int duplicateCostStepBps;
 
-        /// <summary>레벨 1~7의 비용·슬롯·전투 수치다.</summary>
+        /// <summary>
+        /// 레벨별 비용·슬롯·전투 수치다. 배열 길이가 이 타워의 최대 레벨이다.
+        /// </summary>
         public TowerLevelBalanceDto[] levels;
 
         /// <summary>타워가 다시 발동하기까지 기다리는 정수 틱 수다.</summary>
@@ -507,6 +648,18 @@ namespace RuleforgeTD.GameLogic.Content
 
         /// <summary>표시 이름을 찾기 위한 로컬라이제이션 키다.</summary>
         public string displayNameKey;
+
+        /// <summary>
+        /// 정보 패널과 밸런스 표에서 사용하는 데이터 기반 전투 레벨이다.
+        /// 분열 세대나 현재 웨이브로부터 추론하지 않는다.
+        /// </summary>
+        public int level = 1;
+
+        /// <summary>인간형, 야수, 구조체 같은 현지화된 유형 이름 키다.</summary>
+        public string typeKey;
+
+        /// <summary>이 적의 특징을 설명하는 현지화 문장 키다.</summary>
+        public string descriptionKey;
 
         /// <summary>EnemyRank 이름 문자열이다.</summary>
         public string rank;
@@ -568,6 +721,52 @@ namespace RuleforgeTD.GameLogic.Content
         public int bossCastTicks;
         public int bossTeleportDistanceBps;
         public int bossEnragedTeleportDistanceBps;
+
+        /// <summary>
+        /// 다음 웨이브 예고에 표시할 현지화 키와 추천 정의다. 화면은 적 ID나
+        /// 임의의 수치 경계로 특징·약점·추천을 다시 추론하지 않는다.
+        /// </summary>
+        public string speedRatingKey;
+        public string[] featureKeys;
+        public string[] specialAbilityKeys;
+        public string[] weaknessKeys;
+        public string[] recommendedCardIds;
+        public string[] recommendedTagKeys;
+    }
+
+    /// <summary>
+    /// 기존 적 원형에 조합하는 엘리트 특성 데이터다. 전투 수치와 식별용
+    /// 이름·아이콘·색을 한 정의에 묶되 실제 몬스터 프리팹은 소유하지 않는다.
+    /// </summary>
+    [Serializable]
+    public sealed class EliteTraitDefinitionDto
+    {
+        public string id;
+        public string displayNameKey;
+        public string prefixKey;
+        public string descriptionKey;
+        public string counterHintKey;
+
+        /// <summary>머리 위 배지에 표시하는 짧은 기호 또는 2~4자 약어다.</summary>
+        public string iconText;
+
+        /// <summary>렌더링 계층이 해석하는 #RRGGBB 또는 #RRGGBBAA 색상이다.</summary>
+        public string bodyTint;
+        public string outlineColor;
+        public string healthBarColor;
+        public string shieldBarColor;
+
+        public int outlineWidthMilli = 35;
+        public int healthMultiplierBps = 10000;
+        public int armorMultiplierBps = 10000;
+        public int speedMultiplierBps = 10000;
+        public int rewardMultiplierBps = 10000;
+        public int shieldBaseHealthBps;
+        public int renderScaleBps = 10000;
+
+        /// <summary>이 변형의 강점에 대응하는 카드와 표시 태그다.</summary>
+        public string[] recommendedCardIds;
+        public string[] recommendedTagKeys;
     }
 
     /// <summary>웨이브 안에서 특정 적 종류를 언제, 몇 마리 생성할지 적는 한 묶음이다.</summary>
@@ -585,6 +784,12 @@ namespace RuleforgeTD.GameLogic.Content
 
         /// <summary>같은 묶음의 다음 개체를 생성하기까지의 틱 간격이다.</summary>
         public int intervalTicks;
+
+        /// <summary>
+        /// 기본 적에 조합할 엘리트 특성 ID 목록이다. 현재 콘텐츠 검증은 한 개만
+        /// 허용하지만 배열 형태를 유지해 향후 복합 엘리트로 확장할 수 있다.
+        /// </summary>
+        public string[] eliteTraitIds;
     }
 
     /// <summary>하나의 웨이브와 그 안의 생성 묶음들을 나타내는 JSON 정의다.</summary>
@@ -593,6 +798,9 @@ namespace RuleforgeTD.GameLogic.Content
     {
         /// <summary>로그와 콘텐츠 식별에 쓰는 안정 문자열 ID다.</summary>
         public string id;
+
+        /// <summary>WaveArchetype 이름. 다음 웨이브 예고의 구성 설명에 사용한다.</summary>
+        public string archetype = "Standard";
 
         /// <summary>이 웨이브가 예약하는 적 생성 묶음들이다.</summary>
         public WaveSpawnDto[] spawns;
@@ -651,6 +859,30 @@ namespace RuleforgeTD.GameLogic.Content
         /// <summary>불길·독안개처럼 동시에 존재할 수 있는 장판 개수다.</summary>
         public int maxActiveHazards = 2048;
 
+        /// <summary>동시에 시뮬레이션할 수 있는 살아 있는 적 수다.</summary>
+        public int maxActiveEnemies = 220;
+
+        /// <summary>동시에 시뮬레이션할 수 있는 살아 있는 탄환 수다.</summary>
+        public int maxActiveProjectiles = 500;
+
+        /// <summary>한 렌더 프레임에서 새로 재생할 수 있는 전투 이펙트 수다.</summary>
+        public int maxEffectsPerFrame = 32;
+
+        /// <summary>한 RootChain이 적과 탄환을 합쳐 생성할 수 있는 개체 수다.</summary>
+        public int maxEntitySpawnsPerChain = 96;
+
+        /// <summary>적 분열/복제가 내려갈 수 있는 최대 세대다.</summary>
+        public int maxEnemySplitGeneration = 8;
+
+        /// <summary>탄환 분열/복제가 내려갈 수 있는 최대 세대다.</summary>
+        public int maxProjectileCloneGeneration = 4;
+
+        /// <summary>동시에 표시할 통합 피해·골드 팝업 묶음 수다.</summary>
+        public int maxCombatPopups = 8;
+
+        /// <summary>피해·골드 값을 하나로 합산하는 고정 틱 창이다.</summary>
+        public int popupAggregateTicks = 12;
+
         /// <summary>거절된 효과 원인을 보관하는 진단 원형 버퍼의 크기다.</summary>
         public int diagnosticCapacity = 256;
     }
@@ -672,6 +904,11 @@ namespace RuleforgeTD.GameLogic.Content
         /// <summary>새 런의 시작 골드다.</summary>
         public int startingGold;
 
+        /// <summary>
+        /// 런 전체에서 건설비를 면제하는 최초 타워 수다.
+        /// </summary>
+        public int freeInitialTowerCount = 1;
+
         /// <summary>플레이어가 런 시작 시 하나를 고를 수 있는 타워 안정 ID 목록이다.</summary>
         public string[] startingTowerChoices;
 
@@ -691,9 +928,6 @@ namespace RuleforgeTD.GameLogic.Content
         /// 런 시작부터 해금되고, 양수인 지점은 계획 단계에서 비용을 지불해야 한다.
         /// </summary>
         public int[] buildSpotUnlockCosts;
-
-        /// <summary>무료 시작 타워 이후 모든 추가 타워에 적용하는 고정 건설 비용이다.</summary>
-        public int towerConstructionCost = 100;
 
         public int[] pathPointXMilli;
         public int[] pathPointYMilli;
@@ -727,14 +961,58 @@ namespace RuleforgeTD.GameLogic.Content
         /// <summary>치명타 피해 배율이다. 10000은 1배, 15000은 1.5배다.</summary>
         public int criticalDamageBps = 15000;
 
+        /// <summary>
+        /// 방어력 유리수 감쇠의 기준값이다. 최종 분모는 이 값과 가중 방어력의 합이다.
+        /// </summary>
+        public int armorMitigationScale = 100;
+
+        /// <summary>광역·폭발·다중 대상 피해가 방어력을 읽는 민감도다.</summary>
+        public int areaArmorSensitivityBps = 50000;
+
+        /// <summary>화상/화염 피해가 방어력을 읽는 민감도다.</summary>
+        public int burnArmorSensitivityBps = 40000;
+
         /// <summary>정예·보스의 제어 게이지가 찼을 때 행동을 방해하는 틱 수다.</summary>
         public int controlInterruptTicks = 24;
 
         /// <summary>반복 제어 저항 증가가 도달할 수 있는 게이지 기준값 상한이다.</summary>
         public int maxControlGaugeThreshold = 200;
 
-        /// <summary>적 충돌 판정의 기본 milli 반지름이다.</summary>
-        public int enemyBaseHitRadiusMilli = 250;
+        /// <summary>
+        /// 적이 이동 제한 효과에 막혀 같은 경로 진행도에 머물 수 있는 최대 틱 수다.
+        /// </summary>
+        public int movementEscapeStationaryTicks = 300;
+
+        /// <summary>
+        /// 장기 고정 뒤 감속·강제 정지·시간 정지를 무시하고 이동하는 틱 수다.
+        /// </summary>
+        public int movementEscapeImmunityTicks = 30;
+
+        /// <summary>적 캡슐 히트박스의 기본 milli 반지름이다.</summary>
+        public int enemyBaseHitRadiusMilli = 275;
+
+        /// <summary>
+        /// 적 경로 기준점에서 캡슐 히트박스 중심까지의 Y축 milli 오프셋이다.
+        /// 현재 CraftPix 적 프리팹의 Bottom Center 피벗과 일치한다.
+        /// </summary>
+        public int enemyHitboxCenterOffsetYMilli = 350;
+
+        /// <summary>적 캡슐 히트박스의 기본 Y축 milli 반높이다.</summary>
+        public int enemyHitboxHalfHeightMilli = 350;
+
+        /// <summary>처치 간격이 이 값 이내면 연속 처치로 이어진다.</summary>
+        public int killStreakWindowTicks = 45;
+
+        /// <summary>이 처치 수 간격마다 작은 연속 처치 골드 보너스를 지급한다.</summary>
+        public int killStreakBonusInterval = 5;
+        public int killStreakBonusGold = 1;
+
+        /// <summary>정예 처치에 기본 보상과 별도로 지급하는 작은 보너스다.</summary>
+        public int eliteKillBonusGold = 3;
+
+        /// <summary>웨이브 완료 보너스의 기본값과 1 기반 웨이브 증가분이다.</summary>
+        public int waveCompletionBaseGold = 8;
+        public int waveCompletionGoldPerWave = 2;
     }
 
     /// <summary>
@@ -756,6 +1034,9 @@ namespace RuleforgeTD.GameLogic.Content
 
         /// <summary>이 빌드에서 사용할 모든 적 원본 정의다.</summary>
         public EnemyDefinitionDto[] enemies;
+
+        /// <summary>기본 적 원형과 독립적으로 조합 가능한 엘리트 특성 정의다.</summary>
+        public EliteTraitDefinitionDto[] eliteTraits;
 
         /// <summary>런에서 순서대로 진행할 웨이브 원본 정의다.</summary>
         public WaveDefinitionDto[] waves;

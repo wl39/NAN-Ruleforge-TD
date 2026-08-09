@@ -95,6 +95,7 @@ namespace RuleforgeTD.GameLogic.Simulation
         private RunPhase phase;
         private long tick;
         private int currentWaveIndex;
+        private int currentStageNumber;
         private long waveStartTick;
         private int baseHealth;
         private int gold;
@@ -137,11 +138,24 @@ namespace RuleforgeTD.GameLogic.Simulation
         /// <summary>현재 런 단계다. 계획, 전투, 드래프트, 승패 등의 명령 허용 여부를 결정한다.</summary>
         public RunPhase Phase => phase;
 
+        /// <summary>
+        /// 현재 권위 규칙에서 타워 카드 편집을 허용하는지 반환한다.
+        /// 일반 런은 계획/카드팩 편집 단계만, TestLab 샌드박스는 열린 전투 중에도 허용한다.
+        /// </summary>
+        public bool CanEditLoadout =>
+            initialized && IsLoadoutEditablePhase();
+
         /// <summary>초기화 후 지금까지 진행된 논리 틱 수다. 기본 설정에서는 30틱이 1초다.</summary>
         public long Tick => tick;
 
         /// <summary>현재 진행 중이거나 방금 끝난 웨이브의 0부터 시작하는 인덱스다.</summary>
         public int CurrentWaveIndex => currentWaveIndex;
+
+        /// <summary>
+        /// 현재 이어하기 스테이지의 1 기반 번호다. 첫 클리어 전은 1이며
+        /// 승리 화면에서 이어하기를 확정할 때마다 하나씩 증가한다.
+        /// </summary>
+        public int CurrentStageNumber => currentStageNumber;
 
         /// <summary>적이 경로 끝에 도착했을 때 감소하는 본진의 남은 체력이다.</summary>
         public int BaseHealth => baseHealth;
@@ -191,7 +205,7 @@ namespace RuleforgeTD.GameLogic.Simulation
             run = runConfig.Definition;
             ValidateRunConfig(run);
             runDefinitionHash = runConfig.DefinitionHash;
-            effectRegistry = EffectRegistry.CreateDefault();
+            effectRegistry = EffectRegistry.Default;
             ValidateExecutors();
 
             // 공간 셀 크기와 큐/진단 용량도 로직 데이터에서 확정한다.
@@ -225,11 +239,18 @@ namespace RuleforgeTD.GameLogic.Simulation
             ownedTowerDefinitions.Clear();
             chainBudgets.Clear();
             lineages.Clear();
+            sandboxCompletedLineageScratch.Clear();
             ResetCommonCardRuntime();
             ResetUncommonCardState();
+            ResetRareGenerationMotionState();
+            ResetRareResonanceAbsorbTimeMutationState();
+            ResetRareDeathChainState();
+            ResetLegendaryState();
+            ResetMythicCardState();
 
             tick = 0;
             currentWaveIndex = -1;
+            currentStageNumber = 1;
             waveStartTick = 0;
             baseHealth = run.BaseHealth;
             gold = run.StartingGold;
@@ -253,6 +274,10 @@ namespace RuleforgeTD.GameLogic.Simulation
             regularDraftPending = false;
             bossCardPackAwardedThisWave = false;
             victoryPending = false;
+            sandboxTestingMode = false;
+            sandboxActiveEnemyHardLimit = 0;
+            sandboxActiveEnemyLimit = 0;
+            sandboxSpawnBatchLimit = 0;
             waveSpawns = new WaveSpawnRuntime[0];
             unlockedBuildSpots =
                 new bool[run.BuildSpotsInternal.Length];
@@ -268,6 +293,8 @@ namespace RuleforgeTD.GameLogic.Simulation
             {
                 AddOwnedCard(run.StartingCardsInternal[i]);
             }
+
+            InitializeCombatTelemetry();
 
             initialized = true;
         }
@@ -303,6 +330,11 @@ namespace RuleforgeTD.GameLogic.Simulation
                         command.PrimaryId,
                         command.SecondaryId,
                         command.TertiaryId);
+                case GameCommandType.ReplaceCard:
+                    return ReplaceCard(
+                        command.PrimaryId,
+                        command.SecondaryId,
+                        command.TertiaryId);
                 case GameCommandType.UnequipCard:
                     return UnequipCard(command.PrimaryId);
                 case GameCommandType.ReorderCard:
@@ -314,6 +346,8 @@ namespace RuleforgeTD.GameLogic.Simulation
                     return SelectDraft(command.PrimaryId);
                 case GameCommandType.StartWave:
                     return StartWave();
+                case GameCommandType.ContinueStage:
+                    return ContinueStage();
                 case GameCommandType.OpenCardPack:
                     return OpenCardPack(command.PrimaryId);
                 case GameCommandType.SelectCardPack:
@@ -367,14 +401,21 @@ namespace RuleforgeTD.GameLogic.Simulation
             if (phase == RunPhase.Combat)
             {
                 // 1) 예약된 적을 생성하고, 이미 붙은 지속 효과를 먼저 처리한다.
-                ProcessWaveSpawns();
-                TrySpawnShimmeringCarrier(
-                    EnemyDefinitionId.Invalid);
+                if (!sandboxTestingMode)
+                {
+                    ProcessWaveSpawns();
+                    TrySpawnShimmeringCarrier(
+                        EnemyDefinitionId.Invalid);
+                }
+                ProcessRareDeathChainRuntime();
+                ProcessLegendaryRuntime();
+                ProcessMythicCardRuntimeTick();
                 ProcessStatuses();
                 DrainEventsThrough(EventPhase.Status);
                 ProcessBossAbilities();
 
                 // 2) 적을 경로 위에서 이동시킨 뒤 위치가 바뀐 결과로 공간 인덱스를 재구축한다.
+                RecordRareGenerationMotionEnemyHistory();
                 MoveEnemies();
                 DrainEventsThrough(EventPhase.Movement);
                 spatialIndex.Rebuild(enemies);
@@ -394,6 +435,10 @@ namespace RuleforgeTD.GameLogic.Simulation
 
                 // 5) 죽은 개체를 실제 목록에서 정리하고 웨이브 종료 여부를 마지막에 판단한다.
                 CleanupDeadEntities();
+                if (sandboxTestingMode)
+                {
+                    CleanupCompletedSandboxLineages();
+                }
                 CheckWaveCompletion();
                 DrainEventsThrough(EventPhase.Wave);
             }
@@ -451,6 +496,16 @@ namespace RuleforgeTD.GameLogic.Simulation
                         status.ArmorIgnoreBps);
                 }
                 int slowBps = GetSlowBps(enemy);
+                var eliteTraitStableIds =
+                    new string[enemy.EliteTraitIds.Length];
+                for (int traitIndex = 0;
+                     traitIndex < enemy.EliteTraitIds.Length;
+                     traitIndex++)
+                {
+                    eliteTraitStableIds[traitIndex] =
+                        content.GetEliteTrait(
+                            enemy.EliteTraitIds[traitIndex]).StableId;
+                }
                 enemySnapshots.Add(new EnemySnapshot(
                     enemy.Id.Value,
                     definition.StableId,
@@ -474,7 +529,10 @@ namespace RuleforgeTD.GameLogic.Simulation
                     enemy.ShieldMilli,
                     statusTypes,
                     statusDetails,
-                    enemy.DeathBindings.Count));
+                    enemy.DeathBindings.Count,
+                    eliteTraitStableIds,
+                    enemy.EliteRenderScaleBps,
+                    enemy.BaseSpeedMilliPerTick));
             }
 
             // 이미 소멸한 탄환은 화면에 다시 생성되지 않도록 제외한다.
@@ -487,7 +545,7 @@ namespace RuleforgeTD.GameLogic.Simulation
                     continue;
                 }
 
-                ProjectileEffectVisualFlags visualFlags =
+                CardEffectVisualFlags visualFlags =
                     projectile.VisualFlags |
                     GetCommonProjectileVisualFlags(projectile) |
                     GetProjectileUncommonEffectFlags(projectile.Id);
@@ -688,6 +746,7 @@ namespace RuleforgeTD.GameLogic.Simulation
             return new SimulationSnapshot(
                 tick,
                 phase,
+                currentStageNumber,
                 currentWaveIndex,
                 baseHealth,
                 gold,
@@ -706,8 +765,7 @@ namespace RuleforgeTD.GameLogic.Simulation
                 progressBps,
                 nextThreshold,
                 rewardQueueIds.ToArray(),
-                pendingCardInstanceId,
-                run.TowerConstructionCost);
+                pendingCardInstanceId);
         }
 
         /// <summary>
@@ -756,8 +814,16 @@ namespace RuleforgeTD.GameLogic.Simulation
             hash.Add(content.ContentHash);
             hash.Add(runDefinitionHash);
             hash.Add(initialized);
+            hash.Add(sandboxTestingMode);
+            if (sandboxTestingMode)
+            {
+                hash.Add(sandboxActiveEnemyHardLimit);
+                hash.Add(sandboxActiveEnemyLimit);
+                hash.Add(sandboxSpawnBatchLimit);
+            }
             hash.Add(tick);
             hash.Add((int)phase);
+            hash.Add(currentStageNumber);
             hash.Add(currentWaveIndex);
             hash.Add(waveStartTick);
             hash.Add(baseHealth);
@@ -801,6 +867,7 @@ namespace RuleforgeTD.GameLogic.Simulation
                 hash.Add(spawn.Definition.Count);
                 hash.Add(spawn.Definition.FirstSpawnTick);
                 hash.Add(spawn.Definition.IntervalTicks);
+                hash.Add(spawn.TargetCount);
                 hash.Add(spawn.Spawned);
                 hash.Add(spawn.NextTick);
             }
@@ -874,6 +941,13 @@ namespace RuleforgeTD.GameLogic.Simulation
                 hash.Add(enemy.Generation);
                 hash.Add((int)enemy.SpawnOrigin);
                 hash.Add(enemy.SummonerId);
+                hash.Add(enemy.EliteTraitIds.Length);
+                for (int traitIndex = 0;
+                     traitIndex < enemy.EliteTraitIds.Length;
+                     traitIndex++)
+                {
+                    hash.Add(enemy.EliteTraitIds[traitIndex].Value);
+                }
                 hash.Add(enemy.PathProgressMilli);
                 hash.Add(enemy.PathLateralOffset);
                 hash.Add(enemy.Position);
@@ -881,11 +955,16 @@ namespace RuleforgeTD.GameLogic.Simulation
                 hash.Add(enemy.MaxHealthMilli);
                 hash.Add(enemy.Armor);
                 hash.Add(enemy.BaseSpeedMilliPerTick);
+                hash.Add(enemy.MovementEscapeWatchInitialized);
+                hash.Add(enemy.MovementEscapeWatchProgressMilli);
+                hash.Add(enemy.MovementEscapeStationarySinceTick);
+                hash.Add(enemy.MovementEscapeUntilTick);
                 hash.Add(enemy.SpeedMultiplierBps);
                 hash.Add(enemy.SizeMultiplierBps);
+                hash.Add(enemy.EliteRenderScaleBps);
                 hash.Add(enemy.AreaDamageTakenBps);
                 hash.Add(enemy.SingleDamageTakenBps);
-                hash.Add((uint)enemy.VisualFlags);
+                hash.Add((ulong)enemy.VisualFlags);
                 hash.Add(enemy.RewardBudget);
                 hash.Add(enemy.WaveProgressBudget);
                 hash.Add(enemy.CardPackProgressBudget);
@@ -950,7 +1029,7 @@ namespace RuleforgeTD.GameLogic.Simulation
                 hash.Add(projectile.DirectionXBps);
                 hash.Add(projectile.DirectionYBps);
                 hash.Add(projectile.Homing);
-                hash.Add((uint)projectile.VisualFlags);
+                hash.Add((ulong)projectile.VisualFlags);
                 hash.Add(projectile.DamageMilli);
                 hash.Add(projectile.SpeedMilliPerTick);
                 hash.Add(projectile.RadiusMilli);
@@ -1100,6 +1179,13 @@ namespace RuleforgeTD.GameLogic.Simulation
 
             AppendCommonCardStateHash(ref hash);
             AppendUncommonStateHash(ref hash);
+            AppendRareGenerationMotionStateHash(ref hash);
+            AppendRareResonanceAbsorbTimeMutationStateHash(
+                ref hash);
+            AppendRareDeathChainStateHash(ref hash);
+            AppendLegendaryStateHash(ref hash);
+            AppendMythicCardStateHash(ref hash);
+            AppendCombatTelemetryHash(ref hash);
             return hash.Finish();
         }
 
@@ -1152,6 +1238,10 @@ namespace RuleforgeTD.GameLogic.Simulation
             hash.Add(frame.ParentEventId);
             hash.Add(frame.Depth);
             hash.Add(frame.ReservedContinuationEvents);
+            hash.Add(frame.Execution.Direction);
+            hash.Add(frame.Execution.PowerBps);
+            hash.Add(frame.Execution.RepeatIndex);
+            hash.Add((int)frame.Execution.Flags);
         }
 
         /// <summary>
@@ -1227,7 +1317,7 @@ namespace RuleforgeTD.GameLogic.Simulation
         /// </summary>
         public static bool IsEffectOperationSupported(EffectOperation operation)
         {
-            return EffectRegistry.CreateDefault().IsRegistered(operation);
+            return EffectRegistry.Default.IsRegistered(operation);
         }
 
         /// <summary>
@@ -1243,9 +1333,11 @@ namespace RuleforgeTD.GameLogic.Simulation
                     content.GetCard(new CardId(cardIndex));
                 ValidateNodes(
                     card.StableId,
+                    SubjectType.Projectile,
                     card.ProjectileEffectsInternal);
                 ValidateNodes(
                     card.StableId,
+                    SubjectType.Enemy,
                     card.EnemyEffectsInternal);
             }
         }
@@ -1253,7 +1345,10 @@ namespace RuleforgeTD.GameLogic.Simulation
         /// <summary>
         /// 카드 한쪽 해석이 비어 있거나 알 수 없는 효과 연산을 쓰면 실행 전에 콘텐츠 오류로 막는다.
         /// </summary>
-        private void ValidateNodes(string cardId, CompiledEffectNode[] nodes)
+        private void ValidateNodes(
+            string cardId,
+            SubjectType subjectType,
+            CompiledEffectNode[] nodes)
         {
             if (nodes == null || nodes.Length == 0)
             {
@@ -1268,6 +1363,15 @@ namespace RuleforgeTD.GameLogic.Simulation
                     throw new ContentValidationException(
                         "Card '" + cardId + "' uses unregistered operation " +
                         nodes[i].Operation + ".");
+                }
+                if (!effectRegistry.SupportsSubject(
+                        nodes[i].Operation,
+                        subjectType))
+                {
+                    throw new ContentValidationException(
+                        "Card '" + cardId + "' uses operation " +
+                        nodes[i].Operation + " in unsupported " +
+                        subjectType + " context.");
                 }
             }
         }
@@ -1293,10 +1397,12 @@ namespace RuleforgeTD.GameLogic.Simulation
             if (definition.TickRate != SafetyLimits.DefaultTicksPerSecond ||
                 definition.BaseHealth <= 0 ||
                 definition.StartingGold < 0 ||
-                definition.TowerConstructionCost <= 0 ||
+                definition.FreeInitialTowerCount < 0 ||
                 definition.StartingTowerChoicesInternal.Length == 0 ||
                 definition.StartingCardsInternal.Length == 0 ||
                 definition.BuildSpotsInternal.Length == 0 ||
+                definition.FreeInitialTowerCount >
+                    definition.BuildSpotsInternal.Length ||
                 definition.BuildSpotUnlockCostsInternal.Length !=
                     definition.BuildSpotsInternal.Length ||
                 definition.PathPointsInternal.Length < 2 ||
@@ -1312,9 +1418,18 @@ namespace RuleforgeTD.GameLogic.Simulation
                 definition.ShimmeringSizeBps <= 0 ||
                 definition.TierWeightsInternal.Length != 5 ||
                 definition.CriticalDamageBps < 10000 ||
+                definition.ArmorMitigationScale <= 0 ||
+                definition.AreaArmorSensitivityBps < 10000 ||
+                definition.BurnArmorSensitivityBps < 10000 ||
                 definition.ControlInterruptTicks <= 0 ||
                 definition.MaxControlGaugeThreshold <= 0 ||
-                definition.EnemyBaseHitRadiusMilli <= 0)
+                definition.MovementEscapeStationaryTicks <= 0 ||
+                definition.MovementEscapeImmunityTicks <= 0 ||
+                definition.MovementEscapeImmunityTicks >
+                    definition.MovementEscapeStationaryTicks ||
+                definition.EnemyBaseHitRadiusMilli <= 0 ||
+                definition.EnemyHitboxHalfHeightMilli <
+                    definition.EnemyBaseHitRadiusMilli)
             {
                 throw new ArgumentException(
                     "RunConfig contains an invalid deterministic run definition.",
@@ -1410,7 +1525,9 @@ namespace RuleforgeTD.GameLogic.Simulation
             int sourceId = -1,
             int value = 0,
             string contentId = null,
-            uint effectVisualFlags = 0u)
+            ulong effectVisualFlags = 0UL,
+            SimPosition effectPosition = default(SimPosition),
+            bool hasEffectPosition = false)
         {
             var presentationEvent = new SimulationPresentationEvent(
                 tick,
@@ -1419,7 +1536,9 @@ namespace RuleforgeTD.GameLogic.Simulation
                 sourceId,
                 value,
                 contentId,
-                effectVisualFlags);
+                effectVisualFlags,
+                effectPosition,
+                hasEffectPosition);
             if (presentationEventCount < presentationEvents.Length)
             {
                 // 아직 빈 칸이 있으면 논리적 꼬리 위치에 이어 쓴다.
@@ -1448,6 +1567,7 @@ namespace RuleforgeTD.GameLogic.Simulation
         private sealed class WaveSpawnRuntime
         {
             public CompiledWaveSpawn Definition;
+            public int TargetCount;
             public int Spawned;
             public long NextTick;
         }

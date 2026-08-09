@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "difficultyId": "medium",
+  "baseContentHash": "22796887E869E39D",
+  "description": "Intermediate overlay with a reachable early economy for measured standalone-card play while preserving meaningful novice failure pressure.",
+  "modifiers": {
+    "startingGold": 150,
+    "enemyHealthPermille": 900,
+    "enemyArmorPermille": 950,
+    "enemySpeedPermille": 1000,
+    "enemyResistancePermille": 950,
+    "enemyCountPermille": 1000,
+    "spawnIntervalPermille": 1000,
+    "goldRewardPermille": 1300,
+    "towerBuildCostPermille": 750,
+    "towerUpgradeCostPermille": 750,
+    "bossAbilityIntervalPermille": 1000
+  },
+  "enemyOverrides": [],
+  "waveOverrides": [],
+  "bossOverrides": []
+}

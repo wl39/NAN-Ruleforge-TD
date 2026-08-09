@@ -1,0 +1,67 @@
+{
+  "schemaVersion": 1,
+  "seedSets": {
+    "train": 64,
+    "validation": 64,
+    "holdout": 128
+  },
+  "easy": {
+    "noviceEnsemble": {
+      "winRateMin": 0.9,
+      "medianRemainingHealthMin": 4,
+      "medianRemainingHealthMax": 7,
+      "p10RemainingHealthMin": 1
+    },
+    "eachNovicePolicy": {
+      "winRateMin": 0.8
+    },
+    "noSpendPolicy": {
+      "winRateMax": 0.3
+    },
+    "cardCoverage": {
+      "allStartingCardsWinRateMin": 0.9,
+      "eachActiveCardHasViablePath": true,
+      "activeCardPathWinRateMin": 0.75
+    }
+  },
+  "medium": {
+    "goodStandalonePolicy": {
+      "winRateMin": 0.7,
+      "medianRemainingHealthMin": 2,
+      "medianRemainingHealthMax": 6
+    },
+    "noviceEnsemble": {
+      "winRateMin": 0.15,
+      "winRateMax": 0.5
+    },
+    "synergyTacticalPolicy": {
+      "winRateMin": 0.85
+    }
+  },
+  "hard": {
+    "synergyTacticalPolicy": {
+      "winRateMin": 0.6,
+      "winRateMax": 0.8,
+      "medianRemainingHealthMin": 1,
+      "medianRemainingHealthMax": 4
+    },
+    "goodStandalonePolicy": {
+      "winRateMax": 0.3
+    },
+    "noviceEnsemble": {
+      "winRateMax": 0.1
+    },
+    "synergyNoCombatBuildPolicy": {
+      "winRateMax": 0.25,
+      "minimumWinRateDropFromFullPolicy": 0.35
+    },
+    "synergyDisabledPolicy": {
+      "winRateMax": 0.35,
+      "minimumWinRateDropFromFullPolicy": 0.25
+    },
+    "successfulRunsWithMidWaveBuildRatioMin": 0.7,
+    "oracleSearchPolicy": {
+      "winRateMin": 0.9
+    }
+  }
+}

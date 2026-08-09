@@ -2,6 +2,7 @@ using System;
 using NUnit.Framework;
 using RuleforgeTD.GameLogic.Content;
 using RuleforgeTD.GameLogic.Core;
+using RuleforgeTD.GameLogic.Effects;
 using RuleforgeTD.GameLogic.Simulation;
 using UnityEditor;
 using UnityEngine;
@@ -70,7 +71,7 @@ namespace RuleforgeTD.Tests.EditMode.GameLogic
             burnNode.radiusMilli = 400;
 
             CompiledContent content =
-                ContentCompiler.Compile(
+                EffectContentCompiler.Compile(
                     source,
                     GameSimulation.IsEffectOperationSupported);
             var simulation = new GameSimulation();
@@ -215,7 +216,7 @@ namespace RuleforgeTD.Tests.EditMode.GameLogic
         public void BurnTrail_StateRemainsDeterministic()
         {
             CompiledContent content =
-                ContentCompiler.Compile(
+                EffectContentCompiler.Compile(
                     LoadContentDto(),
                     GameSimulation.IsEffectOperationSupported);
             GameSimulation left =

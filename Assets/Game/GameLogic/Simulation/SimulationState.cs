@@ -1,6 +1,8 @@
+using System;
 using System.Collections.Generic;
 using RuleforgeTD.GameLogic.Content;
 using RuleforgeTD.GameLogic.Core;
+using RuleforgeTD.GameLogic.Effects;
 
 namespace RuleforgeTD.GameLogic.Simulation
 {
@@ -9,7 +11,8 @@ namespace RuleforgeTD.GameLogic.Simulation
         Scheduled = 0,
         Split = 1,
         BossSummon = 2,
-        ShimmeringCarrier = 3
+        ShimmeringCarrier = 3,
+        Sandbox = 4
     }
 
     public enum CardPackSource
@@ -29,36 +32,6 @@ namespace RuleforgeTD.GameLogic.Simulation
         Poison = 2,
         Explosion = 3,
         Collision = 4
-    }
-
-    /// <summary>
-    /// 카드가 탄환이나 적에게 "나중에 실행할 효과"를 붙일 때의 발동 시점이다.
-    /// </summary>
-    internal enum BindingTrigger
-    {
-        /// <summary>관통을 포함한 모든 유효 적중마다 발동한다.</summary>
-        OnHit = 0,
-        /// <summary>첫 적중과 소멸 중 먼저 일어난 사건에서 한 번만 발동한다.</summary>
-        OnFirstHitOrExpire = 1,
-        /// <summary>적 사망이 최종 확정된 뒤 발동한다.</summary>
-        OnDeath = 2,
-        /// <summary>탄환의 최초 유효 적중에서만 발동한다.</summary>
-        OnFirstHit = 3
-    }
-
-    /// <summary>
-    /// 지연 실행 바인딩이 실제로 수행할 Phase 1 효과 종류다.
-    /// </summary>
-    internal enum BindingKind
-    {
-        Burn = 0,
-        Poison = 1,
-        Explosion = 2,
-        Knockback = 3,
-        Mark = 4,
-        Gold = 5,
-        Stun = 6,
-        Bleed = 7
     }
 
     /// <summary>
@@ -252,6 +225,10 @@ namespace RuleforgeTD.GameLogic.Simulation
         public EnemySpawnOrigin SpawnOrigin;
         public EntityId SummonerId = EntityId.Invalid;
 
+        // 기본 적 원형과 조합된 엘리트 특성이다. 현재 스폰은 한 개만 허용하지만
+        // 배열을 유지해 향후 복합 특성에서도 개체/스냅샷 스키마를 바꾸지 않는다.
+        public EliteTraitId[] EliteTraitIds = Array.Empty<EliteTraitId>();
+
         // 이동의 원본은 경로 진행 거리다. Position은 공간 검색용 환산 좌표다.
         public long PathProgressMilli;
         // 분열 시 진행 방향 기준 좌우로 갈라진 가지의 경로 수직 오프셋이다.
@@ -265,12 +242,20 @@ namespace RuleforgeTD.GameLogic.Simulation
         public int Armor;
         public int BaseSpeedMilliPerTick;
 
+        // 장기 이동 제한 탈출 모듈의 결정적 감시 상태다. 경로 진행도가 실제로
+        // 변하면 감시를 다시 시작하며, 탈출 중에도 기존 디버프 수명은 정상적으로 흐른다.
+        public bool MovementEscapeWatchInitialized;
+        public long MovementEscapeWatchProgressMilli;
+        public long MovementEscapeStationarySinceTick;
+        public long MovementEscapeUntilTick;
+
         // 카드가 적용한 배율. 10,000 basis point가 100%다.
         public int SpeedMultiplierBps = 10000;
         public int SizeMultiplierBps = 10000;
+        public int EliteRenderScaleBps = 10000;
         public int AreaDamageTakenBps = 10000;
         public int SingleDamageTakenBps = 10000;
-        public ProjectileEffectVisualFlags VisualFlags;
+        public CardEffectVisualFlags VisualFlags;
 
         // 이 분열 가지에 현재 배정된 골드와 웨이브 기여도.
         public int RewardBudget;
@@ -365,7 +350,7 @@ namespace RuleforgeTD.GameLogic.Simulation
         public int DirectionYBps;
         public bool Homing;
         public bool ApplyEnemyProgramOnHit;
-        public ProjectileEffectVisualFlags VisualFlags;
+        public CardEffectVisualFlags VisualFlags;
 
         // 전투 수치와 수명.
         public long DamageMilli;
@@ -464,6 +449,70 @@ namespace RuleforgeTD.GameLogic.Simulation
     }
 
     /// <summary>
+    /// Immutable traversal metadata shared by every CardExecute event in one
+    /// program pass. High-tier grammar cards compose by creating a new pass
+    /// instead of mutating the tower's frozen loadout.
+    /// </summary>
+    internal readonly struct ProgramExecutionSpec
+    {
+        public ProgramExecutionSpec(
+            int direction,
+            int powerBps,
+            int repeatIndex,
+            EffectExecutionFlags flags)
+        {
+            Direction = direction < 0 ? -1 : 1;
+            PowerBps = Math.Max(1, Math.Min(10000, powerBps));
+            RepeatIndex = Math.Max(0, repeatIndex);
+            Flags = flags;
+        }
+
+        /// <summary>+1은 왼쪽→오른쪽, -1은 오른쪽→왼쪽 순회다.</summary>
+        public int Direction { get; }
+
+        /// <summary>반복 전달 시 효과 수치에 곱할 basis-point 위력이다.</summary>
+        public int PowerBps { get; }
+
+        /// <summary>동일 규칙 안에서 몇 번째 반복 패스인지 나타낸다.</summary>
+        public int RepeatIndex { get; }
+
+        /// <summary>재진입 억제·단일 카드 실행 등 패스 문법 표식이다.</summary>
+        public EffectExecutionFlags Flags { get; }
+
+        public bool HasFlag(EffectExecutionFlags flag)
+        {
+            return (Flags & flag) != 0;
+        }
+
+        public ProgramExecutionSpec WithFlags(
+            EffectExecutionFlags flags)
+        {
+            return new ProgramExecutionSpec(
+                Direction,
+                PowerBps,
+                RepeatIndex,
+                Flags | flags);
+        }
+
+        public ProgramExecutionSpec WithPowerBps(
+            int powerBps)
+        {
+            return new ProgramExecutionSpec(
+                Direction,
+                powerBps,
+                RepeatIndex,
+                Flags);
+        }
+
+        public static ProgramExecutionSpec Forward =>
+            new ProgramExecutionSpec(
+                1,
+                10000,
+                0,
+                EffectExecutionFlags.None);
+    }
+
+    /// <summary>
     /// 카드 배열에서 "어느 대상에게 몇 번째 카드를 실행 중인가"를 저장하는 작업 프레임이다.
     /// </summary>
     /// <remarks>
@@ -481,7 +530,8 @@ namespace RuleforgeTD.GameLogic.Simulation
             ActivationId activationId,
             EventId parentEventId,
             int depth,
-            int reservedContinuationEvents)
+            int reservedContinuationEvents,
+            in ProgramExecutionSpec execution)
         {
             SubjectType = subjectType;
             SubjectId = subjectId;
@@ -492,6 +542,7 @@ namespace RuleforgeTD.GameLogic.Simulation
             ParentEventId = parentEventId;
             Depth = depth;
             ReservedContinuationEvents = reservedContinuationEvents;
+            Execution = execution;
         }
 
         /// <summary>탄환 해석과 적 해석 중 어느 프로그램을 사용할지 결정한다.</summary>
@@ -512,5 +563,8 @@ namespace RuleforgeTD.GameLogic.Simulation
         public int Depth { get; }
         /// <summary>분열 전에 원자적으로 선예약한 남은 카드 사건 수다.</summary>
         public int ReservedContinuationEvents { get; }
+
+        /// <summary>이 프레임과 모든 continuation이 공유하는 프로그램 순회 명세다.</summary>
+        public ProgramExecutionSpec Execution { get; }
     }
 }

@@ -21,7 +21,13 @@ namespace RuleforgeTD.GameLogic.Simulation
             in CompiledEffectNode node)
         {
             ProjectileState original = FindProjectile(context.SubjectId);
-            if (original == null || !original.Alive || node.Amount < 2)
+            if (original == null ||
+                !original.Alive ||
+                node.Amount < 2 ||
+                original.Generation >=
+                    content.Safety.MaxProjectileCloneGeneration ||
+                projectiles.Count >=
+                    content.Safety.MaxActiveProjectiles)
             {
                 return EntityId.Invalid;
             }
@@ -90,6 +96,12 @@ namespace RuleforgeTD.GameLogic.Simulation
             // 새 가지는 현재 위치·피해·속도 같은 물리 수치만 이어받는다.
             projectiles.Add(child);
             InheritCommonProjectileRuntime(original, child);
+            InheritRareResonanceAbsorbTimeMutationProjectileRuntime(
+                original,
+                child);
+            InheritLegendaryProjectileState(
+                original,
+                child);
             EnemyState alternate = SelectProjectileTarget(child);
             if (alternate != null && alternate.Id != original.TargetId)
             {
@@ -138,6 +150,13 @@ namespace RuleforgeTD.GameLogic.Simulation
 
             LineageState lineage = lineages[original.LineageId.Value];
             int resultingGeneration = original.Generation + 1;
+            if (resultingGeneration >
+                    content.Safety.MaxEnemySplitGeneration ||
+                enemies.Count >=
+                    content.Safety.MaxActiveEnemies)
+            {
+                return EntityId.Invalid;
+            }
             int splitSizeMultiplierBps = MultiplyBps(
                 original.SizeMultiplierBps,
                 9000);
@@ -165,6 +184,12 @@ namespace RuleforgeTD.GameLogic.Simulation
                     (int)BudgetFailure.EnemyLineageEntityLimit);
                 return EntityId.Invalid;
             }
+            if (!TryPassSandboxEnemyCreationGate(
+                    1,
+                    in diagnosticEvent))
+            {
+                return EntityId.Invalid;
+            }
 
             int continuationCount = context.ContinuationCardCount;
             // 원본과 자식 모두 오른쪽 카드들을 끝까지 실행할 수 있을 때만 분열을 허용한다.
@@ -180,7 +205,8 @@ namespace RuleforgeTD.GameLogic.Simulation
                     queueSlotCount:
                         continuationCount > 0 ? 2 : 0,
                     projectileSpawnCount: 0,
-                    cardTriggerCount: newlyReservedContinuations))
+                    cardTriggerCount: newlyReservedContinuations,
+                    enemySpawnCount: 1))
             {
                 return EntityId.Invalid;
             }
@@ -199,6 +225,10 @@ namespace RuleforgeTD.GameLogic.Simulation
                 splitCardPackProgress;
             original.MaxHealthMilli = newMax;
             original.HealthMilli = Math.Min(newMax, newCurrent);
+            original.ShieldMilli =
+                DeterministicMath.MultiplyBasisPoints(
+                    original.ShieldMilli,
+                    node.Amount2);
             original.Generation++;
             original.SizeMultiplierBps = splitSizeMultiplierBps;
 
@@ -233,6 +263,8 @@ namespace RuleforgeTD.GameLogic.Simulation
                 Generation = original.Generation,
                 SpawnOrigin = EnemySpawnOrigin.Split,
                 SummonerId = original.SummonerId,
+                EliteTraitIds =
+                    (EliteTraitId[])original.EliteTraitIds.Clone(),
                 PathProgressMilli = original.PathProgressMilli,
                 PathLateralOffset =
                     branchOriginOffset - leftBranchOffset,
@@ -245,6 +277,8 @@ namespace RuleforgeTD.GameLogic.Simulation
                 BaseSpeedMilliPerTick = original.BaseSpeedMilliPerTick,
                 SpeedMultiplierBps = original.SpeedMultiplierBps,
                 SizeMultiplierBps = splitSizeMultiplierBps,
+                EliteRenderScaleBps =
+                    original.EliteRenderScaleBps,
                 AreaDamageTakenBps = original.AreaDamageTakenBps,
                 SingleDamageTakenBps = original.SingleDamageTakenBps,
                 VisualFlags = original.VisualFlags,
@@ -253,6 +287,7 @@ namespace RuleforgeTD.GameLogic.Simulation
                 CardPackProgressBudget =
                     splitCardPackProgress,
                 IsShimmering = original.IsShimmering,
+                ShieldMilli = original.ShieldMilli,
                 ControlThreshold = original.ControlThreshold,
                 ControlThresholdStep = original.ControlThresholdStep,
                 BossAbilityCooldownTicks =
@@ -298,6 +333,9 @@ namespace RuleforgeTD.GameLogic.Simulation
             // 사거리 진입형 타워의 내부/쿨다운 상태는 상속해, 범위 안에서 태어난 자식이
             // 새로 진입한 것처럼 즉시 같은 타워를 재발동시키는 우회를 막는다.
             InheritRangeEntryLocks(original, child);
+            InheritLegendaryEnemyState(
+                original,
+                child);
             lineage.HighestGeneration = Math.Max(
                 lineage.HighestGeneration,
                 resultingGeneration);
@@ -546,8 +584,7 @@ namespace RuleforgeTD.GameLogic.Simulation
 
             if (statusType == StatusType.Stun)
             {
-                CompiledEnemyDefinition definition = content.GetEnemy(enemy.DefinitionId);
-                if (definition.Rank != EnemyRank.Normal)
+                if (UsesEliteControlRules(enemy))
                 {
                     ApplyControlGauge(
                         enemy,
@@ -569,6 +606,9 @@ namespace RuleforgeTD.GameLogic.Simulation
             in EffectExecutionContext context,
             int controlValue)
         {
+            controlValue = ResolveLegendaryEnemyStatusValue(
+                enemy,
+                controlValue);
             enemy.ControlGauge = checked(
                 enemy.ControlGauge + Math.Max(0, controlValue));
             if (enemy.ControlGauge < enemy.ControlThreshold)
@@ -615,6 +655,27 @@ namespace RuleforgeTD.GameLogic.Simulation
                     enemy,
                     statusType,
                     node);
+            effectiveNode =
+                AdjustStatusNodeForRareResonance(
+                    enemy,
+                    statusType,
+                    effectiveNode);
+            effectiveNode = new CompiledEffectNode(
+                effectiveNode.Operation,
+                ResolveLegendaryEnemyStatusValue(
+                    enemy,
+                    effectiveNode.Amount),
+                effectiveNode.Amount2,
+                effectiveNode.Amount3,
+                ResolveLegendaryEnemyStatusValue(
+                    enemy,
+                    effectiveNode.DurationTicks),
+                effectiveNode.IntervalTicks,
+                effectiveNode.MaxStacks,
+                effectiveNode.RadiusMilli,
+                effectiveNode.Limit,
+                effectiveNode.ChanceBps,
+                effectiveNode.ReferenceId);
             StatusInstance existing = null;
             for (int i = 0; i < enemy.Statuses.Count; i++)
             {
@@ -825,8 +886,8 @@ namespace RuleforgeTD.GameLogic.Simulation
                         BindingKind.Poison);
                     break;
                 case BindingKind.Explosion:
-                    ExecuteExplosion(
-                        target.Position,
+                    ExecuteExplosionWithPresentation(
+                        GetEnemyHitboxCenter(target),
                         projectile.DamageMilli,
                         projectile.SourceTowerId,
                         binding.CardId,
@@ -835,7 +896,10 @@ namespace RuleforgeTD.GameLogic.Simulation
                         projectile.RootChainId,
                         projectile.ActivationId,
                         parentEvent.EventId,
-                        parentEvent.Depth + 1);
+                        parentEvent.Depth + 1,
+                        int.MaxValue,
+                        "explode",
+                        target.Id);
                     break;
                 case BindingKind.Knockback:
                     ApplyDirectEnemyEffect(
@@ -1232,7 +1296,39 @@ namespace RuleforgeTD.GameLogic.Simulation
             ChainId rootChainId,
             ActivationId activationId,
             EventId parentEventId,
-            int depth)
+            int depth,
+            int targetLimit = int.MaxValue)
+        {
+            ExecuteExplosionWithPresentation(
+                position,
+                baseDamageMilli,
+                sourceTowerId,
+                sourceCardId,
+                sourceEntityId,
+                node,
+                rootChainId,
+                activationId,
+                parentEventId,
+                depth,
+                targetLimit,
+                "explode",
+                sourceEntityId);
+        }
+
+        private void ExecuteExplosionWithPresentation(
+            SimPosition position,
+            long baseDamageMilli,
+            TowerId sourceTowerId,
+            CardId sourceCardId,
+            EntityId sourceEntityId,
+            in CompiledEffectNode node,
+            ChainId rootChainId,
+            ActivationId activationId,
+            EventId parentEventId,
+            int depth,
+            int targetLimit,
+            string presentationId,
+            EntityId presentationSubjectId)
         {
             long damage = DeterministicMath.MultiplyBasisPoints(
                 baseDamageMilli,
@@ -1244,8 +1340,8 @@ namespace RuleforgeTD.GameLogic.Simulation
 
             // 적마다 크기에 따른 피격 반지름이 다르므로 넉넉한 반경으로 공간 인덱스를 조회한 뒤
             // 각 후보에 대해 정확한 실제 반지름 검사를 다시 한다.
-            int maximumEnemyRadius = checked(
-                run.EnemyBaseHitRadiusMilli * 3);
+            int maximumEnemyRadius =
+                GetMaximumEnemyHitboxReachMilli();
             spatialIndex.Query(
                 position,
                 checked(node.RadiusMilli + maximumEnemyRadius),
@@ -1255,12 +1351,10 @@ namespace RuleforgeTD.GameLogic.Simulation
             {
                 EnemyState enemy = FindEnemy(spatialScratch[i]);
                 if (!enemy.Alive ||
-                    !PathModel.IsWithin(
+                    !DoesAreaCircleOverlapEnemyHitbox(
                         position,
-                        enemy.Position,
-                        checked(
-                            node.RadiusMilli +
-                            GetEnemyHitRadiusMilli(enemy))))
+                        node.RadiusMilli,
+                        enemy))
                 {
                     continue;
                 }
@@ -1271,8 +1365,13 @@ namespace RuleforgeTD.GameLogic.Simulation
             // 공간 인덱스의 내부 반환 순서에 의존하지 않도록 모든 후보를 공통 규칙으로 정렬한다.
             candidates.Sort((left, right) =>
                 CompareTargetPriority(position, left, right));
-            var damageEvents = new List<GameEvent>(candidates.Count);
-            for (int i = 0; i < candidates.Count; i++)
+            int boundedTargetCount =
+                targetLimit > 0
+                    ? Math.Min(candidates.Count, targetLimit)
+                    : candidates.Count;
+            var damageEvents =
+                new List<GameEvent>(boundedTargetCount);
+            for (int i = 0; i < boundedTargetCount; i++)
             {
                 if (TryCreateDamageEvent(
                         candidates[i].Id,
@@ -1294,12 +1393,15 @@ namespace RuleforgeTD.GameLogic.Simulation
             }
 
             TryEnqueueBatch(damageEvents);
+            RecordExplosionTrigger();
             AddPresentation(
-                PresentationEventType.EffectTriggered,
-                sourceEntityId.Value,
+                PresentationEventType.AreaEffectTriggered,
+                presentationSubjectId.Value,
                 sourceEntityId.Value,
                 node.RadiusMilli,
-                "explode");
+                presentationId,
+                effectPosition: position,
+                hasEffectPosition: true);
         }
 
         /// <summary>
@@ -1311,9 +1413,7 @@ namespace RuleforgeTD.GameLogic.Simulation
             in EffectExecutionContext context,
             in CompiledEffectNode node)
         {
-            CompiledEnemyDefinition definition =
-                content.GetEnemy(enemy.DefinitionId);
-            if (definition.Rank != EnemyRank.Normal)
+            if (UsesEliteControlRules(enemy))
             {
                 ApplyControlGauge(
                     enemy,
@@ -1585,6 +1685,8 @@ namespace RuleforgeTD.GameLogic.Simulation
             EnemyState enemy = FindEnemy(gameEvent.SubjectEntityId);
             if (enemy == null || !enemy.Alive || gameEvent.PayloadValue <= 0)
             {
+                DiscardMythicRelayEvent(
+                    gameEvent.EventId);
                 return;
             }
 
@@ -1604,7 +1706,25 @@ namespace RuleforgeTD.GameLogic.Simulation
             long appliedAmount = Math.Min(
                 healthBefore,
                 amount);
+            RecordCardDamage(
+                gameEvent.SourceCardId,
+                appliedAmount);
             HandleUncommonDamageApplied(
+                enemy,
+                gameEvent,
+                appliedAmount);
+            HandleRareGenerationMotionDamageApplied(
+                enemy,
+                gameEvent,
+                appliedAmount);
+            HandleRareEnemyDamaged(
+                enemy,
+                gameEvent);
+            HandleLegendaryEnemyDamaged(
+                enemy,
+                gameEvent,
+                appliedAmount);
+            HandleMythicEnemyDamageApplied(
                 enemy,
                 gameEvent,
                 appliedAmount);
@@ -1654,7 +1774,31 @@ namespace RuleforgeTD.GameLogic.Simulation
                 return;
             }
 
-            ProjectileEffectVisualFlags deathVisualFlags =
+            if (TryHandleRareEnemyRebirth(
+                    enemy,
+                    gameEvent))
+            {
+                return;
+            }
+            if (TryHandleMythicEnemyLifecycle(
+                    enemy,
+                    gameEvent))
+            {
+                return;
+            }
+            HandleRareEnemyFinalDeath(
+                enemy,
+                gameEvent);
+            HandleLegendaryEnemyDeath(
+                enemy,
+                gameEvent);
+            HandleMythicEnemyFinalDeath(
+                enemy,
+                gameEvent);
+            RecordEnemyKillTelemetry(
+                enemy,
+                in gameEvent);
+            CardEffectVisualFlags deathVisualFlags =
                 GetEnemyDeathVisualFlags(enemy);
             HandleUncommonEnemyDeath(
                 enemy,
@@ -1679,7 +1823,7 @@ namespace RuleforgeTD.GameLogic.Simulation
                 if (binding.Kind == BindingKind.Explosion && !binding.Used)
                 {
                     ExecuteExplosion(
-                        enemy.Position,
+                        GetEnemyHitboxCenter(enemy),
                         enemy.MaxHealthMilli,
                         binding.CardId.IsValid
                             ? FindBindingTower(binding, gameEvent.SourceTowerId)
@@ -1695,8 +1839,11 @@ namespace RuleforgeTD.GameLogic.Simulation
                 }
             }
 
-            // 주변 적을 대상으로 카드를 실행하는 데스 엔진은 사망 자체와 같은 RootChain을 이어받는다.
-            TriggerDeathEngines(enemy, gameEvent);
+            // 사건 기반 타워는 사망 자체와 같은 RootChain을 이어받고,
+            // Trigger 레지스트리가 현재 사건을 처리하는 핸들러만 실행한다.
+            ProcessEnemyDiedTowerTriggers(
+                enemy,
+                in gameEvent);
 
             if (!enemy.RewardClaimed && enemy.RewardBudget > 0)
             {
@@ -1736,7 +1883,7 @@ namespace RuleforgeTD.GameLogic.Simulation
                 gameEvent.SourceEntityId.Value,
                 enemy.RewardBudget,
                 content.GetEnemy(enemy.DefinitionId).StableId,
-                (uint)deathVisualFlags);
+                (ulong)deathVisualFlags);
         }
 
         /// <summary>
@@ -1749,72 +1896,6 @@ namespace RuleforgeTD.GameLogic.Simulation
             return card != null && card.EquippedTowerId.IsValid
                 ? card.EquippedTowerId
                 : fallback;
-        }
-
-        /// <summary>
-        /// 사망 위치가 사거리 안인 모든 데스 엔진을 찾아 주변 생존 적에게 적 해석 프로그램을 실행한다.
-        /// 후보 정렬과 TargetLimit을 적용해 같은 사망에서도 언제나 동일한 대상 집합을 선택한다.
-        /// </summary>
-        private void TriggerDeathEngines(EnemyState deadEnemy, in GameEvent gameEvent)
-        {
-            for (int towerIndex = 0; towerIndex < towers.Count; towerIndex++)
-            {
-                TowerState tower = towers[towerIndex];
-                CompiledTowerDefinition definition = content.GetTower(tower.DefinitionId);
-                CompiledTowerLevelBalance level =
-                    GetTowerLevelBalance(tower);
-                if (definition.Trigger != TowerTrigger.EnemyDied ||
-                    tower.Program.Length == 0 ||
-                    !PathModel.IsWithin(
-                        tower.Position,
-                        deadEnemy.Position,
-                        level.RangeMilli))
-                {
-                    continue;
-                }
-
-                var candidates = new List<EnemyState>();
-                spatialIndex.Query(
-                    deadEnemy.Position,
-                    level.SelectorRadiusMilli,
-                    spatialScratch);
-                for (int enemyIndex = 0; enemyIndex < spatialScratch.Count; enemyIndex++)
-                {
-                    EnemyState candidate = FindEnemy(spatialScratch[enemyIndex]);
-                    if (candidate.Alive &&
-                        PathModel.IsWithin(
-                            deadEnemy.Position,
-                            candidate.Position,
-                            level.SelectorRadiusMilli))
-                    {
-                        candidates.Add(candidate);
-                    }
-                }
-
-                candidates.Sort((left, right) =>
-                    CompareTargetPriority(
-                        deadEnemy.Position,
-                        left,
-                        right));
-
-                int count = Math.Min(
-                    level.TargetLimit,
-                    candidates.Count);
-                for (int i = 0; i < count; i++)
-                {
-                    // 각 대상 발동은 고유 ActivationId를 가지지만 최초 사망의 RootChain과 부모 이벤트는 공유한다.
-                    EnqueueProgram(
-                        SubjectType.Enemy,
-                        candidates[i].Id,
-                        tower.Id,
-                        0,
-                        gameEvent.RootChainId,
-                        CreateActivation(),
-                        gameEvent.EventId,
-                        gameEvent.Depth + 1,
-                        EventPhase.Death);
-                }
-            }
         }
 
         /// <summary>
@@ -1832,6 +1913,9 @@ namespace RuleforgeTD.GameLogic.Simulation
             }
 
             gold = checked(gold + amount);
+            RecordGoldTelemetry(
+                amount,
+                gameEvent.RewardOrigin);
             if (gameEvent.RewardOrigin == RewardOrigin.EnemyDrop)
             {
                 EnemyState enemy = FindEnemy(gameEvent.SubjectEntityId);

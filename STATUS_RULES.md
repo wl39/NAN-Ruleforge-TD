@@ -134,6 +134,12 @@ Phase 1의 화상, 중독, 둔화, 표식은 `RefreshDuration`, 천공은 `KeepL
 
 경로 시작은 0으로 고정한다. 강제 이동 또는 역행으로 음수 진행도가 되지 않는다.
 
+### 장기 고정 탈출 모듈
+
+`MovementRestrictionEscapeSystem`은 이동 제한을 `SpeedReduction`(둔화와 100% 미만 속도 배율), `HardControlStatus`(기절·지연·속박·에어본·빙결), `TemporalLockRuntime`(시간 정지)의 세 범주로 분리한다. 새 이동 제한 효과는 카드 이동 코드에 예외 분기를 추가하지 않고 이 분류 함수에 등록한다.
+
+적이 활성 이동 제한을 가진 채 같은 `PathProgressMilli`에 300틱(10초) 머물면 다음 30틱(1초) 동안 세 범주의 이동 제한을 모두 무시하고 기본 경로 이동을 수행한다. 원래 상태를 해제하거나 지속시간을 되돌리지 않으며 화상·중독·출혈 틱도 정상 진행한다. 30틱이 끝났을 때 제한 상태가 남아 있으면 다시 적용되고, 실제 경로 진행도가 변한 시점부터 300틱 감시를 새로 시작한다. 두 시간값은 `run.movementEscapeStationaryTicks`, `run.movementEscapeImmunityTicks`에서 조정한다.
+
 ## 7. 생성, 분열, 복제 시 상속
 
 생성된 추가 가지는 기본적으로 생성 카드 이전에 적용된 상태를 상속하지 않는다.

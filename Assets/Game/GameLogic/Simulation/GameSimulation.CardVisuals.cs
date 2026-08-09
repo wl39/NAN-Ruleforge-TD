@@ -12,7 +12,7 @@ namespace RuleforgeTD.GameLogic.Simulation
     {
         private void MarkProjectileCardVisual(
             EntityId projectileId,
-            string stableCardId)
+            CompiledCardDefinition card)
         {
             ProjectileState projectile =
                 FindProjectile(projectileId);
@@ -22,12 +22,12 @@ namespace RuleforgeTD.GameLogic.Simulation
             }
 
             projectile.VisualFlags |=
-                GetCardVisualFlag(stableCardId);
+                GetCardVisualFlag(card);
         }
 
         internal void MarkEnemyCardVisual(
             EntityId enemyId,
-            string stableCardId)
+            CompiledCardDefinition card)
         {
             EnemyState enemy = FindEnemy(enemyId);
             if (enemy == null || !enemy.Alive)
@@ -36,90 +36,25 @@ namespace RuleforgeTD.GameLogic.Simulation
             }
 
             enemy.VisualFlags |=
-                GetCardVisualFlag(stableCardId);
+                GetCardVisualFlag(card);
         }
 
-        public static ProjectileEffectVisualFlags
-            GetCardVisualFlag(string stableCardId)
+        public static CardEffectVisualFlags
+            GetCardVisualFlag(CompiledCardDefinition card)
         {
-            switch (stableCardId)
-            {
-                case "split":
-                    return ProjectileEffectVisualFlags.Split;
-                case "pierce":
-                    return ProjectileEffectVisualFlags.Pierce;
-                case "burn":
-                    return ProjectileEffectVisualFlags.Burn;
-                case "slow":
-                    return ProjectileEffectVisualFlags.Slow;
-                case "explode":
-                    return ProjectileEffectVisualFlags.Explode;
-                case "knockback":
-                    return ProjectileEffectVisualFlags.Knockback;
-                case "mark":
-                    return ProjectileEffectVisualFlags.Mark;
-                case "gold_bounty":
-                    return ProjectileEffectVisualFlags.GoldBounty;
-                case "poison":
-                    return ProjectileEffectVisualFlags.Poison;
-                case "enlarge":
-                    return ProjectileEffectVisualFlags.Enlarge;
-                case "shrink":
-                    return ProjectileEffectVisualFlags.Shrink;
-                case "stun":
-                    return ProjectileEffectVisualFlags.Stun;
-                case "ricochet":
-                    return ProjectileEffectVisualFlags.Ricochet;
-                case "bleed":
-                    return ProjectileEffectVisualFlags.Bleed;
-                case "accelerate":
-                    return ProjectileEffectVisualFlags.Accelerate;
-                case "homing":
-                    return ProjectileEffectVisualFlags.Homing;
-                case "delay":
-                    return ProjectileEffectVisualFlags.Delay;
-                case "curse":
-                    return ProjectileEffectVisualFlags.Curse;
-                case "bind":
-                    return ProjectileEffectVisualFlags.Bind;
-                case "airborne":
-                    return ProjectileEffectVisualFlags.Airborne;
-                case "shock":
-                    return ProjectileEffectVisualFlags.Shock;
-                case "freeze":
-                    return ProjectileEffectVisualFlags.Freeze;
-                case "afterimage":
-                    return ProjectileEffectVisualFlags.Afterimage;
-                case "pulse":
-                    return ProjectileEffectVisualFlags.Pulse;
-                case "magnet":
-                    return ProjectileEffectVisualFlags.Magnet;
-                case "reflect":
-                    return ProjectileEffectVisualFlags.Reflect;
-                case "contagion":
-                    return ProjectileEffectVisualFlags.Contagion;
-                case "seal":
-                    return ProjectileEffectVisualFlags.Seal;
-                case "corrosion":
-                    return ProjectileEffectVisualFlags.Corrosion;
-                case "orbit":
-                    return ProjectileEffectVisualFlags.Orbit;
-                case "lifesteal":
-                    return ProjectileEffectVisualFlags.Lifesteal;
-                case "fear":
-                    return ProjectileEffectVisualFlags.Fear;
-                default:
-                    return ProjectileEffectVisualFlags.None;
-            }
+            return card == null
+                ? CardEffectVisualFlags.None
+                : (CardEffectVisualFlags)
+                    card.VisualEffectFlag;
         }
 
-        internal ProjectileEffectVisualFlags
+        internal CardEffectVisualFlags
             GetProjectileImpactVisualFlags(
                 ProjectileState projectile)
         {
             if (projectile == null)
             {
-                return ProjectileEffectVisualFlags.None;
+                return CardEffectVisualFlags.None;
             }
 
             return projectile.VisualFlags |
@@ -127,15 +62,15 @@ namespace RuleforgeTD.GameLogic.Simulation
                 GetProjectileUncommonEffectFlags(projectile.Id);
         }
 
-        internal static ProjectileEffectVisualFlags
+        internal static CardEffectVisualFlags
             GetEnemyDeathVisualFlags(EnemyState enemy)
         {
             if (enemy == null)
             {
-                return ProjectileEffectVisualFlags.None;
+                return CardEffectVisualFlags.None;
             }
 
-            ProjectileEffectVisualFlags result =
+            CardEffectVisualFlags result =
                 enemy.VisualFlags;
             for (int i = 0; i < enemy.Statuses.Count; i++)
             {
@@ -153,66 +88,66 @@ namespace RuleforgeTD.GameLogic.Simulation
             return result;
         }
 
-        private static ProjectileEffectVisualFlags
+        private static CardEffectVisualFlags
             GetStatusVisualFlag(StatusType type)
         {
             switch (type)
             {
                 case StatusType.Burn:
-                    return ProjectileEffectVisualFlags.Burn;
+                    return CardEffectVisualFlags.Burn;
                 case StatusType.Poison:
-                    return ProjectileEffectVisualFlags.Poison;
+                    return CardEffectVisualFlags.Poison;
                 case StatusType.Slow:
-                    return ProjectileEffectVisualFlags.Slow;
+                    return CardEffectVisualFlags.Slow;
                 case StatusType.Mark:
-                    return ProjectileEffectVisualFlags.Mark;
+                    return CardEffectVisualFlags.Mark;
                 case StatusType.Pierced:
-                    return ProjectileEffectVisualFlags.Pierce;
+                    return CardEffectVisualFlags.Pierce;
                 case StatusType.Stun:
-                    return ProjectileEffectVisualFlags.Stun;
+                    return CardEffectVisualFlags.Stun;
                 case StatusType.Ricochet:
-                    return ProjectileEffectVisualFlags.Ricochet;
+                    return CardEffectVisualFlags.Ricochet;
                 case StatusType.Bleed:
-                    return ProjectileEffectVisualFlags.Bleed;
+                    return CardEffectVisualFlags.Bleed;
                 case StatusType.HomingPriority:
-                    return ProjectileEffectVisualFlags.Homing;
+                    return CardEffectVisualFlags.Homing;
                 case StatusType.Delay:
-                    return ProjectileEffectVisualFlags.Delay;
+                    return CardEffectVisualFlags.Delay;
                 case StatusType.Curse:
-                    return ProjectileEffectVisualFlags.Curse;
+                    return CardEffectVisualFlags.Curse;
                 case StatusType.Bind:
-                    return ProjectileEffectVisualFlags.Bind;
+                    return CardEffectVisualFlags.Bind;
                 case StatusType.Airborne:
-                    return ProjectileEffectVisualFlags.Airborne;
+                    return CardEffectVisualFlags.Airborne;
                 case StatusType.Shock:
-                    return ProjectileEffectVisualFlags.Shock;
+                    return CardEffectVisualFlags.Shock;
                 case StatusType.Chill:
                 case StatusType.Frozen:
                 case StatusType.FreezeImmunity:
-                    return ProjectileEffectVisualFlags.Freeze;
+                    return CardEffectVisualFlags.Freeze;
                 case StatusType.Afterimage:
-                    return ProjectileEffectVisualFlags.Afterimage;
+                    return CardEffectVisualFlags.Afterimage;
                 case StatusType.Pulse:
-                    return ProjectileEffectVisualFlags.Pulse;
+                    return CardEffectVisualFlags.Pulse;
                 case StatusType.Magnet:
-                    return ProjectileEffectVisualFlags.Magnet;
+                    return CardEffectVisualFlags.Magnet;
                 case StatusType.Reflect:
-                    return ProjectileEffectVisualFlags.Reflect;
+                    return CardEffectVisualFlags.Reflect;
                 case StatusType.Contagion:
-                    return ProjectileEffectVisualFlags.Contagion;
+                    return CardEffectVisualFlags.Contagion;
                 case StatusType.Seal:
-                    return ProjectileEffectVisualFlags.Seal;
+                    return CardEffectVisualFlags.Seal;
                 case StatusType.Corrosion:
-                    return ProjectileEffectVisualFlags.Corrosion;
+                    return CardEffectVisualFlags.Corrosion;
                 case StatusType.Orbit:
-                    return ProjectileEffectVisualFlags.Orbit;
+                    return CardEffectVisualFlags.Orbit;
                 case StatusType.Lifesteal:
-                    return ProjectileEffectVisualFlags.Lifesteal;
+                    return CardEffectVisualFlags.Lifesteal;
                 case StatusType.Fear:
                 case StatusType.FearHaste:
-                    return ProjectileEffectVisualFlags.Fear;
+                    return CardEffectVisualFlags.Fear;
                 default:
-                    return ProjectileEffectVisualFlags.None;
+                    return CardEffectVisualFlags.None;
             }
         }
     }
