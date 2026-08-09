@@ -6,6 +6,18 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
+    path: Assets/Game/Scenes/MainMenu/MainMenu.unity
+    guid: 10aa6725de6ea492f8e72aab0858c934
+  - enabled: 1
+    path: Assets/Game/Scenes/Battle/Stage01.unity
+    guid: 756b2bba8ef4640dbab6b71104288a70
+  - enabled: 1
+    path: Assets/Game/Scenes/Battle/Stage02.unity
+    guid: eff81d9544b834d9bb7ed9bbc4599293
+  - enabled: 1
+    path: Assets/Game/Scenes/Battle/Stage03.unity
+    guid: 402054df63ffe4bfabd8e82e617c10ae
+  - enabled: 1
     path: Assets/Game/Scenes/Test/EnemyAnimationTest.unity
     guid: 6284125b0d99c47268bb4b9188b226c8
   - enabled: 1
@@ -15,6 +27,6 @@ EditorBuildSettings:
     path: Assets/Game/Scenes/Test/ArcherTowerAnimationTest.unity
     guid: 4e8aafb5e7bd84bc5bd86351caa03104
   - enabled: 1
-    path: Assets/Game/Scenes/Battle/Stage01.unity
-    guid: 756b2bba8ef4640dbab6b71104288a70
+    path: Assets/Game/Scenes/Test/BattleTestLab.unity
+    guid: 973785c71e1e4c5e8e38d502ad2b9ef3
   m_configObjects: {}

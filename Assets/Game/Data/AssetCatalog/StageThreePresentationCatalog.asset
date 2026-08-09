@@ -1,0 +1,91 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 30bc2803afaea4872b2d639cde60a29b, type: 3}
+  m_Name: StageThreePresentationCatalog
+  m_EditorClassIdentifier: 
+  contentJson: {fileID: 4900000, guid: fb2a700ee5c4f4f0e97d8c0ca5e0eb99, type: 3}
+  localizationJson: {fileID: 4900000, guid: 38ac72b71c924889b9f84bdccf4fb333, type: 3}
+  cardContentModules: []
+  uiFont: {fileID: 12800000, guid: 44e86dc602ac4489f921dccdff3d7eec, type: 3}
+  towerPrefabs:
+  - definitionId: ballista
+    prefab: {fileID: 332042988152353550, guid: 76c33cf04b8c14337a00fa88a7d4f29f, type: 3}
+    scaleMultiplier: 1.65
+    visualLevel: 1
+  - definitionId: ballista
+    prefab: {fileID: 1412398007434022045, guid: 225a484c0be5244fc96c07af16b8ce71, type: 3}
+    scaleMultiplier: 1.65
+    visualLevel: 2
+  - definitionId: ballista
+    prefab: {fileID: 6543939917618921411, guid: 04741fd4958e94d5691fee4004c34cb6, type: 3}
+    scaleMultiplier: 1.65
+    visualLevel: 3
+  - definitionId: ballista
+    prefab: {fileID: 569334882925050241, guid: b6cc9678ec7a34ec196f333f51b56f06, type: 3}
+    scaleMultiplier: 1.65
+    visualLevel: 4
+  - definitionId: ballista
+    prefab: {fileID: 5423536080085064431, guid: 82c3f74f5c2dd447ab53f6e1bc0e61cc, type: 3}
+    scaleMultiplier: 1.65
+    visualLevel: 5
+  - definitionId: ballista
+    prefab: {fileID: 5777631983666213431, guid: e43ab6e0213c34e4d954ff4bc5225ecd, type: 3}
+    scaleMultiplier: 1.65
+    visualLevel: 6
+  - definitionId: ballista
+    prefab: {fileID: 5508455160174143095, guid: 161a1dec077864723b76494a22d0926d, type: 3}
+    scaleMultiplier: 1.65
+    visualLevel: 7
+  towerAppearances:
+  - definitionId: mutation_obelisk
+    prototypeTint: {r: 0.76, g: 0.61, b: 1, a: 1}
+  - definitionId: death_engine
+    prototypeTint: {r: 0.53, g: 1, b: 0.83, a: 1}
+  enemyPrefabs:
+  - definitionId: raider
+    prefab: {fileID: 5063220469103519847, guid: 88d3bca917dc54479b8f4826dde1874a, type: 3}
+    scaleMultiplier: 1.638
+    visualLevel: 1
+  - definitionId: runner
+    prefab: {fileID: 4470272749193514641, guid: 75fcf3ba1ee7e4a0db16751ebf364900, type: 3}
+    scaleMultiplier: 1.5561
+    visualLevel: 1
+  - definitionId: armored_knight
+    prefab: {fileID: 5063220469103519847, guid: 88d3bca917dc54479b8f4826dde1874a, type: 3}
+    scaleMultiplier: 2.0475
+    visualLevel: 1
+  - definitionId: elite_golem
+    prefab: {fileID: 5593725580485001099, guid: e189124bd5b4447de915f5941ed5c5dd, type: 3}
+    scaleMultiplier: 2.7027
+    visualLevel: 1
+  - definitionId: boss_guardian
+    prefab: {fileID: 5063220469103519847, guid: 88d3bca917dc54479b8f4826dde1874a, type: 3}
+    scaleMultiplier: 2.9484
+    visualLevel: 1
+  - definitionId: boss_summoner
+    prefab: {fileID: 5640076097025184731, guid: 88e5c1e99edcc4d6caefc54d789820a1, type: 3}
+    scaleMultiplier: 2.6208
+    visualLevel: 1
+  - definitionId: boss_time_walker
+    prefab: {fileID: 5593725580485001099, guid: e189124bd5b4447de915f5941ed5c5dd, type: 3}
+    scaleMultiplier: 3.1941
+    visualLevel: 1
+  projectileDirectionSprites:
+  - {fileID: 21300000, guid: 5fe22d2159f6e47a1a264f7801b12db3, type: 3}
+  - {fileID: 21300000, guid: 23d1c4008617b40878cba4535dbdb18b, type: 3}
+  - {fileID: 21300000, guid: 11edcbe35e0364208a5fd11fad86b0b5, type: 3}
+  - {fileID: 21300000, guid: 76f181a13a4fb4523b87aaab5c2f5345, type: 3}
+  - {fileID: 21300000, guid: 94952abb28b53474fb0872452d54cd30, type: 3}
+  defaultCardProgram:
+  - split
+  - burn
+  - poison
