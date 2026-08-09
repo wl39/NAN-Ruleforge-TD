@@ -461,7 +461,7 @@ UI 작업은 한 번의 프롬프트로 끝내지 않고, 스크린샷과 실제
 - 개막 밸런스 전용 Unity 테스트: 2/2 통과
 - BGM Unity PlayMode: 8/8 통과
 - Balance CLI harness: 29/29 통과
-- 전체 WebGL 빌드 성공: 4 scenes, 65,742,775 bytes
+- 전체 WebGL 빌드 성공: 4 scenes, 65,742,823 bytes
 - Stage02/03 첫 웨이브 35킬·0누수·두 번째 발리스타 100골드 확보 검사 통과
 - 네 BGM 자산의 실제 WebGL 빌드 포함 확인
 - 로컬 브라우저에서 타이틀 화면·버튼 상호작용 성공, console warning/error 0건
@@ -611,7 +611,7 @@ Sub-agent 내부 세션은 하나의 사용자 task에서 파생된 구현 단�
 | 스테이지별 편성 저자링 | `Assets/Game/Editor/AssetImport/StageContentAuthoring.cs`, `Assets/Game/Editor/AssetImport/StageTwoFieldMapBuilder.cs`, `Assets/Game/Editor/AssetImport/StageThreeFieldMapBuilder.cs` |
 | 스테이지 역할·방어 요구사항 | `Docs/STAGE_VARIANTS_AND_ARMOR_REQUIREMENTS.md` |
 | 고정 WebGL 서버 | `Tools/serve_stage01.py` |
-| 최근 기능 커밋 | `f38c34d`, `278df63`, `296251e`, `75e7bf3`, `ba9a06a` |
+| 최근 기능 커밋 | `f38c34d`, `278df63`, `296251e`, `75e7bf3`, `ba9a06a`, `b8d747d`, `786e72a`, `68e2850`, `9acf58a` |
 
 ## 15. 참고 자료
 
