@@ -69,8 +69,14 @@ jobs:
             RuleforgeTD.Editor.AssetImport.MainMenuSceneBuilder.BuildWebGLFromCommandLine
           allowDirtyBuild: true
 
+      - name: Stage verified prebuilt fallback
+        if: steps.unity_credentials.outputs.ready != 'true'
+        shell: bash
+        run: |
+          mkdir -p Builds/WebGL
+          cp -R .github/pages/RuleforgeTD Builds/WebGL/RuleforgeTD
+
       - name: Validate Pages payload
-        if: steps.unity_credentials.outputs.ready == 'true'
         shell: bash
         run: |
           build_path="Builds/WebGL/RuleforgeTD"
@@ -82,11 +88,9 @@ jobs:
           touch "$build_path/.nojekyll"
 
       - name: Configure GitHub Pages
-        if: steps.unity_credentials.outputs.ready == 'true'
         uses: actions/configure-pages@v5
 
       - name: Upload GitHub Pages artifact
-        if: steps.unity_credentials.outputs.ready == 'true'
         uses: actions/upload-pages-artifact@v4
         with:
           path: Builds/WebGL/RuleforgeTD
@@ -95,7 +99,6 @@ jobs:
 
   deploy:
     name: Deploy GitHub Pages
-    if: needs.build.outputs.unity_credentials_ready == 'true'
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 10
