@@ -17,7 +17,7 @@ concurrency:
 
 jobs:
   build:
-    name: Build Stage 01
+    name: Build Complete Game
     runs-on: ubuntu-latest
     timeout-minutes: 45
     outputs:
@@ -55,7 +55,7 @@ jobs:
             Library-WebGL-${{ runner.os }}-
             Library-WebGL-
 
-      - name: Build Stage 01 WebGL
+      - name: Build complete game WebGL
         if: steps.unity_credentials.outputs.ready == 'true'
         uses: game-ci/unity-builder@v4
         env:
@@ -66,19 +66,19 @@ jobs:
           unityVersion: auto
           targetPlatform: WebGL
           buildMethod: >-
-            RuleforgeTD.Editor.AssetImport.CraftPixFieldTilemapAssetBuilder.BuildWebGLFromCommandLine
+            RuleforgeTD.Editor.AssetImport.MainMenuSceneBuilder.BuildWebGLFromCommandLine
           allowDirtyBuild: true
 
       - name: Validate Pages payload
         if: steps.unity_credentials.outputs.ready == 'true'
         shell: bash
         run: |
-          build_path="Builds/WebGL/Stage01"
+          build_path="Builds/WebGL/RuleforgeTD"
           test -s "$build_path/index.html"
-          test -s "$build_path/Build/Stage01.loader.js"
-          test -s "$build_path/Build/Stage01.framework.js"
-          test -s "$build_path/Build/Stage01.data"
-          test -s "$build_path/Build/Stage01.wasm"
+          test -s "$build_path/Build/RuleforgeTD.loader.js"
+          test -s "$build_path/Build/RuleforgeTD.framework.js"
+          test -s "$build_path/Build/RuleforgeTD.data"
+          test -s "$build_path/Build/RuleforgeTD.wasm"
           touch "$build_path/.nojekyll"
 
       - name: Configure GitHub Pages
@@ -89,7 +89,7 @@ jobs:
         if: steps.unity_credentials.outputs.ready == 'true'
         uses: actions/upload-pages-artifact@v4
         with:
-          path: Builds/WebGL/Stage01
+          path: Builds/WebGL/RuleforgeTD
           retention-days: 1
           include-hidden-files: true
 
