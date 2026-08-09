@@ -32,7 +32,7 @@ class StageOneServer(ThreadingHTTPServer):
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--bind", default="127.0.0.1")
-    parser.add_argument("--port", type=int, default=8799)
+    parser.add_argument("--port", type=int, default=8767)
     parser.add_argument("--directory", required=True)
     return parser.parse_args()
 
