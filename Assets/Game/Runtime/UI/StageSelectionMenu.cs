@@ -103,6 +103,8 @@ namespace RuleforgeTD.UI
         private Text actionText;
         private Text loadingText;
         private Button actionButton;
+        private Button gameGuideButton;
+        private GameGuideModal gameGuide;
         private int selectedStageNumber = 1;
         private bool loading;
         private bool campaignTransitionRunning;
@@ -123,6 +125,8 @@ namespace RuleforgeTD.UI
         public string StageThreeSceneName => stageThreeSceneName;
         public int DisplayedStageCount =>
             CampaignStageProgress.DisplayedStageCount;
+        public Button GameGuideButton => gameGuideButton;
+        public GameGuideModal GameGuide => gameGuide;
 
         public static void RequestMapOnNextLoad()
         {
@@ -197,6 +201,16 @@ namespace RuleforgeTD.UI
                 return;
             }
 
+            if (gameGuide != null && gameGuide.IsOpen)
+            {
+                if (Input.GetKeyDown(KeyCode.Escape))
+                {
+                    gameGuide.Close();
+                }
+
+                return;
+            }
+
             if (titlePage.activeSelf)
             {
                 if (Input.GetKeyDown(KeyCode.Return) ||
@@ -237,6 +251,13 @@ namespace RuleforgeTD.UI
         private void BuildInterface()
         {
             EnsureEventSystem();
+            gameGuide = GetComponent<GameGuideModal>();
+            if (gameGuide == null)
+            {
+                gameGuide = gameObject.AddComponent<GameGuideModal>();
+            }
+            gameGuide.Initialize(uiFont);
+
             GameObject canvasObject = new GameObject(
                 "Campaign Canvas",
                 typeof(RectTransform),
@@ -355,6 +376,25 @@ namespace RuleforgeTD.UI
                 RuleforgePixelUi.ParchmentText,
                 TextAnchor.MiddleCenter);
             Stretch(buttonLabel.rectTransform, 16f, 5f, 16f, 5f);
+
+            gameGuideButton = CreateButton(
+                "Open Game Guide",
+                shade,
+                new Vector2(0.5f, 0.5f),
+                new Vector2(0f, -166f),
+                new Vector2(252f, 48f),
+                new Color32(50, 64, 62, 255),
+                Ivory);
+            gameGuideButton.onClick.AddListener(gameGuide.Open);
+            Text guideLabel = CreateText(
+                "Label",
+                gameGuideButton.transform,
+                gameGuide.Catalog.Title,
+                18,
+                FontStyle.Bold,
+                Ivory,
+                TextAnchor.MiddleCenter);
+            Stretch(guideLabel.rectTransform, 12f, 4f, 12f, 4f);
 
             Text footer = CreateText(
                 "Title Footer",

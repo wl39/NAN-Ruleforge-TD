@@ -75,6 +75,7 @@ namespace RuleforgeTD.UI
         private Vector2 normalizedSummaryPosition;
 
         public Button SummaryButton => summaryButton;
+        public Button CloseButton => closeButton;
         public Text TotalEnemyText => totalEnemyText;
         public Text DetailText => detailText;
         public GameObject DetailPanel =>
@@ -83,6 +84,16 @@ namespace RuleforgeTD.UI
         public bool IsDetailVisible =>
             detailPanel != null && detailPanel.gameObject.activeSelf;
         public bool IsVisible => canvas != null && canvas.enabled;
+
+        /// <summary>
+        /// Closes only the expanded forecast while keeping the compact next
+        /// wave summary available. Tutorial presentation uses this after the
+        /// player has inspected the forecast so it never mutates battle state.
+        /// </summary>
+        public void CloseExpandedDetail()
+        {
+            CloseDetail();
+        }
 
         public static WavePreviewView CreateRuntime(
             IWavePreviewLocalization catalog,

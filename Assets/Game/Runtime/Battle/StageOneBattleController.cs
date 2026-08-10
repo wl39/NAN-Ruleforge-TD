@@ -9,6 +9,7 @@ using RuleforgeTD.GameLogic.Simulation;
 using RuleforgeTD.Maps;
 using RuleforgeTD.Simulation;
 using RuleforgeTD.Towers.Archer;
+using RuleforgeTD.Tutorial;
 using RuleforgeTD.UI;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -150,6 +151,7 @@ namespace RuleforgeTD.Battle
         private StageOneTowerBuildPickerView towerBuildPickerView;
         private StageOneEnemyInspectionController
             enemyInspectionController;
+        private BattleTutorialController tutorialController;
         private StageOneCameraController cameraController;
         private Transform towerRoot;
         private Transform enemyRoot;
@@ -197,6 +199,8 @@ namespace RuleforgeTD.Battle
             enemyInspectionController == null
                 ? null
                 : enemyInspectionController.InspectionView;
+        public BattleTutorialController TutorialController =>
+            tutorialController;
         public int SelectedEnemyId =>
             enemyInspectionController == null
                 ? -1
@@ -259,12 +263,14 @@ namespace RuleforgeTD.Battle
             PollKonamiKeyboardInput();
             AdvanceCombatClock();
             ReconcilePresentation();
+            tutorialController?.Tick();
             ApplyWorldTimeScale();
         }
 
         private void OnDestroy()
         {
             UnhookInput();
+            tutorialController?.Shutdown();
             if (Time.timeScale != 1f)
             {
                 Time.timeScale = 1f;
@@ -380,6 +386,18 @@ namespace RuleforgeTD.Battle
             hud.SetSpeed(speedMultiplier);
             hud.SetStatus("status.ready");
             ReconcilePresentation();
+            tutorialController =
+                GetComponent<BattleTutorialController>();
+            if (tutorialController == null)
+            {
+                tutorialController =
+                    gameObject.AddComponent<
+                        BattleTutorialController>();
+            }
+
+            tutorialController.Configure(
+                this,
+                presentationCatalog.UiFont);
             ApplyWorldTimeScale();
         }
 
@@ -656,7 +674,10 @@ namespace RuleforgeTD.Battle
         {
             if (snapshot == null ||
                 snapshot.Phase != RunPhase.Combat ||
-                paused)
+                paused ||
+                GameGuideModal.IsAnyGuideOpen ||
+                (tutorialController != null &&
+                 tutorialController.RequestsWorldPause))
             {
                 tickAccumulator = 0f;
                 return;
@@ -686,9 +707,15 @@ namespace RuleforgeTD.Battle
 
         private void HandleBuildSiteClicked(TowerBuildSiteView site)
         {
-            if (site != null)
+            if (site != null &&
+                AllowsTutorialAction(
+                    TutorialAction.SelectBuildSite,
+                    site.BuildPointIndex) &&
+                TryBuildAt(site.BuildPointIndex))
             {
-                TryBuildAt(site.BuildPointIndex);
+                ReportTutorialAction(
+                    TutorialAction.SelectBuildSite,
+                    site.BuildPointIndex);
             }
         }
 
@@ -696,13 +723,25 @@ namespace RuleforgeTD.Battle
             string towerDefinitionId)
         {
             int buildPointIndex = pendingBuildPointIndex;
+            if (!AllowsTutorialAction(
+                    TutorialAction.BuildTower,
+                    buildPointIndex))
+            {
+                return;
+            }
+
             if (towerBuildPickerView != null)
             {
                 towerBuildPickerView.Hide();
             }
 
             pendingBuildPointIndex = -1;
-            TryBuildAt(towerDefinitionId, buildPointIndex);
+            if (TryBuildAt(towerDefinitionId, buildPointIndex))
+            {
+                ReportTutorialAction(
+                    TutorialAction.BuildTower,
+                    buildPointIndex);
+            }
         }
 
         private void HandleTowerBuildPickerClosed()
@@ -738,21 +777,40 @@ namespace RuleforgeTD.Battle
 
         private void HandleTowerClicked(TowerSelectionView selection)
         {
-            if (selection != null)
+            if (selection != null &&
+                AllowsTutorialAction(
+                    TutorialAction.SelectTower,
+                    selection.TowerId))
             {
                 HideTowerBuildPicker();
-                SelectTowerContext(selection.TowerId);
+                if (SelectTowerContext(selection.TowerId))
+                {
+                    ReportTutorialAction(
+                        TutorialAction.SelectTower,
+                        selection.TowerId);
+                }
             }
         }
 
         private void HandleEnemySelected(int enemyId)
         {
+            if (!AllowsTutorialAction(
+                    TutorialAction.SelectEnemy,
+                    enemyId))
+            {
+                enemyInspectionController?.ClearSelection();
+                return;
+            }
+
             HideTowerBuildPicker();
             selectedTowerId = -1;
             selectedTowerSlot = 0;
             RefreshTowerSelectionIndicators();
             RefreshTowerActionView();
             hud?.SetStatus("status.enemy_selected");
+            ReportTutorialAction(
+                TutorialAction.SelectEnemy,
+                enemyId);
         }
 
         private void HandleRewardVisibilityChanged(bool visible)
@@ -793,10 +851,18 @@ namespace RuleforgeTD.Battle
         private void HandleTowerDoubleClicked(
             TowerSelectionView selection)
         {
-            if (selection != null)
+            if (selection != null &&
+                AllowsTutorialAction(
+                    TutorialAction.OpenTowerLoadout,
+                    selection.TowerId))
             {
                 HideTowerBuildPicker();
-                SelectTower(selection.TowerId);
+                if (SelectTower(selection.TowerId))
+                {
+                    ReportTutorialAction(
+                        TutorialAction.OpenTowerLoadout,
+                        selection.TowerId);
+                }
             }
         }
 
@@ -958,6 +1024,13 @@ namespace RuleforgeTD.Battle
         private void HandleTowerSlotUnequipRequested(
             int slotIndex)
         {
+            if (!AllowsTutorialAction(
+                    TutorialAction.UnequipCard,
+                    slotIndex))
+            {
+                return;
+            }
+
             TowerSnapshot tower =
                 FindTowerById(selectedTowerId);
             int unlockedSlotCount = tower.Id < 0
@@ -1001,6 +1074,13 @@ namespace RuleforgeTD.Battle
 
         private void HandleTowerCardRequested(int cardInstanceId)
         {
+            if (!AllowsTutorialAction(
+                    TutorialAction.AutoEquipCard,
+                    cardInstanceId))
+            {
+                return;
+            }
+
             if (!IsLoadoutEditable())
             {
                 hud.SetStatus("status.loadout_locked");
@@ -1065,12 +1145,25 @@ namespace RuleforgeTD.Battle
                 result,
                 successStatus,
                 successArguments);
+            if (result.Accepted)
+            {
+                ReportTutorialAction(
+                    TutorialAction.AutoEquipCard,
+                    cardInstanceId);
+            }
         }
 
         private void HandleTowerCardDoubleClickRequested(
             int cardInstanceId,
             int startedSlotIndex)
         {
+            if (!AllowsTutorialAction(
+                    TutorialAction.AutoEquipCard,
+                    cardInstanceId))
+            {
+                return;
+            }
+
             if (!IsLoadoutEditable())
             {
                 hud.SetStatus("status.loadout_locked");
@@ -1243,6 +1336,13 @@ namespace RuleforgeTD.Battle
             int cardInstanceId,
             int slotIndex)
         {
+            if (!AllowsTutorialAction(
+                    TutorialAction.DragCardToSlot,
+                    slotIndex))
+            {
+                return;
+            }
+
             if (!IsLoadoutEditable())
             {
                 hud.SetStatus("status.loadout_locked");
@@ -1274,9 +1374,11 @@ namespace RuleforgeTD.Battle
             }
 
             CommandResult result;
+            bool reorderedWithinTower = false;
             if (card.Equipped &&
                 card.TowerId == tower.Id)
             {
+                reorderedWithinTower = true;
                 result = simulation.Submit(
                     GameCommand.ReorderCard(
                         tower.Id,
@@ -1327,10 +1429,25 @@ namespace RuleforgeTD.Battle
                         definition),
                     slotIndex + 1
                 });
+            if (result.Accepted)
+            {
+                ReportTutorialAction(
+                    reorderedWithinTower
+                        ? TutorialAction.ReorderCard
+                        : TutorialAction.DragCardToSlot,
+                    slotIndex);
+            }
         }
 
         private void HandleTowerUpgradeRequested()
         {
+            if (!AllowsTutorialAction(
+                    TutorialAction.UpgradeTower,
+                    selectedTowerId))
+            {
+                return;
+            }
+
             if (!IsLoadoutEditable())
             {
                 hud.SetStatus("status.loadout_locked");
@@ -1346,13 +1463,28 @@ namespace RuleforgeTD.Battle
                 result,
                 "status.tower_upgraded_format",
                 new object[] { tower.Level });
+            if (result.Accepted)
+            {
+                ReportTutorialAction(
+                    TutorialAction.UpgradeTower,
+                    selectedTowerId);
+            }
         }
 
         private void HandleTowerCardsRequested()
         {
-            if (selectedTowerId >= 0)
+            if (selectedTowerId >= 0 &&
+                AllowsTutorialAction(
+                    TutorialAction.OpenTowerLoadout,
+                    selectedTowerId))
             {
-                SelectTower(selectedTowerId);
+                int towerId = selectedTowerId;
+                if (SelectTower(towerId))
+                {
+                    ReportTutorialAction(
+                        TutorialAction.OpenTowerLoadout,
+                        towerId);
+                }
             }
         }
 
@@ -1381,6 +1513,17 @@ namespace RuleforgeTD.Battle
             int slotIndex,
             SubjectType subjectType)
         {
+            TutorialAction tutorialAction =
+                subjectType == SubjectType.Projectile
+                    ? TutorialAction.SetCardTargetProjectile
+                    : TutorialAction.SetCardTargetEnemy;
+            if (!AllowsTutorialAction(
+                    tutorialAction,
+                    slotIndex))
+            {
+                return;
+            }
+
             if (!IsLoadoutEditable())
             {
                 hud.SetStatus("status.loadout_locked");
@@ -1399,10 +1542,24 @@ namespace RuleforgeTD.Battle
                     ? "status.subject_projectile"
                     : "status.subject_enemy",
                 Array.Empty<object>());
+            if (result.Accepted)
+            {
+                ReportTutorialAction(
+                    tutorialAction,
+                    slotIndex);
+            }
         }
 
         private void HandleTowerPanelClosed()
         {
+            if (!AllowsTutorialAction(
+                    TutorialAction.CloseTowerLoadout,
+                    selectedTowerId))
+            {
+                return;
+            }
+
+            int closedTowerId = selectedTowerId;
             selectedTowerId = -1;
             RefreshTowerSelectionIndicators();
             RefreshTowerActionView();
@@ -1413,6 +1570,9 @@ namespace RuleforgeTD.Battle
 
             towerBlueprintCloseRoutine = StartCoroutine(
                 ExitTowerBlueprintAfterTransition());
+            ReportTutorialAction(
+                TutorialAction.CloseTowerLoadout,
+                closedTowerId);
         }
 
         private IEnumerator ExitTowerBlueprintAfterTransition()
@@ -1565,12 +1725,46 @@ namespace RuleforgeTD.Battle
             }
 
             snapshot = simulation.GetSnapshot();
+            bool resumedCardPack =
+                TryResumeCardPackAfterAcceptedLoadout();
             ProcessPresentationEvents();
             hud.SetStatus(
                 successStatus,
                 successArguments ??
                 Array.Empty<object>());
             ReconcilePresentation();
+            if (resumedCardPack)
+            {
+                ReportTutorialAction(
+                    TutorialAction.ChooseDraftReward);
+            }
+        }
+
+        private bool TryResumeCardPackAfterAcceptedLoadout()
+        {
+            if (snapshot == null ||
+                snapshot.Phase != RunPhase.CardPackLoadout ||
+                snapshot.PendingCardInstanceId < 0)
+            {
+                return false;
+            }
+
+            CardInstanceSnapshot pending =
+                FindCardById(snapshot.PendingCardInstanceId);
+            if (pending.Id < 0 || !pending.Equipped)
+            {
+                return false;
+            }
+
+            CommandResult resumeResult = simulation.Submit(
+                GameCommand.ResumeCardPackCombat());
+            if (!resumeResult.Accepted)
+            {
+                return false;
+            }
+
+            snapshot = simulation.GetSnapshot();
+            return true;
         }
 
         private bool IsLoadoutEditable()
@@ -1579,8 +1773,30 @@ namespace RuleforgeTD.Battle
                 simulation.CanEditLoadout;
         }
 
+        private bool AllowsTutorialAction(
+            TutorialAction action,
+            int targetId = -1)
+        {
+            return tutorialController == null ||
+                tutorialController.Allows(action, targetId);
+        }
+
+        private void ReportTutorialAction(
+            TutorialAction action,
+            int targetId = -1)
+        {
+            tutorialController?.ReportAction(action, targetId);
+        }
+
         private void HandleRewardChoice(int offerIndex)
         {
+            if (!AllowsTutorialAction(
+                    TutorialAction.ChooseDraftReward,
+                    offerIndex))
+            {
+                return;
+            }
+
             if (snapshot == null)
             {
                 return;
@@ -1630,12 +1846,25 @@ namespace RuleforgeTD.Battle
             }
 
             snapshot = simulation.GetSnapshot();
+            ReportTutorialAction(
+                TutorialAction.ChooseDraftReward,
+                offerIndex);
             if (snapshot.Phase == RunPhase.CardPackLoadout)
             {
                 CommandResult resumeResult = simulation.Submit(
                     GameCommand.ResumeCardPackCombat());
                 if (!resumeResult.Accepted)
                 {
+                    if (resumeResult.Error ==
+                        CommandError.CardPackRequiresEquippedCard)
+                    {
+                        ProcessPresentationEvents();
+                        hud.SetStatus(
+                            "status.card_pack_equip_required");
+                        ReconcilePresentation();
+                        return;
+                    }
+
                     hud.SetStatus(
                         "status.tower_place_failed_format",
                         resumeResult.Error.ToString());
@@ -1650,6 +1879,16 @@ namespace RuleforgeTD.Battle
                 "status.reward_selected_format",
                 selectedCardName);
             ReconcilePresentation();
+            if (snapshot.Phase != RunPhase.CardPackLoadout)
+            {
+                // A planning-return card pack resumes immediately. Report the
+                // resolved phase as a second observation so a tutorial that
+                // briefly saw CardPackLoadout cannot remain waiting for an
+                // equip action that this pack does not require.
+                ReportTutorialAction(
+                    TutorialAction.ChooseDraftReward,
+                    offerIndex);
+            }
         }
 
         private TowerBuildSiteView FindBuildSite(
@@ -3397,20 +3636,47 @@ namespace RuleforgeTD.Battle
 
         private void HandlePlayRequested()
         {
-            TogglePlay();
+            TutorialAction action =
+                snapshot != null &&
+                snapshot.Phase == RunPhase.Combat
+                    ? TutorialAction.TogglePause
+                    : TutorialAction.StartWave;
+            if (!AllowsTutorialAction(action))
+            {
+                return;
+            }
+
+            if (TogglePlay())
+            {
+                ReportTutorialAction(action);
+            }
         }
 
         private void HandleSpeedSelected(float multiplier)
         {
+            if (!AllowsTutorialAction(
+                    TutorialAction.ChangeBattleSpeed))
+            {
+                return;
+            }
+
             float selectedSpeed = SetSpeed(multiplier);
             hud.SetStatus(
                 "status.speed_format",
                 selectedSpeed.ToString("0.#"));
+            ReportTutorialAction(
+                TutorialAction.ChangeBattleSpeed);
         }
 
         private void ApplyWorldTimeScale()
         {
-            float target = towerBlueprintOpen
+            bool presentationPaused =
+                tutorialController != null &&
+                tutorialController.RequestsWorldPause;
+            float target = presentationPaused ||
+                           GameGuideModal.IsAnyGuideOpen
+                ? 0f
+                : towerBlueprintOpen
                 ? 0f
                 : snapshot != null &&
                            snapshot.Phase == RunPhase.Combat

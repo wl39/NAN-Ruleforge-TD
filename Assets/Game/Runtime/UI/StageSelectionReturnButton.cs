@@ -41,23 +41,27 @@ namespace RuleforgeTD.UI
         private RectTransform confirmationDialog;
         private Button settingsButton;
         private Button stageSelectionButton;
+        private Button guideButton;
         private Button speakerButton;
         private Button cancelButton;
         private Button confirmButton;
         private Slider volumeSlider;
         private RuleforgeSettingsIconGraphic settingsIcon;
         private RuleforgeSettingsIconGraphic speakerIcon;
+        private GameGuideModal gameGuide;
         private int lastLayoutWidth = -1;
         private int lastLayoutHeight = -1;
 
         public Button SettingsButton => settingsButton;
         public Button StageSelectionButton => stageSelectionButton;
+        public Button GuideButton => guideButton;
         public Button SpeakerButton => speakerButton;
         public Button CancelButton => cancelButton;
         public Button ConfirmButton => confirmButton;
         public Slider VolumeSlider => volumeSlider;
         public RuleforgeSettingsIconGraphic SettingsIcon => settingsIcon;
         public RuleforgeSettingsIconGraphic SpeakerIcon => speakerIcon;
+        public GameGuideModal GameGuide => gameGuide;
         public bool IsMenuOpen =>
             settingsPanel != null && settingsPanel.activeSelf;
         public bool IsConfirmationOpen =>
@@ -99,6 +103,16 @@ namespace RuleforgeTD.UI
 
         private void Update()
         {
+            if (gameGuide != null && gameGuide.IsOpen)
+            {
+                if (Input.GetKeyDown(KeyCode.Escape))
+                {
+                    gameGuide.Close();
+                }
+
+                return;
+            }
+
             if (Input.GetKeyDown(KeyCode.Escape))
             {
                 if (IsConfirmationOpen)
@@ -138,6 +152,12 @@ namespace RuleforgeTD.UI
         private void ToggleSettingsMenu()
         {
             SetMenuOpen(!IsMenuOpen);
+        }
+
+        private void OpenGameGuide()
+        {
+            SetMenuOpen(false);
+            gameGuide?.Open();
         }
 
         private void ShowStageSelectionConfirmation()
@@ -204,6 +224,13 @@ namespace RuleforgeTD.UI
         private void BuildInterface()
         {
             Font font = LoadFont();
+            gameGuide = GetComponent<GameGuideModal>();
+            if (gameGuide == null)
+            {
+                gameGuide = gameObject.AddComponent<GameGuideModal>();
+            }
+            gameGuide.Initialize(font);
+
             RectTransform safeArea = CreateCanvasAndSafeArea();
 
             settingsButton = CreateIconButton(
@@ -263,7 +290,7 @@ namespace RuleforgeTD.UI
             settingsPanel = CreatePanel(
                 "Settings Menu",
                 safeArea,
-                new Vector2(280f, 184f));
+                new Vector2(280f, 246f));
             RectTransform panelRect =
                 settingsPanel.GetComponent<RectTransform>();
             panelRect.anchorMin = Vector2.one;
@@ -310,11 +337,24 @@ namespace RuleforgeTD.UI
             volumeSlider.onValueChanged.AddListener(
                 HandleVolumeChanged);
 
+            guideButton = CreateButton(
+                "Settings Game Guide Button",
+                settingsPanel.transform,
+                gameGuide.Catalog.Title,
+                new Vector2(54f, -116f),
+                new Vector2(172f, 42f),
+                font,
+                RuleforgePixelButtonRole.Secondary,
+                TextColor,
+                false,
+                RuleforgeExactButtonAsset.Back172x44);
+            guideButton.onClick.AddListener(OpenGameGuide);
+
             stageSelectionButton = CreateButton(
                 "Settings Stage Selection Button",
                 settingsPanel.transform,
                 copy.returnToSelection,
-                new Vector2(54f, -126f),
+                new Vector2(54f, -176f),
                 new Vector2(172f, 44f),
                 font,
                 RuleforgePixelButtonRole.Secondary,
@@ -755,6 +795,11 @@ namespace RuleforgeTD.UI
                     ShowStageSelectionConfirmation);
             }
 
+            if (guideButton != null)
+            {
+                guideButton.onClick.RemoveListener(OpenGameGuide);
+            }
+
             if (speakerButton != null)
             {
                 speakerButton.onClick.RemoveListener(ToggleMute);
@@ -813,19 +858,25 @@ namespace RuleforgeTD.UI
             Navigation speakerNavigation = speakerButton.navigation;
             speakerNavigation.mode = Navigation.Mode.Explicit;
             speakerNavigation.selectOnRight = volumeSlider;
-            speakerNavigation.selectOnDown = stageSelectionButton;
+            speakerNavigation.selectOnDown = guideButton;
             speakerButton.navigation = speakerNavigation;
 
             Navigation sliderNavigation = volumeSlider.navigation;
             sliderNavigation.mode = Navigation.Mode.Explicit;
             sliderNavigation.selectOnUp = speakerButton;
-            sliderNavigation.selectOnDown = stageSelectionButton;
+            sliderNavigation.selectOnDown = guideButton;
             volumeSlider.navigation = sliderNavigation;
+
+            Navigation guideNavigation = guideButton.navigation;
+            guideNavigation.mode = Navigation.Mode.Explicit;
+            guideNavigation.selectOnUp = volumeSlider;
+            guideNavigation.selectOnDown = stageSelectionButton;
+            guideButton.navigation = guideNavigation;
 
             Navigation stageNavigation =
                 stageSelectionButton.navigation;
             stageNavigation.mode = Navigation.Mode.Explicit;
-            stageNavigation.selectOnUp = volumeSlider;
+            stageNavigation.selectOnUp = guideButton;
             stageSelectionButton.navigation = stageNavigation;
         }
 

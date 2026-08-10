@@ -43,6 +43,8 @@ namespace RuleforgeTD.Tests.PlayMode.UI
                     monsterNames[i]);
             }
 
+            battle.WavePreviewView.OpenGroup(0);
+            yield return null;
             WavePreviewAnimatedImage active = null;
             for (int i = 0; i < previews.Length; i++)
             {

@@ -662,6 +662,10 @@
       "value": "{0} 카드를 장착 해제했습니다."
     },
     {
+      "key": "status.card_pack_equip_required",
+      "value": "새 카드를 타워에 장착한 뒤 설계도를 닫아 전투를 재개하세요."
+    },
+    {
       "key": "status.slot_occupied",
       "value": "현재 슬롯의 카드를 먼저 장착 해제하세요."
     },

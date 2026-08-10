@@ -1,0 +1,358 @@
+{
+  "schemaVersion": 1,
+  "tutorialId": "ruleforge.core",
+  "contentVersion": 1,
+  "locale": "ko-KR",
+  "steps": [
+    {
+      "id": "core.objective",
+      "chapter": 1,
+      "order": 10,
+      "title": "전투 목표",
+      "body": "몬스터는 출현 지점에서 길을 따라 본진으로 이동합니다. 본진에 도착한 몬스터는 본진 체력을 깎고, 체력이 0이 되면 패배합니다. 상단에서 웨이브, 본진 체력, 골드와 현재 단계를 확인하세요.",
+      "anchors": ["SpawnPoint", "EnemyPath", "HomeBase", "BattleHud"],
+      "completion": "Acknowledged",
+      "completionTargetId": "",
+      "allowedActions": [
+        { "action": "Continue", "targetId": "" },
+        { "action": "SkipTutorial", "targetId": "" }
+      ],
+      "pauseBattle": true,
+      "restrictInput": true
+    },
+    {
+      "id": "core.wave_preview",
+      "chapter": 2,
+      "order": 20,
+      "title": "다음 웨이브 확인",
+      "body": "웨이브 예고를 열어 적의 수와 종류를 먼저 확인하세요. 방어력, 이동 속도, 상태 저항과 추천 대응 카드를 읽으면 타워와 카드 조합을 미리 준비할 수 있습니다.",
+      "anchors": ["WavePreviewButton", "WavePreviewPanel"],
+      "completion": "WavePreviewOpened",
+      "completionTargetId": "",
+      "allowedActions": [
+        { "action": "OpenWavePreview", "targetId": "" },
+        { "action": "SkipTutorial", "targetId": "" }
+      ],
+      "pauseBattle": false,
+      "restrictInput": true
+    },
+    {
+      "id": "core.tower_build",
+      "chapter": 3,
+      "order": 30,
+      "title": "첫 타워 설치",
+      "body": "강조된 빈 건설 지점을 선택해 궁수 타워를 설치하세요. 첫 타워는 무료이며 이후 타워에는 골드가 필요합니다. 타워는 사거리 안의 적을 자동으로 공격합니다.",
+      "anchors": ["BuildSite"],
+      "completion": "TowerBuilt",
+      "completionTargetId": "",
+      "allowedActions": [
+        { "action": "SelectBuildSite", "targetId": "" },
+        { "action": "BuildTower", "targetId": "" },
+        { "action": "SkipTutorial", "targetId": "" }
+      ],
+      "pauseBattle": false,
+      "restrictInput": true
+    },
+    {
+      "id": "core.tower_select",
+      "chapter": 4,
+      "order": 40,
+      "title": "타워 살펴보기",
+      "body": "설치한 타워를 선택하세요. 선택하면 공격 범위와 타워 조작 메뉴가 나타납니다. 타워 강화는 전투 능력을 높이고, 카드 장착하기는 타워의 행동 규칙을 편집합니다.",
+      "anchors": ["BuiltTower", "TowerRange", "TowerActionPanel", "TowerUpgradeButton", "TowerLoadoutButton"],
+      "completion": "TowerSelected",
+      "completionTargetId": "",
+      "allowedActions": [
+        { "action": "SelectTower", "targetId": "" },
+        { "action": "SkipTutorial", "targetId": "" }
+      ],
+      "pauseBattle": false,
+      "restrictInput": true
+    },
+    {
+      "id": "core.loadout",
+      "chapter": 5,
+      "order": 50,
+      "title": "카드 설계도 열기",
+      "body": "카드 장착하기를 눌러 설계도를 여세요. 왼쪽에는 보유 카드, 가운데에는 실행 슬롯이 있습니다. 잠긴 슬롯은 타워 강화로 열리며, 카드 비용의 합은 타워의 연산력을 넘을 수 없습니다.",
+      "anchors": ["TowerLoadoutButton", "CardInventory", "CardSlot"],
+      "completion": "TowerLoadoutOpened",
+      "completionTargetId": "",
+      "allowedActions": [
+        { "action": "OpenTowerLoadout", "targetId": "" },
+        { "action": "SkipTutorial", "targetId": "" }
+      ],
+      "pauseBattle": false,
+      "restrictInput": true
+    },
+    {
+      "id": "core.card_drag",
+      "chapter": 5,
+      "order": 60,
+      "title": "카드 장착",
+      "body": "보유 카드 한 장을 첫 번째 슬롯으로 직접 드래그하세요. 이후에는 클릭이나 더블클릭으로 자동 장착할 수도 있고, 장착 슬롯을 더블클릭하면 카드를 뺄 수 있습니다.",
+      "anchors": ["CardInventory", "CardSlot"],
+      "completion": "CardDraggedToSlot",
+      "completionTargetId": "",
+      "allowedActions": [
+        { "action": "DragCardToSlot", "targetId": "" },
+        { "action": "SkipTutorial", "targetId": "" }
+      ],
+      "pauseBattle": false,
+      "restrictInput": true
+    },
+    {
+      "id": "core.card_target",
+      "chapter": 6,
+      "order": 70,
+      "title": "같은 카드, 두 가지 해석",
+      "body": "모든 행동 카드는 탄환 효과와 적 효과를 모두 가집니다. 장착 카드의 대상을 탄환에서 적으로, 다시 탄환으로 바꿔 설명과 그림의 차이를 확인하세요. 어느 타워와 대상에 쓰느냐가 카드의 결과를 결정합니다.",
+      "anchors": ["CardSlot", "CardTargetToggle"],
+      "completion": "CardTargetCycleCompleted",
+      "completionTargetId": "",
+      "allowedActions": [
+        { "action": "SetCardTargetEnemy", "targetId": "" },
+        { "action": "SetCardTargetProjectile", "targetId": "" },
+        { "action": "SkipTutorial", "targetId": "" }
+      ],
+      "pauseBattle": false,
+      "restrictInput": true
+    },
+    {
+      "id": "core.card_order",
+      "chapter": 7,
+      "order": 80,
+      "title": "왼쪽에서 오른쪽으로",
+      "body": "카드는 슬롯의 왼쪽부터 오른쪽 순서로 실행됩니다. 슬롯이 두 개 이상 열리면 드래그로 순서를 바꿀 수 있고, 같은 카드 조합도 순서에 따라 다른 연쇄를 만듭니다. 전투 중에는 카드와 적용 대상을 바꿀 수 없습니다.",
+      "anchors": ["CardExecutionOrder", "CardSlot"],
+      "completion": "Acknowledged",
+      "completionTargetId": "",
+      "allowedActions": [
+        { "action": "Continue", "targetId": "" },
+        { "action": "ReorderCard", "targetId": "" },
+        { "action": "SkipTutorial", "targetId": "" }
+      ],
+      "pauseBattle": false,
+      "restrictInput": true
+    },
+    {
+      "id": "core.first_wave",
+      "chapter": 8,
+      "order": 90,
+      "title": "첫 웨이브 시작",
+      "body": "설계도를 닫고 웨이브를 시작하세요. 타워는 자동으로 공격합니다. 전투 중에는 일시정지와 0.5배, 1배, 2배, 3배속을 자유롭게 사용할 수 있습니다.",
+      "anchors": ["WaveStartButton", "BattleSpeedControls"],
+      "completion": "WaveStarted",
+      "completionTargetId": "",
+      "allowedActions": [
+        { "action": "CloseTowerLoadout", "targetId": "" },
+        { "action": "StartWave", "targetId": "" },
+        { "action": "TogglePause", "targetId": "" },
+        { "action": "ChangeBattleSpeed", "targetId": "" },
+        { "action": "SkipTutorial", "targetId": "" }
+      ],
+      "pauseBattle": false,
+      "restrictInput": true
+    },
+    {
+      "id": "core.enemy_inspection",
+      "chapter": 9,
+      "order": 100,
+      "title": "몬스터 정보 확인",
+      "body": "등장한 몬스터를 선택하세요. 정보창에서 체력, 방어력, 이동 속도, 화염·독·제어 저항, 처치 골드와 현재 디버프를 확인할 수 있습니다. 정예와 보스는 강한 제어가 저항 게이지로 바뀝니다.",
+      "anchors": ["Enemy", "EnemyInspectionPanel"],
+      "completion": "EnemyInspected",
+      "completionTargetId": "",
+      "allowedActions": [
+        { "action": "SelectEnemy", "targetId": "" },
+        { "action": "TogglePause", "targetId": "" },
+        { "action": "ChangeBattleSpeed", "targetId": "" },
+        { "action": "SkipTutorial", "targetId": "" }
+      ],
+      "pauseBattle": true,
+      "restrictInput": true
+    },
+    {
+      "id": "core.tower_upgrade",
+      "chapter": 10,
+      "order": 110,
+      "title": "타워 강화",
+      "body": "웨이브가 끝나면 타워를 선택해 레벨 2로 강화하세요. 레벨에 따라 연사 속도, 발사 수, 사거리, 카드 슬롯과 연산력이 달라질 수 있습니다. 골드가 부족하면 충분히 모인 계획 단계에서 다시 안내합니다.",
+      "anchors": ["BuiltTower", "TowerUpgradeButton"],
+      "completion": "TowerUpgraded",
+      "completionTargetId": "",
+      "allowedActions": [
+        { "action": "SelectTower", "targetId": "" },
+        { "action": "UpgradeTower", "targetId": "" },
+        { "action": "SkipTutorial", "targetId": "" }
+      ],
+      "pauseBattle": false,
+      "restrictInput": true
+    },
+    {
+      "id": "core.draft_reward",
+      "chapter": 11,
+      "order": 120,
+      "title": "카드 보상 선택",
+      "body": "첫 번째로 제시되는 카드 3장 중 1장을 고르세요. 카드의 티어, 탄환·적 효과, 연산 비용과 현재 조합의 시너지를 비교하세요. 고른 카드는 보유 카드에 들어가며 계획 단계에서 장착할 수 있습니다.",
+      "anchors": ["DraftPanel", "DraftChoice"],
+      "completion": "DraftRewardChosen",
+      "completionTargetId": "",
+      "allowedActions": [
+        { "action": "ChooseDraftReward", "targetId": "" },
+        { "action": "SkipTutorial", "targetId": "" }
+      ],
+      "pauseBattle": false,
+      "restrictInput": true
+    },
+    {
+      "id": "core.complete",
+      "chapter": 12,
+      "order": 130,
+      "title": "기본 훈련 완료",
+      "body": "이제 자유롭게 타워와 카드 조합을 실험하세요. 새로운 시스템은 처음 등장할 때 짧게 안내되며, 메인 메뉴 또는 전투 설정의 게임 가이드에서 언제든 다시 확인할 수 있습니다.",
+      "anchors": ["GuideButton"],
+      "completion": "TutorialCompleted",
+      "completionTargetId": "",
+      "allowedActions": [
+        { "action": "Continue", "targetId": "" },
+        { "action": "OpenGuide", "targetId": "" },
+        { "action": "SkipTutorial", "targetId": "" }
+      ],
+      "pauseBattle": false,
+      "restrictInput": true
+    }
+  ],
+  "contextualTips": [
+    {
+      "id": "tip.second_tower",
+      "order": 1010,
+      "title": "두 번째 타워",
+      "body": "이제 새 타워에는 골드가 필요합니다. 같은 종류의 타워를 더 짓는 비용도 확인하고, 경로의 사각지대와 기존 타워의 사거리를 비교해 위치를 정하세요.",
+      "trigger": "SecondTowerBuilt",
+      "triggerTargetId": "",
+      "anchors": ["BuildSite", "BuiltTower"],
+      "pauseBattle": true
+    },
+    {
+      "id": "tip.second_slot",
+      "order": 1020,
+      "title": "카드 순서 바꾸기",
+      "body": "두 번째 슬롯이 열렸습니다. 카드를 슬롯 사이로 드래그해 순서를 바꿔 보세요. 카드는 왼쪽에서 오른쪽으로 실행되므로 분열 전후에 어떤 효과가 붙는지 달라집니다.",
+      "trigger": "SecondSlotUnlocked",
+      "triggerTargetId": "",
+      "anchors": ["CardSlot", "CardExecutionOrder"],
+      "pauseBattle": true
+    },
+    {
+      "id": "tip.third_slot_compute",
+      "order": 1030,
+      "title": "슬롯과 연산력",
+      "body": "장착 가능한 카드 수와 연산 비용 한도는 서로 다른 제한입니다. 빈 슬롯이 있어도 카드 비용의 합이 연산력을 넘으면 장착할 수 없습니다.",
+      "trigger": "ThirdSlotOrComputeUnlocked",
+      "triggerTargetId": "",
+      "anchors": ["CardSlot", "CardInventory"],
+      "pauseBattle": true
+    },
+    {
+      "id": "tip.combat_edit_locked",
+      "order": 1040,
+      "title": "전투 중에는 편집할 수 없음",
+      "body": "카드 장착, 순서와 적용 대상은 웨이브 사이 계획 단계에서만 바꿀 수 있습니다. 현재 전투가 끝난 뒤 설계도를 다시 여세요.",
+      "trigger": "CombatEditAttempted",
+      "triggerTargetId": "",
+      "anchors": ["TowerLoadoutButton"],
+      "pauseBattle": false
+    },
+    {
+      "id": "tip.new_enemy_type",
+      "order": 1050,
+      "title": "새로운 몬스터",
+      "body": "새 몬스터가 등장할 때는 웨이브 예고에서 체력, 속도, 방어력과 저항을 확인하고 그 약점에 맞는 카드를 준비하세요.",
+      "trigger": "NewEnemyTypePreviewed",
+      "triggerTargetId": "",
+      "anchors": ["WavePreviewButton", "WavePreviewPanel"],
+      "pauseBattle": true
+    },
+    {
+      "id": "tip.elite_enemy",
+      "order": 1060,
+      "title": "정예 적",
+      "body": "정예 적은 일반 적보다 강한 특성과 제어 저항을 가집니다. 기절, 속박, 에어본은 즉시 완전 제어하는 대신 저항 게이지를 쌓아 짧게 행동을 방해합니다.",
+      "trigger": "EliteEnemyPreviewed",
+      "triggerTargetId": "",
+      "anchors": ["WavePreviewPanel", "EnemyInspectionPanel"],
+      "pauseBattle": true
+    },
+    {
+      "id": "tip.boss_enemy",
+      "order": 1070,
+      "title": "보스 웨이브",
+      "body": "보스는 보호막, 소환, 순간이동 같은 특수 능력을 사용합니다. 웨이브 예고와 정보창에서 능력과 저항을 확인하고 봉인, 부식, 지속 피해와 반복 제어를 조합하세요.",
+      "trigger": "BossPreviewed",
+      "triggerTargetId": "",
+      "anchors": ["WavePreviewPanel", "EnemyInspectionPanel"],
+      "pauseBattle": true
+    },
+    {
+      "id": "tip.card_pack",
+      "order": 1080,
+      "title": "새 카드 장착",
+      "body": "카드팩에서 한 장을 선택하면 보유 카드에 추가됩니다. 설계도를 열어 원하는 타워에 장착한 뒤 다음 웨이브를 시작하세요.",
+      "trigger": "CardPackOpened",
+      "triggerTargetId": "",
+      "anchors": ["DraftPanel", "CardInventory", "CardSlot"],
+      "pauseBattle": true
+    },
+    {
+      "id": "tip.status_effect",
+      "order": 1090,
+      "title": "상태이상 읽기",
+      "body": "몬스터 정보창의 아이콘에서 화상, 중독, 출혈, 둔화 같은 효과의 중첩과 남은 시간을 확인할 수 있습니다. 상세 정보에서는 효과를 만든 타워와 카드도 추적할 수 있습니다.",
+      "trigger": "StatusEffectInspected",
+      "triggerTargetId": "",
+      "anchors": ["Enemy", "EnemyInspectionPanel"],
+      "pauseBattle": true
+    },
+    {
+      "id": "tip.victory",
+      "order": 1100,
+      "title": "스테이지 완료",
+      "body": "스테이지를 완료해 다음 스테이지가 열렸습니다. 이어서 진행하거나 같은 스테이지를 다시 시작해 다른 타워와 카드 조합을 시험할 수 있습니다.",
+      "trigger": "VictoryReached",
+      "triggerTargetId": "",
+      "anchors": ["BattleHud"],
+      "pauseBattle": false
+    },
+    {
+      "id": "tip.defeat",
+      "order": 1110,
+      "title": "조합을 고쳐 다시 도전",
+      "body": "웨이브 예고에서 막힌 적을 확인하고 카드 적용 대상과 실행 순서, 타워 위치를 바꿔 보세요. 같은 카드도 배치 문맥과 순서가 달라지면 결과가 크게 달라집니다.",
+      "trigger": "DefeatReached",
+      "triggerTargetId": "",
+      "anchors": ["BattleHud", "WavePreviewButton"],
+      "pauseBattle": false
+    },
+    {
+      "id": "tip.stage02",
+      "order": 1120,
+      "title": "Stage 02: 중장갑 대응",
+      "body": "두 번째 스테이지는 관통, 표식, 중독과 부식으로 시작합니다. 방어력이 높은 적의 방어를 깎고, 방어 일부를 무시하는 지속 피해를 활용하세요.",
+      "trigger": "StageTwoEntered",
+      "triggerTargetId": "stage02",
+      "anchors": ["BattleHud", "CardInventory"],
+      "pauseBattle": true
+    },
+    {
+      "id": "tip.stage03",
+      "order": 1130,
+      "title": "Stage 03: 군집 제어",
+      "body": "세 번째 스테이지는 도탄, 출혈, 밀치기와 감전으로 시작합니다. 많은 적 사이에서 연쇄 효과를 만들고 이동을 강제해 출혈 피해를 늘리세요.",
+      "trigger": "StageThreeEntered",
+      "triggerTargetId": "stage03",
+      "anchors": ["BattleHud", "CardInventory"],
+      "pauseBattle": true
+    }
+  ]
+}
