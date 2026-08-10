@@ -1,9 +1,11 @@
+using System.Collections;
 using NUnit.Framework;
 using RuleforgeTD.Audio;
 using RuleforgeTD.GameLogic.Simulation;
 using RuleforgeTD.UI;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.TestTools;
 using UnityEngine.UI;
 
 namespace RuleforgeTD.Tests.PlayMode
@@ -197,6 +199,64 @@ namespace RuleforgeTD.Tests.PlayMode
             Assert.That(
                 waveVolume,
                 Is.GreaterThan(service.LastPlayedVolume));
+        }
+
+        [Test]
+        public void ProjectileHitBurst_AttenuatesAndLimitsOverlappingSounds()
+        {
+            RuleforgeAudioService.PlayPresentationEvent(
+                PresentationEventType.ProjectileHit);
+            RuleforgeAudioService service =
+                Object.FindObjectOfType<RuleforgeAudioService>();
+            Assert.That(service, Is.Not.Null);
+
+            float firstHitVolume = service.LastPlayedVolume;
+            for (int i = 1; i < 12; i++)
+            {
+                RuleforgeAudioService.PlayPresentationEvent(
+                    PresentationEventType.ProjectileHit);
+            }
+
+            Assert.That(
+                service.PlayedSoundCount,
+                Is.EqualTo(
+                    RuleforgeAudioService
+                        .MaximumProjectileHitSoundsPerFrame));
+            Assert.That(
+                service.LastPlayedVolume,
+                Is.LessThan(firstHitVolume * 0.65f),
+                "A dense hit burst must lower each overlapping hit sound.");
+        }
+
+        [UnityTest]
+        public IEnumerator ProjectileHitPressure_PersistsAcrossFrames()
+        {
+            RuleforgeAudioService.PlayPresentationEvent(
+                PresentationEventType.ProjectileHit);
+            RuleforgeAudioService service =
+                Object.FindObjectOfType<RuleforgeAudioService>();
+            Assert.That(service, Is.Not.Null);
+            float isolatedHitVolume = service.LastPlayedVolume;
+
+            for (int i = 1; i < 12; i++)
+            {
+                RuleforgeAudioService.PlayPresentationEvent(
+                    PresentationEventType.ProjectileHit);
+            }
+
+            yield return null;
+
+            int playedBeforeNextFrameHit = service.PlayedSoundCount;
+            RuleforgeAudioService.PlayPresentationEvent(
+                PresentationEventType.ProjectileHit);
+
+            Assert.That(
+                service.PlayedSoundCount,
+                Is.EqualTo(playedBeforeNextFrameHit + 1));
+            Assert.That(
+                service.LastPlayedVolume,
+                Is.LessThan(isolatedHitVolume * 0.4f),
+                "Hit density attenuation must not reset on the next frame.");
         }
 
         [Test]

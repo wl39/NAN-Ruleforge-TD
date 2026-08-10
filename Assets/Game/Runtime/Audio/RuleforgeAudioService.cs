@@ -69,6 +69,13 @@ namespace RuleforgeTD.Audio
         // 다중 화살/분열 빌드에서도 WebGL 오디오 보이스가 폭주하지 않게 한다.
         public const int MaximumProjectileHitSoundsPerFrame = 4;
 
+        // 최근 적중 밀도를 프레임 경계 너머까지 기억한다. 피격 요청이 몰리면
+        // 개별 음량을 낮추고, 조용해진 뒤에는 초당 이만큼 압력을 회복한다.
+        public const float ProjectileHitPressureRecoveryPerSecond = 8f;
+        public const float ProjectileHitPressureLimit = 16f;
+        public const float ProjectileHitAttenuationPerPressure = 0.85f;
+        public const float MinimumProjectileHitAttenuation = 0.18f;
+
         private const string MutedPreferenceKey =
             "ruleforge.audio.muted.v1";
         private const string VolumePreferenceKey =
@@ -103,6 +110,8 @@ namespace RuleforgeTD.Audio
         private bool sceneHooked;
         private int projectileHitFrame = -1;
         private int projectileHitCount;
+        private float projectileHitPressure;
+        private float projectileHitPressureUpdatedAt = -1f;
 
         public SoundCue LastPlayedCue { get; private set; }
         public float LastPlayedVolume { get; private set; }
@@ -699,6 +708,28 @@ namespace RuleforgeTD.Audio
 
         private void PlayProjectileHit()
         {
+            float now = Time.realtimeSinceStartup;
+            if (projectileHitPressureUpdatedAt >= 0f)
+            {
+                float elapsed = Mathf.Max(
+                    0f,
+                    now - projectileHitPressureUpdatedAt);
+                projectileHitPressure = Mathf.Max(
+                    0f,
+                    projectileHitPressure -
+                    elapsed * ProjectileHitPressureRecoveryPerSecond);
+            }
+
+            projectileHitPressureUpdatedAt = now;
+            float attenuation = Mathf.Max(
+                MinimumProjectileHitAttenuation,
+                1f / Mathf.Sqrt(
+                    1f + projectileHitPressure *
+                    ProjectileHitAttenuationPerPressure));
+            projectileHitPressure = Mathf.Min(
+                ProjectileHitPressureLimit,
+                projectileHitPressure + 1f);
+
             int frame = Time.frameCount;
             if (projectileHitFrame != frame)
             {
@@ -712,10 +743,6 @@ namespace RuleforgeTD.Audio
                 return;
             }
 
-            // 같은 프레임의 동시 적중은 첫 타격을 선명하게 남기고 뒤쪽
-            // 타격을 조금씩 낮춰 클리핑과 피로도를 줄인다.
-            float attenuation =
-                1f / (1f + projectileHitCount * 0.18f);
             projectileHitCount++;
             Play(
                 SoundCue.ProjectileHit,
