@@ -1,7 +1,7 @@
 # NAN 2026 AI 활용 기술 문서
 
-> 문서 상태: 제출 전 초안 v0.2
-> 작성 기준일: 2026-08-09
+> 문서 상태: 제출 전 초안 v0.3
+> 작성 기준일: 2026-08-10
 > 프로젝트: Ruleforge TD
 > 제출 형식 예정: PDF
 > 주의: 이 문서는 내용 검토를 위한 Markdown 초안이다. 팀명, 참가자, 공개 빌드 URL, 플레이 영상 URL, 최종 테스트 수치는 PDF 편집 단계에서 확정한다.
@@ -12,7 +12,7 @@
 | 장르 | 카드 조립형 로그라이트 타워 디펜스 |
 | 실행 환경 | Unity WebGL / 웹 브라우저 |
 | 소스 저장소 | <https://github.com/wl39/NAN-Ruleforge-TD> |
-| 핵심 AI 활용 | Codex 기반 설계·구현·리뷰, `AGENTS.md` 워크플로우, 직접 제작한 `spark-test` skill, ImageGen 기반 시각 자산 제작, AI 활용을 전제로 설계한 결정론적 밸런스 CLI, 제공 음원의 파형·박자 분석과 상태 기반 BGM 구현 |
+| 핵심 AI 활용 | Codex 기반 설계·구현·리뷰, `AGENTS.md` 워크플로우, 직접 제작한 `spark-test` skill, ImageGen 기반 시각 자산 제작, AI 활용을 전제로 설계한 결정론적 밸런스 CLI, 제공 음원의 파형·박자 분석과 상태 기반 BGM 구현, 시뮬레이션 경계를 보존한 데이터 기반 튜토리얼·게임 가이드 구현 |
 | 최종 책임 | 기획 방향·에셋 선택·수치 승인·출시 판단은 사람이 수행 |
 
 ## 1. 요약
@@ -26,6 +26,8 @@ Ruleforge TD는 타워가 실행 조건과 대상을 정하고, 플레이어가 
 1. `AGENTS.md`를 프로젝트의 지속적인 개발 계약으로 사용해 여러 Codex 세션이 같은 설계 원칙과 완료 기준을 따르게 했다.
 2. 직접 만든 `spark-test` skill로 구현과 검증의 역할을 분리하고, 테스트·빌드·서빙 결과를 증거 형식으로 회수했다.
 3. AI가 밸런스 수치를 임의로 정하지 않도록 실제 `GameSimulation`, 합법 행동, replay, 고정 seed partition을 사용하는 전용 CLI를 구축했다.
+
+2026-08-10에는 이 개발 방식이 신규 사용자 안내에도 확장되었다. Codex가 기존 전투 흐름과 첫 실제 카드 보상 시점을 감사한 뒤, 전투 데이터나 골드를 바꾸지 않는 12단계 핵심 튜토리얼, 13개 상황별 팁, 메인 메뉴와 전투 설정에서 다시 열 수 있는 게임 가이드를 구현했다. 같은 시기에 보상 카드 가독성, 보유 카드 호버 확대, 다중 피격음의 프레임 간 감쇠를 실제 UI·청각 피드백과 회귀 테스트로 보정했다.
 
 ## 2. AI 활용 범위와 역할 분담
 
@@ -401,6 +403,8 @@ UI 작업은 한 번의 프롬프트로 끝내지 않고, 스크린샷과 실제
 - 설정을 톱니바퀴 버튼, 음소거/복원, 드래그 가능한 볼륨 slider, 이탈 확인 dialog로 개선
 - 데스크톱·세로 화면의 safe area와 카메라 framing을 함께 조정
 - 클릭 press/release, 웨이브 시작, 화살 적중에 서로 다른 효과음을 연결하고 WebGL의 동시 hit sound를 제한
+- 카드 보상 화면은 본문 글자와 안전 여백을 키우고, 설명 영역을 중앙의 어두운 구분선에서 떨어뜨려 세로형 카드의 읽기 순서를 개선
+- 보유 카드 전체에 큰 카드 호버 미리보기를 제공하고, 장착된 카드에는 사용 중인 타워를 함께 보여 주는 미니맵을 결합
 
 이 과정에서 사용자가 “톤이 맞지 않는다”, “버튼이 너무 크다”, “슬라이더가 너무 길거나 짧다”처럼 구체적인 감각 피드백을 주었고, Codex가 수치와 스타일을 수정한 뒤 브라우저에서 다시 확인했다. AI가 사용성의 최종 판단자가 아니라 빠른 구현·비교 도구로 동작한 사례다.
 
@@ -418,7 +422,25 @@ UI 작업은 한 번의 프롬프트로 끝내지 않고, 스크린샷과 실제
 
 런타임의 `RuleforgeAudioService`에는 BGM 전용 2-deck 구조를 추가했다. 전투 진입 시 Unity DSP 시간 기준으로 인트로와 반복 레이어를 예약하고, 계획/전투/메뉴 상태가 바뀌면 기존 deck과 새 deck을 1.35초 동안 겹쳐 fade-out/fade-in한다. 곡마다 활성 RMS가 달라 상대 음량을 보정했고, WebGL의 사용자 상호작용 전 자동 재생 제한도 기존 오디오 서비스의 초기화 흐름 안에서 처리했다. 별도의 Unity 패키지는 추가하지 않았다.
 
+다중 탄환 빌드에서는 프레임당 적중음 4회 제한만으로 청각 피로가 충분히 줄지 않았다. 다음 프레임에 제한이 초기화되면서 높은 적중 밀도가 계속 큰 음량으로 반복되었기 때문이다. 최근 적중 밀도를 프레임 경계 너머까지 누적하고, 조용한 시간이 지나면 초당 일정량을 회복하는 감쇠 압력을 추가했다. 이 변경은 첫 단발의 선명함은 유지하면서 연속 적중의 개별 음량을 낮추며, 같은 프레임 제한과 프레임 간 감쇠가 각각 작동하는지 PlayMode 회귀 테스트로 고정했다.
+
 검증은 음원 존재, 인트로·루프 길이, 2레이어 예약 재생, 계획/전투 상태 전환, 음량·음소거 회귀를 포함한 Unity PlayMode 8개 테스트로 고정했다. 이어서 전체 4개 씬 WebGL 빌드에 네 개의 런타임 BGM 자산이 포함되는지 확인하고, 실제 브라우저에서 타이틀 화면과 버튼을 조작해 console warning/error 0건을 확인했다. 이 작업에서 AI의 역할은 음원 저작이 아니라 “제공된 음원의 구조 분석, 반복 경계 후보 산출, 런타임 전환 구현과 검증”이다.
+
+### 9.3 시뮬레이션 경계를 보존한 튜토리얼과 게임 가이드
+
+튜토리얼 구현 전에는 기존 Stage01의 실제 진행과 보상 시점을 먼저 감사했다. 일반 웨이브마다 3장 드래프트가 열리는 것이 아니라, 현재 콘텐츠의 첫 실제 3장 보상은 3웨이브 보스 카드 팩이었다. Codex가 튜토리얼용 가짜 보상을 추가하거나 전투 데이터를 변경하지 않고, 저작된 첫 보상이 나타날 때까지 안내 흐름이 기다리도록 설계했다.
+
+구현 결과는 다음 세 계층으로 나뉜다.
+
+| 계층 | 내용 | 시뮬레이션 영향 |
+| --- | --- | --- |
+| 핵심 튜토리얼 | 첫 Stage01 진입 시 12단계: 목표, 웨이브 예고, 타워 건설, 카드 drag, 대상 전환, 순서, 전투 조작, 적 조사, 타워 강화, 실제 3장 보상 | 없음. 표현 시간 정지와 허용 입력 필터만 사용 |
+| 상황별 팁 | 슬롯, 연산력, 추가 건설 비용, 전투 중 편집 잠금, 적/엘리트/보스, 카드 팩, 상태이상, 승패, Stage02/03을 13개 안정 ID로 1회 안내 | 없음. 표시 여부만 저장 |
+| 게임 가이드 | 메인 메뉴와 전투 설정에서 기본 목표, 타워, 카드, 전투, 몬스터, 보상, 조작법을 다시 조회하고 튜토리얼 재시작 | 없음. 수동 재생 요청만 기록 |
+
+진행 상태는 버전이 포함된 `PlayerPrefs` 키에 완료, 건너뜀, 수동 재생, 확인한 팁 ID를 저장한다. Unity WebGL에서 `PlayerPrefs`는 브라우저의 IndexedDB를 사용하므로 별도 JavaScript localStorage 구현을 추가하지 않았다. 미완료 튜토리얼의 중간 단계는 저장하지 않고 Stage01 재진입 시 처음부터 다시 시작한다.
+
+튜토리얼은 `GameSimulation`에 숨은 명령을 제출하거나 골드, 적, 카드, 웨이브를 수정하지 않는다. spotlight와 callout은 반응형 화면에서 대상 UI를 따라가고, 행동 단계에서만 필요한 입력을 제한한다. 브라우저에서 가이드, 수동 재생, 건설, 장착 화면, 대상 전환, 건너뛰기를 확인했으며 console warning/error는 없었다. 브라우저 자동화로 카드 drag를 안정적으로 재현하지 못한 한계는 숨기지 않고, 실제 pointer/drop 경로를 사용하는 Unity PlayMode 테스트로 보완했다.
 
 ## 10. 밸런스와 콘텐츠 반복 사례
 
@@ -455,17 +477,20 @@ UI 작업은 한 번의 프롬프트로 끝내지 않고, 스크린샷과 실제
 | Tailscale check | 다른 기기에서 접근 가능한 고정 8767 경로 |
 | GitHub Pages | 제출용 공개 브라우저 빌드 배포 |
 
-2026-08-09 기준 최근 검증 증거:
+2026-08-10 제출 자료 갱신 시점의 최근 검증 증거:
 
-- Unity EditMode: 136/136 통과
-- 개막 밸런스 전용 Unity 테스트: 2/2 통과
-- BGM Unity PlayMode: 8/8 통과
-- Balance CLI harness: 29/29 통과
-- 전체 WebGL 빌드 성공: 4 scenes, 65,742,823 bytes
+- 검증 실행 경로: managed Spark 모델 생성은 현재 환경에서 지원되지 않아 `spark-test` CLI fallback의 `gpt-5.3-codex-spark` 사용
+- Unity EditMode 전체: 147/147 통과, 실패 0
+- Unity PlayMode 전체: 98/98 통과, 실패 0
+- Balance CLI harness: 29/29 통과, 실패 0
+- 전체 WebGL 빌드 성공: 4 scenes, 65,934,494 bytes
+- WebGL 필수 산출물 `index.html`, loader, framework, wasm, data 존재 확인
+- 카드 보상 가독성·보유 카드 hover, 다중 피격음 감쇠, 튜토리얼·게임 가이드 회귀가 전체 test suite에 포함
 - Stage02/03 첫 웨이브 35킬·0누수·두 번째 발리스타 100골드 확보 검사 통과
 - 네 BGM 자산의 실제 WebGL 빌드 포함 확인
-- 로컬 브라우저에서 타이틀 화면·버튼 상호작용 성공, console warning/error 0건
+- 로컬 브라우저에서 타이틀, 게임 가이드, 스테이지 선택, Stage01 전투 화면과 버튼 상호작용 확인, console warning/error 0건
 - localhost/Tailscale의 필수 WebGL 파일 HTTP 200 확인
+- Unity license channel에서 validation/ULF 관련 비치명적 경고가 있었으나 최종 테스트와 빌드의 종료 코드는 모두 0
 
 테스트 수는 기능 추가에 따라 바뀌므로 최종 PDF에는 제출 직전 clean build에서 다시 측정한 수치를 사용한다.
 
@@ -475,8 +500,8 @@ UI 작업은 한 번의 프롬프트로 끝내지 않고, 스크린샷과 실제
 
 로컬 Codex의 `sessions`와 `archived_sessions`에서 작업 디렉터리가 이 저장소와 일치하는 user-origin 기록을 검색하고, Codex 앱의 task 목록, Git history, 현재 파일을 교차 확인했다.
 
-- 작업 경로가 일치한 user-origin 세션 기록: 62개
-- 제품 설계·구현·검증·문서에 직접 기여한 세션: 51개
+- 작업 경로가 일치한 user-origin 세션 기록: 65개
+- 제품 설계·구현·검증·문서에 직접 기여한 세션: 54개
 - 상태 확인·task 탐색 등 운영 전용 세션: 7개
 - 다른 제품 작업, 로컬 디스크 조사, 인사처럼 이 문서 범위 밖인 세션: 4개
 
@@ -492,6 +517,7 @@ Sub-agent 내부 세션은 하나의 사용자 task에서 파생된 구현 단�
 | 8/3–8/4 | Stage02, 범위 VFX, 캠페인 지도, sorting layer, 픽셀 UI, 카드 문서, 엘리트·웨이브 예고·전투 밀도 | 3-stage 캠페인, 월드맵, 역할별 sorting, pixel UI guide, elite/preview/telemetry |
 | 8/5–8/7 | 8767/Exact UI, 웨이브 카드, 58장 이미지, 장착 UI, 이동 탈출, 보상 축소, 확률 실험, 효과음, 시작/설정 UX | card art pipeline, responsive UI, movement escape, balance revisions, audio, settings |
 | 8/8–8/9 | 이어하기, Stage02/03 차별화, 방어 역할, 시작 난이도 재조정, NAN 문서, 배경음악 분석·루프 | endless continuation, stage modules, armor rules, 35마리 opening balance tests, 상태 기반 BGM, 본 초안 |
+| 8/10 | 보상 카드 가독성·호버 미리보기, 다중 피격음 보정, 공식 튜토리얼·게임 가이드 | 큰 카드 미리보기와 사용 타워 미니맵, 프레임 간 hit-density 감쇠, 12단계 튜토리얼·13개 팁·메뉴/전투 가이드, 수정 가능한 NAN 발표 덱 |
 
 ### 12.3 기술 기여 세션 인덱스
 
@@ -550,6 +576,9 @@ Sub-agent 내부 세션은 하나의 사용자 task에서 파생된 구현 단�
 | `019fe63d-b7e8-7522-8ac9-49a398d72c75` | 화상·폭발 너프, 전체 HP 85%, Stage02/03 35마리 개막, 도탄 2회, no-leak·100골드 회귀, 중장갑 398/군집 452 편성 분리 |
 | `019fe644-7e9d-78d1-a305-c8bba63490cd` | Git 정리와 본 NAN 기술 문서 초안 |
 | `019fe679-da1b-7a20-9bd0-6270819308bb` | 세 음원 분석, 전투 인트로·27.303초 loop 분리, 상태 전환 crossfade, WebGL 브라우저 검증 |
+| `019fe6bc-d346-72f1-845c-861917db3055` | 보상 카드 타이포그래피·안전 여백, 모든 보유 카드 호버 확대, 장착 카드 사용 타워 미니맵 |
+| `019fe6d4-4468-7d42-8047-7001db23b06c` | 다중 적중음의 프레임 간 밀도 누적·감쇠와 PlayMode 회귀 테스트 |
+| `019fe6bb-6518-7881-8e14-a2cc1a762cac` | 12단계 핵심 튜토리얼, 13개 상황 팁, 게임 가이드, PlayerPrefs/WebGL 지속성, 147 EditMode·98 PlayMode·4씬 WebGL 검증 |
 
 ### 12.4 운영 전용 및 제외 기록
 
@@ -578,6 +607,7 @@ Sub-agent 내부 세션은 하나의 사용자 task에서 파생된 구현 단�
 - Spark 사용량 한도와 Unity 프로젝트 잠금처럼 AI가 해결할 수 없는 환경 차단이 있었다.
 - 긴 `AGENTS.md`는 context 비용과 노후화 위험이 있으므로 문서 지도 형태로 재구성할 필요가 있다.
 - 현재 balance discovery의 seed fingerprint, strict index 검사, optimizer의 교차 난이도 목적함수에는 문서화된 한계가 있다.
+- WebGL 브라우저 자동화만으로는 Unity canvas의 카드 drag를 안정적으로 재현하지 못해, pointer/drop 경로를 직접 호출하는 PlayMode 테스트와 브라우저의 나머지 동작 확인을 결합했다.
 
 ### 13.2 사람 검토가 필요한 항목
 
@@ -607,11 +637,16 @@ Sub-agent 내부 세션은 하나의 사용자 task에서 파생된 구현 단�
 | 상태 기반 BGM 서비스 | `Assets/Game/Runtime/Audio/RuleforgeAudioService.cs` |
 | 전투 상태와 BGM 연결 | `Assets/Game/Runtime/Battle/StageOneBattleController.cs` |
 | BGM 임포트·회귀 테스트 | `Assets/Game/Editor/AssetImport/RuleforgeMusicAudioImporter.cs`, `Assets/Game/Tests/PlayMode/RuleforgeAudioServiceTests.cs` |
+| 공식 튜토리얼 설계 계약 | `Docs/TUTORIAL_DESIGN.md` |
+| 핵심 튜토리얼 흐름·입력 게이트 | `Assets/Game/Runtime/Tutorial/BattleTutorialController.cs`, `Assets/Game/Runtime/Tutorial/TutorialAnchorRegistry.cs` |
+| 튜토리얼 데이터·진행 저장 | `Assets/Game/Resources/RuleforgeTD/TutorialKo.json`, `Assets/Game/Runtime/Tutorial/TutorialDefinitionLoader.cs`, `Assets/Game/Runtime/Tutorial/TutorialProgressStore.cs` |
+| 게임 가이드 | `Assets/Game/Resources/RuleforgeTD/GameGuideKo.json`, `Assets/Game/Runtime/UI/GameGuideCatalog.cs`, `Assets/Game/Runtime/UI/GameGuideModal.cs` |
+| 튜토리얼·가이드 회귀 테스트 | `Assets/Game/Tests/EditMode/Editor/Tutorial/`, `Assets/Game/Tests/PlayMode/Tutorial/`, `Assets/Game/Tests/PlayMode/UI/GameGuideModalTests.cs` |
 | 개막 35마리·경제 회귀 | `Assets/Game/Tests/EditMode/GameLogic/StageOpeningBalanceGameLogicTests.cs` |
 | 스테이지별 편성 저자링 | `Assets/Game/Editor/AssetImport/StageContentAuthoring.cs`, `Assets/Game/Editor/AssetImport/StageTwoFieldMapBuilder.cs`, `Assets/Game/Editor/AssetImport/StageThreeFieldMapBuilder.cs` |
 | 스테이지 역할·방어 요구사항 | `Docs/STAGE_VARIANTS_AND_ARMOR_REQUIREMENTS.md` |
 | 고정 WebGL 서버 | `Tools/serve_stage01.py` |
-| 최근 기능 커밋 | `f38c34d`, `278df63`, `296251e`, `75e7bf3`, `ba9a06a`, `b8d747d`, `786e72a`, `68e2850`, `9acf58a` |
+| 최근 기능 커밋 | `75e7bf3`, `ba9a06a`, `b8d747d`, `786e72a`, `68e2850`, `9acf58a`, `3caffc8`, `4614a76`, `9f9f534`, `4d4a522`, `8c44db8` |
 
 ## 15. 참고 자료
 
@@ -621,6 +656,8 @@ Sub-agent 내부 세션은 하나의 사용자 task에서 파생된 구현 단�
   반복 워크플로우를 skill로 저장하는 방식과 Codex가 사용할 CLI를 만드는 방식 참고.
 - OpenAI, “Harness engineering: leveraging Codex in an agent-first world”: <https://openai.com/index/harness-engineering/>
   저장소 지식을 문서화하고 `AGENTS.md`를 문서 지도로 유지하는 개선 방향 참고.
+- Unity, “PlayerPrefs”: <https://docs.unity3d.com/2022.3/Documentation/ScriptReference/PlayerPrefs.html>
+  WebGL에서 튜토리얼 완료·건너뜀·팁 확인 상태가 IndexedDB에 저장되는 실행 환경 근거.
 - CraftPix, “10 Magic Sprite Sheet Effects Pixel Art”: <https://craftpix.net/product/10-magic-sprite-sheet-effects-pixel-art/>
   카드 마법 효과의 시각 방향 참고.
 
@@ -635,5 +672,6 @@ Sub-agent 내부 세션은 하나의 사용자 task에서 파생된 구현 단�
 - [ ] CraftPix, 음원, 폰트, 생성 이미지의 출처·라이선스 표 작성
 - [ ] `RELEASE NOT READY`의 의미를 “CLI의 높은 내부 목표 gate”와 “출품 빌드 실행 가능 여부”로 구분해 설명
 - [ ] Mermaid 도표를 PDF용 벡터 이미지로 렌더링
+- [x] 수정 가능한 Keynote/PPTX 발표 덱 작성 및 14장 렌더 검수
 - [ ] 세션 ID 전체 표는 본문에서 축약하고 별첨 증거로 이동할지 결정
 - [ ] 사람/AI 역할 구분과 자동 적용 0건 문구 최종 검토
