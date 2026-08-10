@@ -385,6 +385,11 @@ namespace RuleforgeTD.Tests.PlayMode.Tutorial
 
             Assert.That(tutorial.IsShowingContextualTip, Is.True);
             Assert.That(tutorial.RequestsWorldPause, Is.True);
+            Assert.That(
+                tutorial.Overlay.SkipButton
+                    .GetComponentInChildren<Text>(true).text,
+                Is.EqualTo("건너뛰기"),
+                "Contextual tutorial dismissal must use the full skip label.");
             SetPrivateField(tutorial, "contextualTipsEnabled", false);
             tutorial.Overlay.NextButton.onClick.Invoke();
             yield return null;

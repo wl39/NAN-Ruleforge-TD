@@ -1275,7 +1275,7 @@ namespace RuleforgeTD.Tutorial
             content.ShowNextButton = true;
             content.BlockOutsideHole = false;
             content.NextLabel = "확인";
-            content.SkipLabel = "닫기";
+            content.SkipLabel = "건너뛰기";
             overlay.Show(content);
         }
 
