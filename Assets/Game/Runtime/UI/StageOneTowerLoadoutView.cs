@@ -228,6 +228,7 @@ namespace RuleforgeTD.UI
         private Image hoverPopupBackground;
         private Text hoverPopupTitle;
         private Text hoverPopupBody;
+        private StageOneCardView hoverCardPreview;
         private StageOneCardUsageMiniMapGraphic usageMiniMap;
         private RectTransform activeHoverSource;
         private int activeHoveredCardIndex = -1;
@@ -295,6 +296,7 @@ namespace RuleforgeTD.UI
         public RectTransform HoverPopupRoot => hoverPopupRoot;
         public Text HoverPopupTitle => hoverPopupTitle;
         public Text HoverPopupBody => hoverPopupBody;
+        public StageOneCardView HoverCardPreview => hoverCardPreview;
         public StageOneCardUsageMiniMapGraphic UsageMiniMap =>
             usageMiniMap;
         public bool IsPortraitLayout => portraitLayout;
@@ -1321,6 +1323,18 @@ namespace RuleforgeTD.UI
                 312f,
                 70f);
 
+            hoverCardPreview = StageOneCardView.CreateRuntime(
+                "Owned Card Hover Preview",
+                hoverPopupRoot,
+                font);
+            hoverCardPreview.SetExpandedPresentation(true);
+            hoverCardPreview.SetInteractable(false);
+            CanvasGroup previewCanvasGroup =
+                hoverCardPreview.gameObject.AddComponent<CanvasGroup>();
+            previewCanvasGroup.interactable = false;
+            previewCanvasGroup.blocksRaycasts = false;
+            hoverCardPreview.gameObject.SetActive(false);
+
             usageMiniMap = new GameObject(
                 "Card Usage Mini Map",
                 typeof(RectTransform),
@@ -2014,8 +2028,7 @@ namespace RuleforgeTD.UI
                     card.InstanceId,
                     canvas,
                     editable);
-                cardHoverRelays[i].SetHoverEnabled(
-                    card.Equipped);
+                cardHoverRelays[i].SetHoverEnabled(true);
             }
 
             LayoutInventoryCards();
@@ -2200,20 +2213,94 @@ namespace RuleforgeTD.UI
 
             StageOneLoadoutCard card =
                 presentedCards[visibleIndex];
-            if (!card.Equipped)
+            activeHoveredCardIndex = visibleIndex;
+            ShowCardHoverPopup(source, visibleIndex, card);
+        }
+
+        private void ShowCardHoverPopup(
+            RectTransform source,
+            int visibleIndex,
+            StageOneLoadoutCard card)
+        {
+            if (hoverPopupRoot == null ||
+                hoverCardPreview == null ||
+                source == null ||
+                visibleIndex < 0 ||
+                visibleIndex >= cardViews.Count)
             {
                 return;
             }
 
+            activeHoverSource = source;
             activeHoveredCardIndex = visibleIndex;
-            ShowHoverPopup(
-                source,
-                catalog.Format(
+            StageOneCardView sourceCard = cardViews[visibleIndex];
+            hoverCardPreview.Configure(
+                sourceCard.Display,
+                sourceCard.Tier,
+                sourceCard.SubjectType,
+                sourceCard.ArtworkSprite,
+                false,
+                null,
+                false);
+            hoverCardPreview.SetPlaceholderSymbol(
+                GetCardSymbol(card.Display.SymbolKey));
+            hoverCardPreview.SetExpandedPresentation(true);
+            hoverCardPreview.gameObject.SetActive(true);
+
+            bool showMap = card.Equipped;
+            hoverPopupTitle.gameObject.SetActive(showMap);
+            hoverPopupBody.gameObject.SetActive(showMap);
+            usageMiniMap.gameObject.SetActive(showMap);
+            usageMiniMap.SetFocusedTower(
+                showMap ? card.EquippedTowerId : -1);
+
+            if (showMap)
+            {
+                hoverPopupTitle.text = catalog.Format(
                     "tower_panel.usage_map_title_format",
-                    card.Display.Name),
-                catalog.Get("tower_panel.usage_map_body"),
-                true,
-                card.EquippedTowerId);
+                    card.Display.Name);
+                hoverPopupBody.text =
+                    catalog.Get("tower_panel.usage_map_body");
+                hoverPopupRoot.sizeDelta = new Vector2(560f, 440f);
+                SetRect(
+                    hoverCardPreview.GetComponent<RectTransform>(),
+                    18f,
+                    18f,
+                    238f,
+                    404f);
+                SetRect(
+                    hoverPopupTitle.rectTransform,
+                    282f,
+                    390f,
+                    252f,
+                    24f);
+                SetRect(
+                    hoverPopupBody.rectTransform,
+                    282f,
+                    350f,
+                    252f,
+                    34f);
+                SetRect(
+                    usageMiniMap.rectTransform,
+                    282f,
+                    40f,
+                    252f,
+                    292f);
+            }
+            else
+            {
+                hoverPopupRoot.sizeDelta = new Vector2(270f, 440f);
+                SetRect(
+                    hoverCardPreview.GetComponent<RectTransform>(),
+                    16f,
+                    16f,
+                    238f,
+                    408f);
+            }
+
+            PositionHoverPopup(source);
+            hoverPopupRoot.SetAsLastSibling();
+            hoverPopupRoot.gameObject.SetActive(true);
         }
 
         private void ShowHoverPopup(
@@ -2236,6 +2323,9 @@ namespace RuleforgeTD.UI
 
             hoverPopupTitle.text = title ?? string.Empty;
             hoverPopupBody.text = body ?? string.Empty;
+            hoverPopupTitle.gameObject.SetActive(true);
+            hoverPopupBody.gameObject.SetActive(true);
+            hoverCardPreview.gameObject.SetActive(false);
             usageMiniMap.gameObject.SetActive(showMap);
             usageMiniMap.SetFocusedTower(
                 showMap ? focusedTowerId : -1);

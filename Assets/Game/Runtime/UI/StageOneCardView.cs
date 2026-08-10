@@ -101,6 +101,7 @@ namespace RuleforgeTD.UI
         private bool hasConfiguredDisplay;
         private bool interpretationPreviewOverridden;
         private bool equipped;
+        private bool expandedPresentation;
         private float lastPointerToggleTime =
             float.NegativeInfinity;
 
@@ -141,6 +142,7 @@ namespace RuleforgeTD.UI
         public bool IsInteractable =>
             button != null && button.interactable;
         public bool IsBuilt => built;
+        public bool IsExpandedPresentation => expandedPresentation;
 
         private void Awake()
         {
@@ -351,21 +353,21 @@ namespace RuleforgeTD.UI
             float normalized = Mathf.Clamp(scale, 0.75f, 2f);
             SetScaledText(
                 nameText,
-                14,
-                11,
-                14,
+                expandedPresentation ? 19 : 14,
+                expandedPresentation ? 15 : 11,
+                expandedPresentation ? 20 : 14,
                 normalized);
             SetScaledText(
                 artworkSymbolText,
-                26,
-                16,
-                30,
+                expandedPresentation ? 34 : 26,
+                expandedPresentation ? 22 : 16,
+                expandedPresentation ? 38 : 30,
                 normalized);
             SetScaledText(
                 descriptionText,
-                11,
-                7,
-                11,
+                expandedPresentation ? 15 : 11,
+                expandedPresentation ? 13 : 7,
+                expandedPresentation ? 15 : 11,
                 normalized);
             SetScaledText(
                 tierBadgeText,
@@ -379,6 +381,64 @@ namespace RuleforgeTD.UI
                 7,
                 8,
                 normalized);
+        }
+
+        /// <summary>
+        /// Uses the roomier text-safe layout intended for reward choices and
+        /// inventory hover previews. The compact inventory grid keeps the
+        /// original layout so more owned cards remain visible at once.
+        /// </summary>
+        public void SetExpandedPresentation(bool expanded)
+        {
+            BuildInterface();
+            expandedPresentation = expanded;
+
+            SetAnchors(
+                nameBackplateImage.rectTransform,
+                expanded
+                    ? new Vector2(0.1f, 0.805f)
+                    : new Vector2(0.09f, 0.815f),
+                expanded
+                    ? new Vector2(0.9f, 0.915f)
+                    : new Vector2(0.91f, 0.915f),
+                Vector2.zero,
+                Vector2.zero);
+            Stretch(
+                nameText.rectTransform,
+                expanded ? 10f : 8f,
+                expanded ? 5f : 2f,
+                expanded ? 10f : 8f,
+                expanded ? 0f : 2f);
+
+            SetAnchors(
+                artworkFrameImage.rectTransform,
+                expanded
+                    ? new Vector2(0.13f, 0.47f)
+                    : new Vector2(0.115f, 0.47f),
+                expanded
+                    ? new Vector2(0.87f, 0.745f)
+                    : new Vector2(0.885f, 0.735f),
+                Vector2.zero,
+                Vector2.zero);
+
+            SetAnchors(
+                descriptionBackplateImage.rectTransform,
+                expanded
+                    ? new Vector2(0.145f, 0.09f)
+                    : new Vector2(0.105f, 0.095f),
+                expanded
+                    ? new Vector2(0.855f, 0.375f)
+                    : new Vector2(0.895f, 0.42f),
+                Vector2.zero,
+                Vector2.zero);
+            Stretch(
+                descriptionText.rectTransform,
+                expanded ? 8f : 12f,
+                expanded ? 10f : 12f,
+                expanded ? 8f : 12f,
+                expanded ? 12f : 10f);
+            descriptionText.lineSpacing = expanded ? 0.95f : 0.85f;
+            SetTextScale(1f);
         }
 
         public static Color GetTargetBodyColor(SubjectType targetType)

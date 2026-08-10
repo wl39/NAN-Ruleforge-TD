@@ -856,6 +856,7 @@ namespace RuleforgeTD.UI
                     "Reward Choice " + (i + 1),
                     rewardDialog,
                     legacyFont);
+                cardView.SetExpandedPresentation(true);
                 Button button = cardView.Button;
                 AnchorAtCenter(
                     cardView.GetComponent<RectTransform>(),
@@ -1133,7 +1134,7 @@ namespace RuleforgeTD.UI
                 AnchorAtCenter(
                     rewardCardViews[i].GetComponent<RectTransform>(),
                     new Vector2((i - 1) * 320f, -48f),
-                    new Vector2(272f, 380f));
+                    new Vector2(252f, 396f));
             }
         }
 

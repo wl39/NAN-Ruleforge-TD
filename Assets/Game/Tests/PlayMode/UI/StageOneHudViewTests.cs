@@ -310,6 +310,21 @@ namespace RuleforgeTD.Tests.PlayMode.UI
                 hud.GetRewardChoiceCard(1).NameText.text,
                 Is.EqualTo("화상"));
             Assert.That(
+                hud.GetRewardChoiceCard(1).IsExpandedPresentation,
+                Is.True);
+            Assert.That(
+                hud.GetRewardChoiceCard(1).DescriptionText.fontSize,
+                Is.GreaterThanOrEqualTo(15));
+            Assert.That(
+                hud.GetRewardChoiceCard(1)
+                    .DescriptionBackplateImage.rectTransform.anchorMin.x,
+                Is.GreaterThanOrEqualTo(0.14f));
+            Assert.That(
+                hud.GetRewardChoiceCard(1)
+                    .DescriptionBackplateImage.rectTransform.anchorMax.y,
+                Is.LessThanOrEqualTo(0.38f),
+                "Expanded descriptions must clear the dark center divider.");
+            Assert.That(
                 hud.GetRewardChoiceCard(1).TierBadgeText.text,
                 Is.EqualTo("T1"));
             Assert.That(
@@ -1236,6 +1251,18 @@ namespace RuleforgeTD.Tests.PlayMode.UI
 
             view.GetCardHoverRelay(0).OnPointerEnter(null);
             Assert.That(
+                view.HoverCardPreview.gameObject.activeSelf,
+                Is.True);
+            Assert.That(
+                view.HoverCardPreview.IsExpandedPresentation,
+                Is.True);
+            Assert.That(
+                view.HoverCardPreview.NameText.text,
+                Is.EqualTo("분열"));
+            Assert.That(
+                view.HoverCardPreview.DescriptionText.text,
+                Does.Contain("두 발"));
+            Assert.That(
                 view.UsageMiniMap.gameObject.activeSelf,
                 Is.True);
             Assert.That(
@@ -1251,6 +1278,18 @@ namespace RuleforgeTD.Tests.PlayMode.UI
                 view.HoverPopupTitle.text,
                 Does.Contain("사용 중"));
             view.GetCardHoverRelay(0).OnPointerExit(null);
+            view.GetCardHoverRelay(1).OnPointerEnter(null);
+            Assert.That(
+                view.HoverCardPreview.NameText.text,
+                Is.EqualTo("화상"));
+            Assert.That(
+                view.HoverCardPreview.gameObject.activeSelf,
+                Is.True);
+            Assert.That(
+                view.UsageMiniMap.gameObject.activeSelf,
+                Is.False,
+                "Unequipped owned cards still need a large preview.");
+            view.GetCardHoverRelay(1).OnPointerExit(null);
             Assert.That(
                 view.GetSlotLabelText(1).text,
                 Is.EqualTo("비어 있음"));
